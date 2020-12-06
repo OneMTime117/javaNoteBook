@@ -46,7 +46,7 @@ springcloud使用字母顺序命名（单词为伦敦地铁站名），目前推
 
 ### 1.3、spring cloudH版，对于各个技术组件的选取：
 
-![](C:\Users\OneMTime\Desktop\Typora图片\springCloud组件选择.jpg)
+![](C:\Users\Administrator\Desktop\javaNoteBook\Typora图片\springCloud组件选择.jpg)
 
 ## 2、springCloud项目搭建
 
@@ -99,7 +99,7 @@ springcloud使用字母顺序命名（单词为伦敦地铁站名），目前推
 
 - 定义springboot配置文件
 
-  ​	一般情况下，至少要定义server.port（服务端口）、spring.application.name（）
+  ​	一般情况下，至少要定义server.port（服务端口）、spring.application.name（项目名）
 
 - 定义springboot应用启动类
 
