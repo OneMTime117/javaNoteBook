@@ -46,9 +46,9 @@ springcloud使用字母顺序命名（单词为伦敦地铁站名），目前推
 
 ### 1.3、spring cloudH版，对于各个技术组件的选取：
 
-![](C:\Users\OneMTime\Desktop\Typora图片\springCloud组件选择.jpg)
+![](C:\Users\OneMTime\Desktop\笔记\Typora图片\springCloud组件选择.jpg)
 
-## 2、springCloud项目搭建
+## 2、springCloud项目简单底层搭建
 
 - 建立父POM：
 
@@ -99,7 +99,7 @@ springcloud使用字母顺序命名（单词为伦敦地铁站名），目前推
 
 - 定义springboot配置文件
 
-  ​	一般情况下，至少要定义server.port（服务端口）、spring.application.name（）
+  ​	一般情况下，至少要定义server.port（服务端口）、spring.application.name（项目名）
 
 - 定义springboot应用启动类
 
@@ -114,3 +114,41 @@ springcloud使用字母顺序命名（单词为伦敦地铁站名），目前推
 
 - 编写业务
 
+  - 服务提供者
+
+    ```java
+    	@PostMapping("/payment/create")
+    	public Result insertPayment(@RequestBody Payment payment,@RequestHeader("content-Type") String contentType) {
+    		int addPayment = paymentService.addPayment(payment);
+    		System.out.println(addPayment);
+    		if (addPayment > 0) {
+    			return ResultUtil.sussess("成功");
+    		} else {
+    			return ResultUtil.error("失败");
+    		}
+    	}
+    ```
+
+  - 服务消费者
+
+    ```java
+    	@PostMapping("/spring/create")
+    	public Result createPayment(Payment payment) {
+    		//调用者以键值对方式，接收参数，
+    		//使用restTemplate进行http调用时，默认将参数作为请求body，
+    		HttpEntity<Payment> httpEntity = new HttpEntity<>(payment);
+    		return restTemplate.postForObject(url+"payment/create",httpEntity, Result.class);
+    	}
+    ```
+
+    **整个微服务调用过程是基于RESTapi，使用springMVC提供了RESTClient来完成**
+
+- 代码重构：
+
+  实际上，对于多个微服务项目通用的代码，可以使用一个子项目进行封装，然后部署到maven仓库，最后进行作为依赖进行导入（一般情况下，所有项目导入所有相同依赖，这样方便依赖版本管理；而**理论上，作为依赖导入的项目中，其所有maven引入的包，都可以供其他微服务使用**）
+
+## 3、Eureka组件
+
+P15
+
+springCloud和Dubbo的区别
