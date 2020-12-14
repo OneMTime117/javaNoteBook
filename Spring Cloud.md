@@ -147,33 +147,209 @@ springcloud使用字母顺序命名（单词为伦敦地铁站名），目前推
 
   实际上，对于多个微服务项目通用的代码，可以使用一个子项目进行封装，然后部署到maven仓库，最后进行作为依赖进行导入（一般情况下，所有项目导入所有相同依赖，这样方便依赖版本管理；而**理论上，作为依赖导入的项目中，其所有maven引入的包，都可以供其他微服务使用**）
 
+## 3、微服务项目搭建步骤
+
+- 搭建父POM项目，定义所需依赖以及对应版本（其中可以引入springBoot、springCloud对应的父POM依赖，从而方便实现版本其组件依赖的版本统一）
+- 创建MavenModule项目，即微服务：
+  - POM文件：指定父POM（创建Maven项目时就可以指定生成）、导入需要的依赖（由于父POM已经声明了所有的依赖版本，因此不需要指定version；如果指定则覆盖）
+  - 主启动类：main方法、@SpringBootApplication注解、@EnableEurekaClient（非Eureka服务端实力；否则使用@EnableEurekaServer）
+  - application配置文件：server.port（端口号）、spring.application.name（服务名）、数据源配置（单数据源、多数据源）、druid连接池配置、eureka配置
+
+- 对于微服务中通用代码，可以单独使用一个MavenModule项目编写，然后在其他微服务pom中依赖引入（同样可以使用父POM统一指定版本）
+
 ## 3、Eureka组件
 
-### 1、服务治理理念
+### 1、基本概念
+
+#### 1.1、服务治理理念
 
 ​	在微服务调用过程中，每个服务之间都可以存在依赖关系，而随着服务的增多和集群化，对这种依赖关系的管理就变得负载，此时就需要使用**服务治理**，**实现服务发现、注册、调用、负载均衡和容错**
 
-### 2、Eureka系统架构
+#### 1.2、Eureka系统架构
 
 ​	Eureka采用C/S架构，Eureka作为服务注册功能的服务器，微服务系统中，所有服务作为客户端，与Eureka进行心跳连接，从而实现Eureka对所有微服务的监控；
 
 ​	服务提供者会将自己接口的通讯地址注册到Eureka中，而服务消费者则通过接口别名在Eureka中获取实际服务的通讯地址，从而在本地实现RPC远程调用
 
-### 3、Eureka和Dubbo的区别
+#### 1.3、Eureka和Dubbo的区别
 
 ​	从架构上，两种没有本质的区别，同时通过一个观察者模式来实现服务注册，并管理服务之间的依赖关系。但Eureka在进行RPC远程调用时，是基于RESTapi实现；而Dubbo是基于更底层的网络通讯（dubbo协议等）
 
-### 4、Eureka组件
+#### 1.4、Eureka组件
 
 ​	Eureka采用C/S架构，因此在整个API的使用中提供两个组件：
 
 - Eureka Server，用于服务注册，使用注册表管理所有的可用服务节点信息
-- Eureka Client，用于访问服务注册中心，并实现心跳连接
+- Eureka Client，用于访问服务注册中心，即Eureka服务端，并实现心跳连接
 
 5、Eureka心跳
 
 默认心跳周期30s，最长心跳时间90s
 
-P16
+### 2、Eureka单机服务搭建
+
+1、Eureka服务端
+
+- pom文件:Eureka服务端一般不会参与服务注册和调用，因此不进行逻辑代码编写，也就不需要引入其他依赖
+
+```xml
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+```
+
+- 主启动类
+
+```java
+@EnableEurekaServer
+@SpringBootApplication
+public class EurekaApplication {
+	public static void main(String[] args) throws Exception {
+		SpringApplication.run(EurekaApplication.class, args);
+	}
+}
+```
+
+- application配置
+
+```java
+server.port=7001
+#eureka服务端实例名
+eureka.instance.hostname=localhost
+
+#表示自身服务不作为客户端，注册到eureka服务端中(默认true)
+eureka.client.register-with-eureka=false
+#表示不会检索eureka服务端中的服务实例(默认true)
+eureka.client.fetch-registry=false
+
+#eureka服务端访问地址
+eureka.client.service-url.defaultZone=http://${eureka.instance.hostname}:${server.port}/eureka
+```
+
+- Eureka服务端：
+
+  - pom文件:由于Eureka服务端不参与服务提供、调用，因此不需要引入其他依赖（只需要构建基本springBoot项目、eureka服务端组件）
+
+  ```java
+  <dependency>
+  	<groupId>org.springframework.cloud</groupId>
+  	<artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
+  </dependency>
+  <dependency>
+  	<groupId>org.springframework.boot</groupId>
+  	<artifactId>spring-boot-starter-web</artifactId>
+  </dependency>
+  ```
+
+  - 主启动类
+
+  ```java
+  @EnableEurekaServer
+  @SpringBootApplication
+  public class EurekaApplication {
+  	public static void main(String[] args) throws Exception {
+  		SpringApplication.run(EurekaApplication.class, args);
+  	}
+  }
+  ```
+
+  - application配置
+
+  
+
+
+
+
+
+
+
+
+
+- Eureka服务端：
+
+  - pom文件：由于Eureka服务端一般不注册到服务注册中心，也不会编写其他逻辑代码，因此不需要引入其他依赖
+
+  ```xml
+  <dependency>
+  	<groupId>org.springframework.cloud</groupId>
+  	<artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
+  </dependency>
+  <
+  <dependency>
+  	<groupId>org.springframework.boot</groupId>
+  	<artifactId>spring-boot-starter-web</artifactId>
+  </dependency>
+  ```
+
+  - 主启动类：
+
+  - 主启动类：
+  - 
+
+  - application：
+
+  ```java
+  server.port=7001
+  #eureka服务端实例名
+  eureka.instance.hostname=localhost
+  
+  #表示自身服务不作为客户端，注册到eureka服务端中(默认true)
+  eureka.client.register-with-eureka=false
+  #表示不会检索eureka服务端中的服务实例(默认true)
+  eureka.client.fetch-registry=false
+  
+  #eureka服务端访问地址
+  eureka.client.service-url.defaultZone=http://${eureka.instance.hostname}:${server.port}/eureka
+  ```
+
+2、Eureka客户端：
+
+- pom文件
+
+```xml
+<dependency>
+	<groupId>org.springframework.cloud</groupId>
+	<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+</dependency>
+```
+
+- 主启动类
+
+```java
+@EnableEurekaClient
+@SpringBootApplication
+public class OrderApplication {
+	public static void main(String[] args) throws Exception {
+		SpringApplication.run(OrderApplication.class, args);
+	}
+}
+```
+
+- application配置
+
+```properties
+server.port=80
+spring.application.name=order
+
+#eureka服务端访问地址
+eureka.client.service-url.defaultZone=http://localhost:7001/eureka
+```
+
+注意：
+
+1、eureka.client.service-url对应属性是一个键值对，提供一个默认key：defaultZone，默认value：http://localhost:8761/eureka
+
+2、所有Eureka客户端都会被服务端管理，并且通过http://localhost:7001/进行管理页面访问，
+
+3、eureka.instance.hostname的作用？？？
+
+4、怎样展示ip
+
+P19
 
 springCloud和Dubbo的区别
