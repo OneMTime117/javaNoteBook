@@ -180,9 +180,16 @@ springcloud使用字母顺序命名（单词为伦敦地铁站名），目前推
 ​	Eureka采用C/S架构，因此在整个API的使用中提供两个组件：
 
 - Eureka Server，用于服务注册，使用注册表管理所有的可用服务节点信息
-- Eureka Client，用于访问服务注册中心，即Eureka服务端，并实现心跳连接
 
-5、Eureka心跳
+- Eureka Client，用于服务发现，访问Eureka 服务端获取服务注册表，并进行心跳连接
+
+  因此整个服务注册发现过程如下：
+
+  1. 启动eureka服务端，提供面向Eureka客户端的注册服务
+  2. 启动服务提供者，将服务注册到eureka服务端的服务注册表中（以服务别名：RPC调用地址  键值对形式保存）
+  3. 启动服务消费者，从eureka服务端中通过服务别名获取相应的RPC调用地址，保存在缓存中，每30s进行一次更新；当需要使用时，则使用HttpClient进行远程调用
+
+1.5、Eureka心跳
 
 默认心跳周期30s，最长心跳时间90s
 
@@ -190,7 +197,7 @@ springcloud使用字母顺序命名（单词为伦敦地铁站名），目前推
 
 1、Eureka服务端
 
-- pom文件:Eureka服务端一般不会参与服务注册和调用，因此不进行逻辑代码编写，也就不需要引入其他依赖
+- pom文件:Eureka服务端一般不会参与服务注册和调用，因此不进行逻辑代码编写，也就不需要引入其他依赖（只需要构建基本springBoot项目、eureka服务端组件）
 
 ```xml
 		<dependency>
@@ -222,90 +229,14 @@ server.port=7001
 #eureka服务端实例名
 eureka.instance.hostname=localhost
 
-#表示自身服务不作为客户端，注册到eureka服务端中(默认true)
+#表示自身作为客户端，不注册到eureka服务注册表中(默认true)
 eureka.client.register-with-eureka=false
-#表示不会检索eureka服务端中的服务实例(默认true)
+#表示不会检索eureka服务注册表中服务实例(默认true)
 eureka.client.fetch-registry=false
 
 #eureka服务端访问地址
 eureka.client.service-url.defaultZone=http://${eureka.instance.hostname}:${server.port}/eureka
 ```
-
-- Eureka服务端：
-
-  - pom文件:由于Eureka服务端不参与服务提供、调用，因此不需要引入其他依赖（只需要构建基本springBoot项目、eureka服务端组件）
-
-  ```java
-  <dependency>
-  	<groupId>org.springframework.cloud</groupId>
-  	<artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
-  </dependency>
-  <dependency>
-  	<groupId>org.springframework.boot</groupId>
-  	<artifactId>spring-boot-starter-web</artifactId>
-  </dependency>
-  ```
-
-  - 主启动类
-
-  ```java
-  @EnableEurekaServer
-  @SpringBootApplication
-  public class EurekaApplication {
-  	public static void main(String[] args) throws Exception {
-  		SpringApplication.run(EurekaApplication.class, args);
-  	}
-  }
-  ```
-
-  - application配置
-
-  
-
-
-
-
-
-
-
-
-
-- Eureka服务端：
-
-  - pom文件：由于Eureka服务端一般不注册到服务注册中心，也不会编写其他逻辑代码，因此不需要引入其他依赖
-
-  ```xml
-  <dependency>
-  	<groupId>org.springframework.cloud</groupId>
-  	<artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
-  </dependency>
-  <
-  <dependency>
-  	<groupId>org.springframework.boot</groupId>
-  	<artifactId>spring-boot-starter-web</artifactId>
-  </dependency>
-  ```
-
-  - 主启动类：
-
-  - 主启动类：
-  - 
-
-  - application：
-
-  ```java
-  server.port=7001
-  #eureka服务端实例名
-  eureka.instance.hostname=localhost
-  
-  #表示自身服务不作为客户端，注册到eureka服务端中(默认true)
-  eureka.client.register-with-eureka=false
-  #表示不会检索eureka服务端中的服务实例(默认true)
-  eureka.client.fetch-registry=false
-  
-  #eureka服务端访问地址
-  eureka.client.service-url.defaultZone=http://${eureka.instance.hostname}:${server.port}/eureka
-  ```
 
 2、Eureka客户端：
 
@@ -340,16 +271,92 @@ spring.application.name=order
 eureka.client.service-url.defaultZone=http://localhost:7001/eureka
 ```
 
-注意：
+**注意：**
 
 1、eureka.client.service-url对应属性是一个键值对，提供一个默认key：defaultZone，默认value：http://localhost:8761/eureka
 
-2、所有Eureka客户端都会被服务端管理，并且通过http://localhost:7001/进行管理页面访问，
+2、所有Eureka客户端都会被服务端管理，并且通过http://localhost:7001/进行管理页面访问
 
-3、eureka.instance.hostname的作用？？？
+3、eureka.instance.hostname就是网络映射当前的网络地址，localhost、127.0.0.1都指向同一个IP，即本机IP；在Eureka客户端中，就需要指定真实的ip（当然同一台机器就可以都使用localhost）
 
-4、怎样展示ip
+4、在http://localhost:7001/页面中，所有Eureka客户端都会显示实例名：    IP名:应用名:应用端口名；当eureka客户端和服务端为同一个主机，则默认使用主机名，可以使用配置进行修改显示当前ip（**此为客户端配置**）
 
-P19
+```properties
+eureka.instance.prefer-ip-address=true
+eureka.instance.ip-address=	192.168.0.138
+```
+
+当然，我们可以直接自定义整个客户端实例名：
+
+```properties
+eureka.instance.instance-id=${spring.cloud.client.ipAddress}:${spring.application.name}:${server.port}
+```
+
+### 3、Eureka集群搭建
+
+Eureka集群是为了实现服务注册中心的高可用，防止单点故障导致整个微服务应用崩溃，并能实现Eureka的负载均衡
+
+Eureka集群中，每个节点都会互相注册管理，建立心跳连接
+
+1、设置Eureka服务器集群各个实例名
+
+```properties
+server.port=7001
+eureka.server.instance.hostname:eureka7001.com
+```
+
+2、Eureka服务器之间进行相互注册（即eureka服务端访问地址为其他服务端的集合，不用包含自己），并且也不需要作为客户端注册服务
+
+```properties
+eureka.client.register-with-eureka=false
+eureka.client.fetch-registry=false
+#eureka服务端访问地址
+eureka.client.service-url.defaultZone=http://eureka7002.com:7002/eureka
+```
+
+3、设置hosts网络映射配置（测试阶段，所有eureka服务都在同一台主机上时，实现一台主机拥有多个eureka.instance.hostname，就是在本地主机中，自定义域名地址），**如果为多主机，则可以省略**，并且Eureka服务器集群各个实例名直接使用其主机ip地址
+
+文件：C:\Windows\System32\drivers\etc\hosts
+
+```properties
+127.0.0.1 eureka7001.com
+127.0.0.1 eureka7002.com
+127.0.0.1 eureka7003.com
+```
+
+4、设置所有客户端的eureka服务端访问地址（包含所有erurka集群）
+
+```properties
+#eureka服务端访问地址
+eureka.client.service-url.defaultZone=http://eureka7001.com:7001/eureka,http://eureka7002.com:7002/eureka
+```
+
+5、服务调用修改：
+
+- 使用服务提供者的应用名，作为别名替代实际调用接口的ip+端口（不区分大小写）
+
+```java
+//url="http://localhost:8001/payment/user"	
+private String url="http://PAYMENT/payment/user";
+```
+
+- 针对于服务消费者的RestTemplate组件，添加@LoadBalanced注解，实现eureka服务调用的负载均衡（其作用是在RestTemplate进行REST远程调用前，使用拦截器进行额外处理：别名替换、负载均衡）
+
+
+```java
+	@LoadBalanced
+	@Bean
+	public RestTemplate getRestTemplate() {
+		return new RestTemplate();
+	}
+```
+
+**注意：**
+
+1、如果不添加@LoadBalanced注解，则RestTemplate无法基于eureka使用别名完成服务发现，原因是：不添加@LoadBalanced，则不会对url进行别名处理
+
+2、当添加@LoadBalanced注解，则RestTemplate就无法使用实际服务访问地址，完成REST调用，原因是：添加@LoadBalanced后，会根据eureka服务端提供的服务注册表进别名处理，生成新的访问地址
+
+P23
 
 springCloud和Dubbo的区别
