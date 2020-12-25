@@ -286,7 +286,7 @@ eureka.instance.prefer-ip-address=true
 eureka.instance.ip-address=	192.168.0.138
 ```
 
-当然，我们可以直接自定义整个客户端实例名：
+自定义整个客户端实例名：（**这个只能修改eureka监控页面的名称，不能实现ip显示**，因此需要两个同时使用）
 
 ```properties
 eureka.instance.instance-id=${spring.cloud.client.ipAddress}:${spring.application.name}:${server.port}
@@ -333,7 +333,7 @@ eureka.client.service-url.defaultZone=http://eureka7001.com:7001/eureka,http://e
 
 5、服务调用修改：
 
-- 使用服务提供者的应用名，作为别名替代实际调用接口的ip+端口（不区分大小写）
+- 使用服务提供者的应用名，作为别名替代实际调用接口的ip+端口（别名不区分大小写）
 
 ```java
 //url="http://localhost:8001/payment/user"	
@@ -357,6 +357,152 @@ private String url="http://PAYMENT/payment/user";
 
 2、当添加@LoadBalanced注解，则RestTemplate就无法使用实际服务访问地址，完成REST调用，原因是：添加@LoadBalanced后，会根据eureka服务端提供的服务注册表进别名处理，生成新的访问地址
 
-P23
+### 4、Discovery服务发现
+
+​	通过@EnableDiscoveryClient注解，开启Discovery功能，然后在任意一个微服务中，都可以暴露当前整个微服务注册中心eureka中的服务信息：
+
+-  通过spring直接导入org.springframework.cloud.client.discovery.DiscoveryClient  Bean（注意导入正确包，是基于springcloud-client-discovery）
+
+- @EnableEurekaClient默认带有开启@EnableDiscoveryClient注解的功能，因此可以省略@EnableDiscoveryClient注解
+
+- DiscoveryClient  提供一系列API，来获取整个微服务系统中eureka保存的服务信息
+
+  ```java
+  List<ServiceInstance> instancesById = discoveryClient.getInstances("payment");
+  for (ServiceInstance instanceInfo : instancesById) {
+  	String hostName = instanceInfo.getHost();
+  	String instanceId = instanceInfo.getInstanceId();
+  }
+  ```
+
+### 5、Eureka自我保护
+
+​	对于某个时刻微服务不可用时，Eureka并不会将该服务的注册信息全部清理，任然进行**一定时间的**保存（认为该微服务可用），这样就可以有效避免网络分区，导致服务可以可以使用的情况下，被舍弃（如服务提供者只是暂时和Eureka服务端网络不通，但和服务消费者网络通畅），即宁愿保存错误的注册信息，也不会误删可用服务（保证AP理论，可用、分区容错）
+
+​	**自我保护触发方式：**
+
+Eureka服务端默认最长心跳时间为90s，如果心跳超过该时间，则认为出现网络分区故障，而自我保护的触发条件为：15分钟内心跳失败比例低于85%
+
+​	**自我保护关闭（默认开启）：**
+
+```properties
+#禁用自我保护
+eureka.server.enable-self-preservation=false
+#非自我保护模式下，心跳超时后自动清理间隔时间
+eureka.server.eviction-interval-timer-in-ms=5000
+```
+
+​	**控制eureka心跳连接时间：**
+
+在客户端中配置：
+
+```properties
+#心跳时间间隔(默认30s)
+eureka.instance.lease-renewal-interval-in-seconds=30
+#心跳过期时间(默认90s)
+eureka.instance.lease-expiration-duration-in-seconds=90
+```
+
+Eureka自我保护缺点：eureka的自我保护机制会导致服务消费者拿到一个错误的服务实例进行消费，导致远程调用失败，因此就需要搭配服务调用的重试机制和服务熔断使用
+
+## 4、Zookeeper组件（跳过）
+
+## 5、Consul组件（跳过）
+
+## 6、Ribbon组件
+
+### 1、基础概念
+
+​	Ribbon是有Netflix发布的开源项目，实现客户端服务调用的负载均衡，目前处于维护模式
+
+**Load Balance：**
+
+​	负载均衡，将用户请求平摊到多个服务处理，实现系统的高可用
+
+**Ribbon和Nginx负载均衡的区别：**
+
+​	Nginx为服务器负载均衡，客户端所有请求都会先交给Nginx，然后由Nginx实现请求转发，因此负载均衡是由服务端完成
+
+​	Ribbon为本地负载均衡，在进行微服务远程调用时，实现对多个服务提供者远程调用的负载均衡
+
+**因此Niginx是请求级别上的负载均衡；而Ribbon是服务级别上的负载均衡**
+
+### 2、Ribbon组件搭建
+
+- Ribbo默认在导入spring-cloud-starter-netflix-eureka-client包时，会自动依赖导入:
+
+  spring-cloud-starter-netflix-ribbon包
+
+- @LoadBalanced注解，实现服务调用的负载均衡（@LoadBalanced注解由spring.cloud.common 包提供，而实现方式根据负载均衡组件来实现，如Ribbon）
+
+- Ribbon配置：
+
+  Ribbon提供Irule组件，来配置吸怪负载均衡策略
+
+  注意：Ribbon的配置类，不能放在ComponentScan扫描包下，即**不能与sringBoot应用启动类同包**
+
+  ```java
+  @Configuration
+  public class RibbonConfig {
+  	@Bean
+  	public IRule getIRule() {
+  		return new RandomRule();//随机
+  	}
+  }
+  ```
+
+  在启动类设置Ribbon负载均衡策略：
+
+  name：指定消费的服务应用名 ，**name必须全部大写**（和eureka监控页面一致）
+
+  configuration：通过@Bean注册均衡负载策略组件Irule实现类Bean的配置类
+
+  **因此一个负载均衡策略对应一个配置类**
+
+   ```java
+  @RibbonClient(name = "PAYMENT",configuration = RibbonConfig.class)
+  public class OrderApplication {
+  	public static void main(String[] args) throws Exception {
+  		SpringApplication.run(OrderApplication.class, args);
+  	}
+  }
+   ```
+
+### 3、Ribbon负载均衡策略
+
+所有均衡负载策略都有一个算法配置类，统一接口为IRule：
+
+```java
+public interface IRule{
+
+    public Server choose(Object key);//选择一个RestTmplate可用的远程调用的服务
+    
+    //set、get ILoadBalancer用于获取服务信息（服务总数、可用服务总数） 
+    public void setLoadBalancer(ILoadBalancer lb);   
+    public ILoadBalancer getLoadBalancer();    
+}
+```
+
+- 轮询算法：
+
+  实现类：RoundRobinRule（全局默认配置）
+
+  rest接口第几次请求 % 服务提供者集群总数 = 实际调用服务提供者的下标
+
+  服务重启后，rest接口请求次数会重置为1
+
+### 4、自定义负载均衡策略
+
+
+
+
+
+
+
+**Ribbon对于服务集群的信息，则通过discvorey进行获取**
+
+
+
+P40
 
 springCloud和Dubbo的区别
