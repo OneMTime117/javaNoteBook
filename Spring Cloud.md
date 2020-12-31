@@ -1,4 +1,4 @@
-# Spring cloud（分布式(微服务)系统工具集）：
+Spring cloud（分布式(微服务)系统工具集）：
 
 ## 1、基础概念
 
@@ -483,25 +483,112 @@ public interface IRule{
 }
 ```
 
-- 轮询算法：
-
-  实现类：RoundRobinRule（全局默认配置）
+- 轮询，RoundRobinRule（全局默认配置）
 
   rest接口第几次请求 % 服务提供者集群总数 = 实际调用服务提供者的下标
 
   服务重启后，rest接口请求次数会重置为1
 
+- 随机，RandomRule
+
+- 
+
 ### 4、自定义负载均衡策略
 
+## 7、OpenFeign组件
+
+### 1、基础概念
+
+- Feign：是一个声明式的HTTP客户端，让HTTP客户端的编写更加简单，并且**集成了Ribbon进行负载均衡，搭配eureka更方便的进行微服务调用**；（相对于Ribbon，将restTempate的接口调用方式，转变为面向接口编程）
+- OpenFeign，是springCloud在Feign的基础上的增强版，基本代替了Feign进行使用；
+
+- Feign和OpenFeign的区别：
+
+  Feign是springCloud组件中的轻量化RESTful风格的Http服务客户端，并且Feign内置了Ribbo实现负载均衡；通过注解定义Http服务端接口，然后将Http服务端接口的调用，转变为面向接口编程方式；
+
+  OpenFeign是springCloud在Feign的基础上支持springMVC相关注解，方便搭配springMVC使用
+
+### 2、OpenFeign的使用：
+
+- 导入相关依赖：
+
+  ```xml
+  <dependency>
+  	<groupId>org.springframework.cloud</groupId>
+  	<artifactId>spring-cloud-starter-openfeign</artifactId>
+  </dependency>
+  ```
+
+- 主启动类开启@EnableFeignClients注解
+
+- 将需要调用的Http服务（@Controller方法）定义为接口，并完全符合springMVC注解形式，并声明微服务名称
+
+  ```java
+  //feign服务调用接口
+  @Component
+  @FeignClient("payment")//对应调用的服务名
+  public interface PaymentFeignService {
+  	@GetMapping("/user")
+  	R getUser(@RequestParam("id") String id);
+  }
+  ```
+
+- 以接口形式编程，调用REST服务：
+
+  ```java
+  @Autowired
+  PaymentFeignService feignService;
+  //基于feign进行Http接口调用	
+  @GetMapping("/feign/user")
+  public R getFeignUser(@RequestParam String id) {
+  	R user = feignService.getUser(id);
+  	return user;
+  }
+  ```
+
+**OpenFeign在使用springMVC注解时，注意事项：**
+
+- @RequestParam、@PathVariable等注解的value不能省略
+- 不能使用@RequestMapping注解在类上，用于拼接url
+- 无法使用@ModelAttribute注解，实现复杂对象接受多个简单参数；如果使用复杂对象，则默认使用POST请求，通过json序列化方式解析body数据（因此对于多参数，必须使用@RequestParam、@PathVariable）
+
+注意：在feign在接口中的springMVC注解时，所有value值都不能省略（如，而在controller方法中却可以省略）
+
+### 3、OpenFeign的超时控制和日志打印：
+
+OpenFeign所有Http接口调用**默认等待1s**，超时则抛出调用超时异常
+
+由于OpenFeign对于负载均衡是基于Ribbon，因此其超时控制也是有Ribbon完成：
+
+- 日志打印：
+
+  - 定义feign配置类：配置feign的日志级别，共有4种：NONE（无），BASIC（只打印状态码、执行时间、HTTP方法、URL）、HEADERS（在BASIC基础上，打印请求、响应Header）、FULL（在HEADERS基础上，打印请求、响应的body和元数据）
+
+    ```java
+    @Configuration
+    public class FeignConfig {
+    	@Bean
+    	feign.Logger.Level feignLoggerLever(){
+    		return feign.Logger.Level.FULL;
+    	} 
+    }
+    ```
+
+  - 
+
+
+
+
+
+#####46
 
 
 
 
 
 
-**Ribbon对于服务集群的信息，则通过discvorey进行获取**
 
-
+Ribbon对于服务集群的信息，则通过discvorey进行获取**
 
 P40
 
