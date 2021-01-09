@@ -437,9 +437,9 @@ Eureka自我保护缺点：eureka的自我保护机制会导致服务消费者�
 
 - Ribbon配置：
 
-  Ribbon提供Irule组件，来配置吸怪负载均衡策略
+  Ribbon提供Irule组件，来配置相应负载均衡策略
 
-  注意：Ribbon的配置类，不能放在ComponentScan扫描包下，即**不能与sringBoot应用启动类同包**
+  注意：Ribbon的配置类，不能放在ComponentScan扫描包下，即**不能与sringBoot应用启动类同包，如果同包后，则该配置类将作为Ribbon的全局负载均衡机制使用**
 
   ```java
   @Configuration
@@ -468,7 +468,24 @@ Eureka自我保护缺点：eureka的自我保护机制会导致服务消费者�
   }
    ```
 
-### 3、Ribbon负载均衡策略
+### 3、Ribbon负载均衡策略配置方式：
+
+**只针对于所有使用了@LoadBalanced注解定义的RestTemplate的接口调用**
+
+- 通过配置注册IRule组件Bean，来定义Ribbon的全局负载均衡策略（RibbonConfig.class配置类需要自动注册到spring容器中）
+
+- 通过@RibbonClient(name = "PAYMENT",configuration = RibbonConfig.class)，定义单个服务的负载均衡策略，并保证RibbonConfig.class配置类不会自动注册到spring容器中
+
+- 基于配置文件定义Ribbon的单个微服务负载均衡策略：
+
+  ```properties
+  #PAYMENT 为服务名，value为策略类名
+  PAYMENT.ribbon.NFLoadBalancerRuleClassName:com.ribbon.MyRibbonRule
+  ```
+
+注意：三种配置优先级：配置文件>@RibbonClient>全局>默认（轮询）
+
+### 4、Ribbon负载均衡策略
 
 所有均衡负载策略都有一个算法配置类，统一接口为IRule：
 
@@ -483,17 +500,121 @@ public interface IRule{
 }
 ```
 
-- 轮询，RoundRobinRule（全局默认配置）
+- RoundRobinRule（全局默认配置），简单轮询策略
 
   rest接口第几次请求 % 服务提供者集群总数 = 实际调用服务提供者的下标
 
   服务重启后，rest接口请求次数会重置为1
 
-- 随机，RandomRule
+- RandomRule，随机策略
 
-- 
+- BestAvailableRule，最大可用策略，先过滤不可用服务实例，然后选择当前并发请求数最小的
 
-### 4、自定义负载均衡策略
+- WeightedResponseTimeRule，响应加权轮询策略，根据各服务实例的响应时间，进行加权处理。然后再采用轮询方式调用
+
+- AvailabilityFilteringRule，可用过滤策略，先过滤不可用和并发请求过大的服务实例，然后对剩余部分实例进行线性轮询
+
+- ZoneAvoidanceRule，区域感知策略，选择符合server所在区域的性能和server的可用性实例
+
+### 5、自定义负载均衡策略
+
+策略思想：让服务实例进行轮询，并每轮连续三次
+
+- 自定义Rule组件
+
+  ```java
+  /**
+   * @author yuanhuan
+   * @date 2021年1月4日上午11:24:31
+   * @Description 自定义ribbon负载均衡策略：每个服务轮询访问3次
+   */
+  public class MyRibbonRule extends AbstractLoadBalancerRule {
+  	private AtomicInteger nextServerCyclicCounter;
+  	// 定义该服务连续轮询次数
+  	private AtomicInteger totle;
+  
+  	public MyRibbonRule() {
+  		nextServerCyclicCounter = new AtomicInteger(0);
+  		totle = new AtomicInteger(0);
+  	}
+  
+  	public MyRibbonRule(ILoadBalancer lb) {
+  		this();
+  		setLoadBalancer(lb);
+  	}
+  
+  	public Server choose(ILoadBalancer lb, Object key) {
+  		if (lb == null) {
+  //	            getLog().warn("no load balancer");
+  			return null;
+  		}
+  
+  		Server server = null;
+  		int count = 0;
+  		while (server == null && count++ < 10) {
+  			List<Server> reachableServers = lb.getReachableServers();//可用服务
+  			List<Server> allServers = lb.getAllServers();//所有注册服务
+  			int upCount = reachableServers.size();
+  			int serverCount = allServers.size();
+  
+  			if ((upCount == 0) || (serverCount == 0)) {//没有服务可用
+  				return null;
+  			}
+  
+  			//获取当前轮询的服务实例
+  			int nextServerIndex = myincrementAndGetModulo(serverCount);
+  			server = allServers.get(nextServerIndex);
+  
+  			if (server == null) {
+  				Thread.yield();
+  				continue;
+  			}
+  
+  			if (server.isAlive() && (server.isReadyToServe())) {
+  				return (server);
+  			}
+  
+  			// Next.
+  			server = null;
+  		}
+  
+  		if (count >= 10) {
+  //	            getLog().warn("No available alive servers after 10 tries from load balancer: " + lb);
+  		}
+  		return server;
+  	}
+  
+  	/**
+  	 * 具体实现算法。可能写的不好，实现效果
+  	 */
+  	private int myincrementAndGetModulo(int modulo) {
+  		for (;;) {
+  			int current = nextServerCyclicCounter.get();//获取当前服务轮询的次数
+  			int next = (current + 1) % modulo;
+  			// 预期一样的话就把value更新为next
+  			if (totle.get() < 3 && nextServerCyclicCounter.compareAndSet(current, current)) {
+  				// 获取并自增
+  				totle.getAndIncrement();
+  				if (totle.get() == 3) {
+  					// 重新赋值
+  					totle.getAndSet(0);
+  					nextServerCyclicCounter.getAndSet(next);
+  				}
+  				return next;
+  			}
+  		}
+  	}
+  
+  	public Server choose(Object key) {
+  		return choose(getLoadBalancer(), key);
+  	}
+  
+  	public void initWithNiwsConfig(IClientConfig clientConfig) {
+  	}
+  }
+  ```
+
+- 然后进行负载均衡策略配置（全局或指定某个服务的负载均衡策略）
 
 ## 7、OpenFeign组件
 
@@ -556,13 +677,20 @@ public interface IRule{
 
 ### 3、OpenFeign的超时控制和日志打印：
 
+- 超时控制：
+
 OpenFeign所有Http接口调用**默认等待1s**，超时则抛出调用超时异常
 
-由于OpenFeign对于负载均衡是基于Ribbon，因此其超时控制也是有Ribbon完成：
+由于OpenFeign对于负载均衡是基于Ribbon，因此其超时控制也是由Ribbon完成：
 
 - 日志打印：
 
-  - 定义feign配置类：配置feign的日志级别，共有4种：NONE（无），BASIC（只打印状态码、执行时间、HTTP方法、URL）、HEADERS（在BASIC基础上，打印请求、响应Header）、FULL（在HEADERS基础上，打印请求、响应的body和元数据）
+  - 定义feign配置类：配置feign的日志级别，共有4种：
+
+    - NONE（无，不打印）
+    - BASIC（只打印状态码、执行时间、HTTP方法、URL）
+    - HEADERS（在BASIC基础上，打印请求、响应Header）
+    - FULL（在HEADERS基础上，打印请求、响应的body和元数据）
 
     ```java
     @Configuration
@@ -574,7 +702,15 @@ OpenFeign所有Http接口调用**默认等待1s**，超时则抛出调用超时�
     }
     ```
 
-  - 
+  - 在服务消费者中，将feign接口包的日志级别改为debug（实现日志框架对其日志的打印）
+
+    ```properties
+    logging.level.com.yh.feign.service:debug
+    ```
+
+4、OpenFeign的负载均衡
+
+好像，修改Ribbon的负载均衡配置，并不会影响Feign调用，只会影响RestTemplate
 
 
 

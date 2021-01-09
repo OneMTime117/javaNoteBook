@@ -108,13 +108,27 @@ public class AsyncThreadPoolConfig implements AsyncConfigurer{
 
 3、在应用运行后，自动执行
 
+4、可以配置自定义定时任务使用的线程池（默认是单线程池）:
+
+```java
+@Configuration
+//所有的定时任务都放在一个线程池中，定时任务启动时使用不同都线程。
+public class ScheduleConfig implements SchedulingConfigurer {
+    @Override
+    public void configureTasks(ScheduledTaskRegistrar taskRegistrar) {
+        //设定一个长度10的定时任务线程池
+        taskRegistrar.setScheduler(Executors.newScheduledThreadPool(10));
+    }
+
+```
+
 **通过添加@Scheduled中的属性，来定义定时任务的执行方式：**
 
 1、fixedRate  上次任务执行多少毫秒后再次执行，但是在任务单线程模式下，后一个任务会在前一个任务每完成时发生阻塞
 2、fixedDelay  上次任务执行完后，延迟多少毫秒再次执行，因此不存在单线程模式下阻塞
 3、initialDelay  配合fixedRate、fixedDelay使用，来确定项目启动后任务第一执行的延迟时间（若不指定，则项目启动后就执行第一次任务）
 以上者三种都支持String类型，用于进行配置文件的占位符注入fixedDelayString = "${time.fixedDelay}"；便于在配置文件中修改定时时间
-4、cron     用于专门确定某个时间点执行任务
+4、cron     用于专门确定某个时间点执行任务(如果是单线程，所以在指定时间如果线程处于工作状态，则跳过该次任务)
 
 **cron使用一种固定的匹配规则来简化时间定的配置，cron表达式规则：**
 
