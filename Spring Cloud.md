@@ -14,13 +14,26 @@ Spring cloud（分布式(微服务)系统工具集）：
 
 - 微服务网关：
 
-  ​	为所有微服务提供一个统一入口，并对所有请求进行鉴权校验；使用动态路由将请求
+  ​	为所有微服务提供一个统一入口，并对所有请求进行鉴权校验；使用动态路由将请求分发到不同的微服务模块
 
 - 服务注册与发现
+
+  ​	将所有微服务统一管理，感知它们的上下线，方便消费者能够远程调用正常的服务提供者，避免单点故障对微服务系统的影响
+
 - 服务负载与调用
+
+  ​	对服务的远程调用提供负载均衡与重试策略，更好的实现微服务系统的高可用；
+
+  ​	提供高效、简洁的远程调用编码方式，提供开发效率
+
 - 服务熔断降级
+
+  ​	最大程度上保证微服务系统的高可用，避免在高并发下，单点故障导致整个微服务系统蔓延雪崩
+
 - 服务分布式配置
+
 - 服务总线
+
 - 服务开发
 
 ### 1.2、spring cloud和spring boot版本选择
@@ -147,7 +160,7 @@ springcloud使用字母顺序命名（单词为伦敦地铁站名），目前推
 
   实际上，对于多个微服务项目通用的代码，可以使用一个子项目进行封装，然后部署到maven仓库，最后进行作为依赖进行导入（一般情况下，所有项目导入所有相同依赖，这样方便依赖版本管理；而**理论上，作为依赖导入的项目中，其所有maven引入的包，都可以供其他微服务使用**）
 
-## 3、微服务项目搭建步骤
+### 微服务项目搭建步骤
 
 - 搭建父POM项目，定义所需依赖以及对应版本（其中可以引入springBoot、springCloud对应的父POM依赖，从而方便实现版本其组件依赖的版本统一）
 - 创建MavenModule项目，即微服务：
@@ -476,7 +489,7 @@ Eureka自我保护缺点：eureka的自我保护机制会导致服务消费者�
 
 - 通过@RibbonClient(name = "PAYMENT",configuration = RibbonConfig.class)，定义单个服务的负载均衡策略，并保证RibbonConfig.class配置类不会自动注册到spring容器中
 
-- 基于配置文件定义Ribbon的单个微服务负载均衡策略：
+- 基于配置文件定义Ribbon的单个微服务负载均衡策略：**（同理，服务名必须大写才会生效）**
 
   ```properties
   #PAYMENT 为服务名，value为策略类名
@@ -616,6 +629,20 @@ public interface IRule{
 
 - 然后进行负载均衡策略配置（全局或指定某个服务的负载均衡策略）
 
+### 6、超时控制、重试机制
+
+同负载均衡策略配置相同，Ribbon提供服务和全局的参数配置：
+
+```properties
+ribbon.ConnectionTimeout=1000   //连接超时时间
+ribbon.ReadTimeout=5000			//数据传输超时时间（并不是响应时间）
+ribbon.MaxAutoRetries=1			//同一台实例最大重试次数,不包括首次调用
+ribbon.MaxAutoRetriesNextServer=1 //切换实例后的最大重试次数
+ribbon.OkToRetryOnAllOperations=false //默认false,只会对GET请求进行重试(防止幂等操作)
+
+PAYMENT.ribbon.ConnectionTimeout=1000  //单个服务的配置
+```
+
 ## 7、OpenFeign组件
 
 ### 1、基础概念
@@ -654,6 +681,8 @@ public interface IRule{
   }
   ```
 
+  注意：默认情况下，每一个@FeignClient注解对应一个微服务，也就对应一个接口类，不能存在一个接口对应相同微服务；即不能存在@FeignClient注解的value值相同（**可以修改Feign配置或手动进行feign接口代理来实现**）
+
 - 以接口形式编程，调用REST服务：
 
   ```java
@@ -681,7 +710,7 @@ public interface IRule{
 
 OpenFeign所有Http接口调用**默认等待1s**，超时则抛出调用超时异常
 
-由于OpenFeign对于负载均衡是基于Ribbon，因此其超时控制也是由Ribbon完成：
+由于OpenFeign对于负载均衡是基于Ribbon，因此其超时控制也是由Ribbon完成；（参考Ribbon的属性配置）
 
 - 日志打印：
 
@@ -708,15 +737,133 @@ OpenFeign所有Http接口调用**默认等待1s**，超时则抛出调用超时�
     logging.level.com.yh.feign.service:debug
     ```
 
-4、OpenFeign的负载均衡
+### 4、OpenFeign的负载均衡
 
-好像，修改Ribbon的负载均衡配置，并不会影响Feign调用，只会影响RestTemplate
+OpenFeign负载均衡完全使用Ribbon来实现，但需要注意：
+
+配置Ribbon某个服务的负载均衡时，需要保证服务名和@FeignClient注解中的服务名都为大写（**遵循Ribbon服务名大写的配置原则**），否则feign的负载均衡将使用默认负载均衡策略
+
+## 8、Hystrix组件
+
+### 1、基本概念
+
+- 分布式系统面临的问题
+
+  ​	对于复杂的分布式体系结构中，应用程序可能会存在数十个依赖关系，而这些依赖不可避免的会发生调用失败的问题；而当其中一个服务响应过长或不可用后，在高并发下就会导致服务雪崩
+
+  ​	Hystrix就是用于解决该问题，是用于处理分布式系统的延迟和容错的开源框架，保证在微服务调用过程中，如果出现其中一个依赖调用超时或异常，不会导致整个服务失败，避免级联故障，提供分布式系统的弹性
+
+- 断路器
+
+  ​	Hystrix提供断路器概念，当某个服务单元发生故障后，通过断路器进行故障监控（类似于电源保险丝），向调用方返回一个预期、可处理的备选响应（FallBack），而不是长时间等待或抛出无法处理的异常，这样就能保证调用方线程不会一直阻塞，避免故障在分布式系统中的蔓延，防止服务雪崩
+
+- Hystrix功能：
+
+  - 服务降级：FallBack
+
+    在服务调用发生故障后，返回一个备选响应？？？？
+
+    触发场景：程序运行异常（线程池/信号量打满）、服务调用超时、服务熔断
+
+  - 服务熔断：break
+
+    当服务调用尝试次数达到最大后，触发熔断，返回服务降级的备选响应，并在一段时间内无法调用
+
+  - 服务限流：flowlimit
+
+    对于秒杀高并发场景，保证最大服务调用数，超出的请求进行排队或丢弃处理
+
+  - 服务故障实时监控
+
+  **服务熔断和降级的区别：**
+
+  当调用某个服务时，出现异常则进行服务降级处理，确保服务间的依赖能够正常进行；但
+
+### 2、Hystrix的使用
+
+- 额外添加Hystrix依赖
+
+  spring-cloud-starter-netflix-hystrix包
+
+- 启动类添加开启熔断器（Hystrix）功能的注解：
+
+  @EnableCircuitBreaker/@EnableHystrix
+
+  @EnableHystrix是对@EnableCircuitBreaker的封装，两者功能一致
+
+- 通过@HystrixCommand注解配置指定方法出现异常、或超时后，执行fallback方法，保证当前方法能够正常返回
+
+  ```java
+  	@HystrixCommand(
+          //定义当前方法异常或超时后的fallback
+          fallbackMethod ="getHystrixUserWaitTimeFallback"
+               ,commandProperties = {
+  //定义当前方法超时时间	@HystrixProperty(name="execution.isolation.thread.timeoutInMilliseconds",value="3000")
+  	} )
+  	@GetMapping("/userWaitTime")
+  	public R getHystrixUserWaitTime(@RequestParam String id) {
+  		UserInfo userInfo = new UserInfo();
+  //		int i = 1/0;
+  		try {
+  			Thread.sleep(4000);
+  		} catch (InterruptedException e) {
+  			e.printStackTrace();
+  		}
+  		userInfo.setUsername("yh" + "8002" + Thread.currentThread().getName() + "等3s");
+  		System.out.println("OK");
+  		return R.ok(userInfo);
+  	}
+  	
+  	public R  getHystrixUserWaitTimeFallback(String id) {
+  		return R.ok("fallback");
+  	}
+  ```
+
+注意：
+
+1、@HystrixCommand服务降级只是针对于方法的执行，因此本事和微服务系统没有必要的联系，因此既可以放在服务提供方，也可以放在服务调用方；但一般情况下，放在消费者上进行处理，原因是：消费者更加清楚对当前调用的服务限制要求（等待时间，调用失败后的fallback操作）
+
+2、@HystrixCommand中fallback方法的返回值和入参要与原监控降级方法一致；并且不能使用在抽象方法上
+
+### 3、Hystrix的使用优化
+
+​	按正常的@HystrixCommand的使用方式，每个服务的接口方法都需要对应一个@HystrixCommand注解和fallback方法，这样大大增加了相似代码量；因此需要对所有的服务接口方法进行分类：**通用全局降级方法和自定义降级方法**
+
+- 全局通用降级方法使用：
+
+  ```java
+  @DefaultProperties(defaultFallback = "paymentGlobelFallbackMethod")
+  @RestController
+  @RequestMapping("/order")
+  public class OrderController {
+  
+  	//feign接口服务，并使用hystrix进行服务容错	
+  	@Autowired
+  	PaymentFeignService service;
+  	
+  
+  	@HystrixCommand
+  	@GetMapping("/feign/userWaitTime")
+  	public R getFeignUserWaitTime(@RequestParam String id) {
+  		R user = service.getHystrixUserWaitTime(id);
+  		return user;
+  	}
+  	
+  	public R paymentGlobelFallbackMethod() {
+  		return R.ok("payment服务全局异常处理");
+  	}
+  }
+  ```
+
+  此时，paymentGlobelFallbackMethod全局fallback方法不需要与袁方法入参一致
+
+### 4、基于feign进一步使用优化
 
 
 
 
 
-#####46
+#####53
 
 
 
