@@ -153,6 +153,7 @@ public class ScheduleConfig implements SchedulingConfigurer {
 - ‘，’   代表该参数有多选  1，3，4   即 1、3、4
 - ’—‘  代表参数范围多选  0-10   即0到10
 - ‘*’   代表全选该参数的所有值（和其他参数是and关系）
+- '/'  :x/y  表示等步长序列，如秒字段中0/15, 表示0,15,30,45多选
 
 5、zone  设置时间调度器的时区
 

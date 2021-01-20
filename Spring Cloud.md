@@ -643,6 +643,8 @@ ribbon.OkToRetryOnAllOperations=false //默认false,只会对GET请求进行重�
 PAYMENT.ribbon.ConnectionTimeout=1000  //单个服务的配置
 ```
 
+- Ribbon的重试机制仅仅只是针对于REST的调用（请求连接和传输超时、报错；或返回指定需要重试的状态码）
+
 ## 7、OpenFeign组件
 
 ### 1、基础概念
@@ -710,7 +712,7 @@ PAYMENT.ribbon.ConnectionTimeout=1000  //单个服务的配置
 
 OpenFeign所有Http接口调用**默认等待1s**，超时则抛出调用超时异常
 
-由于OpenFeign对于负载均衡是基于Ribbon，因此其超时控制也是由Ribbon完成；（参考Ribbon的属性配置）
+由于OpenFeign对于负载均衡是基于Ribbon，因此其超时控制也是由Ribbon完成；（参考Ribbon的属性配置），其自身有超时控制，但是由于ribbon和Hystrix就存在超时冲突，因此默认取消
 
 - 日志打印：
 
@@ -761,13 +763,13 @@ OpenFeign负载均衡完全使用Ribbon来实现，但需要注意：
 
   - 服务降级：FallBack
 
-    在服务调用发生故障后，返回一个备选响应？？？？
+    服务降级是面对服务调用的处理方式，既可以被动（如果服务调用发生故障，则进行降级处理）；也可以主动（当触发服务熔断后，默认在一段时间内，对服务调用进行降级处理）
 
-    触发场景：程序运行异常（线程池/信号量打满）、服务调用超时、服务熔断
+    触发场景：针对于当前服务调用（程序运行异常、运行超时、线程池/信号量打满）和服务熔断
 
   - 服务熔断：break
 
-    当服务调用尝试次数达到最大后，触发熔断，返回服务降级的备选响应，并在一段时间内无法调用
+    当服务调用失败次数达到最大后，触发熔断，并在一段时间内对服务进行降级处理；并在之后可以尝试恢复，关闭服务降级
 
   - 服务限流：flowlimit
 
@@ -776,8 +778,6 @@ OpenFeign负载均衡完全使用Ribbon来实现，但需要注意：
   - 服务故障实时监控
 
   **服务熔断和降级的区别：**
-
-  当调用某个服务时，出现异常则进行服务降级处理，确保服务间的依赖能够正常进行；但
 
 ### 2、Hystrix的使用
 
@@ -821,13 +821,13 @@ OpenFeign负载均衡完全使用Ribbon来实现，但需要注意：
 
 注意：
 
-1、@HystrixCommand服务降级只是针对于方法的执行，因此本事和微服务系统没有必要的联系，因此既可以放在服务提供方，也可以放在服务调用方；但一般情况下，放在消费者上进行处理，原因是：消费者更加清楚对当前调用的服务限制要求（等待时间，调用失败后的fallback操作）
+1、@HystrixCommand服务降级只是针对于方法的执行，本身和微服务系统没有必要的联系，因此既可以放在服务提供方，也可以放在服务调用方；但一般情况下，放在服务调用方上进行处理，原因是：消费者更加清楚对当前调用的服务限制要求（等待时间，调用失败后的fallback操作）和fallback处理方式
 
 2、@HystrixCommand中fallback方法的返回值和入参要与原监控降级方法一致；并且不能使用在抽象方法上
 
 ### 3、Hystrix的使用优化
 
-​	按正常的@HystrixCommand的使用方式，每个服务的接口方法都需要对应一个@HystrixCommand注解和fallback方法，这样大大增加了相似代码量；因此需要对所有的服务接口方法进行分类：**通用全局降级方法和自定义降级方法**
+​	按正常的@HystrixCommand的使用方式，每个服务的接口方法都需要对应一个@HystrixCommand注解和fallback方法，这样大大增加了相似代码量；因此需要对所有的服务接口方法进行分类：**通用全局降级方法和独立的自定义降级方法**
 
 - 全局通用降级方法使用：
 
@@ -855,9 +855,48 @@ OpenFeign负载均衡完全使用Ribbon来实现，但需要注意：
   }
   ```
 
-  此时，paymentGlobelFallbackMethod全局fallback方法不需要与袁方法入参一致
+  此时，paymentGlobelFallbackMethod全局fallback方法不需要与原方法入参一致
+
+  **但这种方式只解决的代码过多的问题，但是fallback方法会和调用者本地逻辑代码耦合**
 
 ### 4、基于feign进一步使用优化
+
+​	对于feign的引入，就很好的将远程调用代码和本地service代码解耦分离，同样的Hystrix的fallback方法也同样可以配合feign，与本地代码解耦，将fallback方法针对于每个微服务模块的feign接口进行处理：
+
+- 实现feign接口，编写指定fallback方法
+
+```java
+@Component
+public class PymentFeignServiceFallback implements PaymentFeignService {
+    
+	public R getHystrixUser(String id) {
+		return R.ok("没有找到，请稍后重试");
+	}
+
+	public R getHystrixUserWaitTime(String id) {
+		return R.ok("没有找到，请稍后重试");
+	}
+}
+```
+
+- 服务调用方，修改配置文件
+
+```properties
+#开启feign对hystrix的支持,运行hystrix的fallback方法能针对于feign接口实现
+feign.hystrix.enabled=true
+```
+
+- 在feign接口的@FeignClient注解上，指定fallback实现类
+
+```java
+@FeignClient(value="PAYMENT",fallback = PymentFeignServiceFallback.class)
+```
+
+5、服务熔断使用
+
+
+
+6、Hystrix的参数设置
 
 
 

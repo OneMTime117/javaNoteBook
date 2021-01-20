@@ -592,7 +592,7 @@ listUser.stream().sorted(Comparator.comparing(User::getAge));
 
 ```java
 String [] arrayStrings = {"1","2","2"};	
-Arrays.stream(arrayStrings).sorted().forEach(action->System.out.println(action));
+Arrays.stream(arrayStrings).distinct().forEach(action->System.out.println(action));
 ```
 
 和set去重一样，需要重写hashCode和equals方法
@@ -639,7 +639,7 @@ String firstString = findFirst.get();
 
 Optinal,JDK8引入的一种包装类，用于解决NPE问题，减少对空指针的判断
 
-**11、flatMap（）**,类似于Map，但是要求元素是一个可分解的容器集合，而获取的新Stream是针对于改容器的元素类型，比如原Stream本事是Stream<List<Integer>>，就可以转换为Stream<Integer>,实际场景就是，获取多个集合中的所有元素、多个字符串获取所有单个的字符
+**11、flatMap（）**,类似于Map，但是要求元素是一个可分解的容器集合，而获取的新Stream是针对于该容器的元素类型，比如原Stream类型为Stream<List<Integer>>，就可以转换为Stream<Integer>,实际场景就是，**获取多个集合中的所有元素**、**多个字符串获取所有单个的字符**
 
 ```java
 ArrayList<List<String>> list = new ArrayList<List<String>>();
@@ -652,14 +652,19 @@ Stream<String> flatMap = list.stream().flatMap((Function<List<String>, Stream<St
 
 reduce提供三种重载方法：
 
-- 参数列表：BinaryOperator<T> accumulator，其函数接口方法参数有两个，第一个为上一次函数接口方法执行的结果，第二个为当前Stream中的元素
+- 参数列表：BinaryOperator<T> accumulator，其函数接口方法参数有两个，第一个为上一次函数接口方法执行的结果，第二个为当前Stream中的元素，因此可以实现**累加器功能**（一般情况下，选择集合方法代替）
 
 ```java
-list.stream().reduce()
+list.stream().MaptoInt.mapToInt(User::getAge).reduce((x,y)->x+=y);
 ```
 
-- 参数列表：
-- 参数列表：
+- 参数列表：T identity, BinaryOperator<T> accumulator,与第一个类似，但提供了一个额外参数，来指定BinaryOperator方法参数中累加结果的初始值
+
+```java
+arrayList.stream().mapToInt(User::getAge).reduce(100,(x,y)->x+=y);
+```
+
+- 参数列表：U identity,BiFunction<U, ? super T, U> accumulator,BinaryOperator<U> combiner,实现累加器的同时，可以将结果封装为一个对象返回，用于操作元素多个字段的累加（**因此不需要搭配mapToInt筛选需要的单个数据**）,用于比较复杂的数据统计。但**这时反而使用正常的for循环遍历处理，代码更加简单**
 
 **12、toArray（）**，将流数据放到数组中，属于终止操作
 
@@ -690,13 +695,27 @@ Optional<User> collect = arrayList.stream().collect(Collectors.minBy((Comparator
 
 - 分组
 
-```java
+  根据某个值，将数据进行分组
 
+```java
+Map<Integer, List<User>> collect = arrayList.stream().collect(Collectors.groupingBy(u -> u.getAge()));
 ```
 
+- 分区
 
+  将数据分为true，false两类
 
+```java
+Map<Boolean, List<User>> collect = arrayList.stream().collect(Collectors.partitioningBy(u -> u.getAge() > 0));
+```
 
+- 拼接
+
+  首先需要获取一个Stream<String>的对象（因此就需要使用map，在原容器元素中获取String类型的值），然后再进行collect的拼接方法
+
+```java
+String collect2 = arrayList.stream().map(user->user.getUsername()).collect(Collectors.joining());
+```
 
 ## 5、JDk常用集合方法
 
