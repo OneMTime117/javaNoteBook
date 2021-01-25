@@ -59,7 +59,7 @@ springcloud使用字母顺序命名（单词为伦敦地铁站名），目前推
 
 ### 1.3、spring cloudH版，对于各个技术组件的选取：
 
-![](C:\Users\OneMTime\Desktop\笔记\Typora图片\springCloud组件选择.jpg)
+![](F:\Desktop\javaNoteBook\Typora图片\springCloud组件选择.jpg)
 
 ## 2、springCloud项目简单底层搭建
 
@@ -634,10 +634,10 @@ public interface IRule{
 同负载均衡策略配置相同，Ribbon提供服务和全局的参数配置：
 
 ```properties
-ribbon.ConnectionTimeout=1000   //连接超时时间
-ribbon.ReadTimeout=5000			//数据传输超时时间（并不是响应时间）
-ribbon.MaxAutoRetries=1			//同一台实例最大重试次数,不包括首次调用
-ribbon.MaxAutoRetriesNextServer=1 //切换实例后的最大重试次数
+ribbon.ConnectionTimeout=1000   //连接超时时间，默认1000
+ribbon.ReadTimeout=5000			//数据传输超时时间（并不是响应时间），默认1000
+ribbon.MaxAutoRetries=1			//同一台实例最大重试次数,不包括首次调用，默认1
+ribbon.MaxAutoRetriesNextServer=1 //切换实例后的最大重试次数,不包括首次调用，默认0
 ribbon.OkToRetryOnAllOperations=false //默认false,只会对GET请求进行重试(防止幂等操作)
 
 PAYMENT.ribbon.ConnectionTimeout=1000  //单个服务的配置
@@ -765,7 +765,7 @@ OpenFeign负载均衡完全使用Ribbon来实现，但需要注意：
 
     服务降级是面对服务调用的处理方式，既可以被动（如果服务调用发生故障，则进行降级处理）；也可以主动（当触发服务熔断后，默认在一段时间内，对服务调用进行降级处理）
 
-    触发场景：针对于当前服务调用（程序运行异常、运行超时、线程池/信号量打满）和服务熔断
+    触发场景：针对于当前服务调用，发生程序运行异常、运行超时、线程池/信号量打满和服务熔断
 
   - 服务熔断：break
 
@@ -794,29 +794,30 @@ OpenFeign负载均衡完全使用Ribbon来实现，但需要注意：
 - 通过@HystrixCommand注解配置指定方法出现异常、或超时后，执行fallback方法，保证当前方法能够正常返回
 
   ```java
-  	@HystrixCommand(
-          //定义当前方法异常或超时后的fallback
-          fallbackMethod ="getHystrixUserWaitTimeFallback"
-               ,commandProperties = {
-  //定义当前方法超时时间	@HystrixProperty(name="execution.isolation.thread.timeoutInMilliseconds",value="3000")
-  	} )
-  	@GetMapping("/userWaitTime")
-  	public R getHystrixUserWaitTime(@RequestParam String id) {
-  		UserInfo userInfo = new UserInfo();
-  //		int i = 1/0;
-  		try {
-  			Thread.sleep(4000);
-  		} catch (InterruptedException e) {
-  			e.printStackTrace();
+  	@HystrixCommand(fallbackMethod = "hystrixTestFallback", commandProperties = {
+  			@HystrixProperty(name = "execution.timeout.enabled", value = "true"),
+  			@HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "2000"),
+  			@HystrixProperty(name = "circuitBreaker.enabled", value = "true"),
+  			@HystrixProperty(name = "circuitBreaker.sleepWindowInMilliseconds", value = "5000") })
+  	@GetMapping("/hystrixTest")
+  	public R HystrixTest(String id) {
+  		if ("1".equals(id)) {
+  			throw new RuntimeException();
+  		} else if (Objects.equal(1, id)) {
+  			try {
+  				Thread.sleep(3000);
+  			} catch (InterruptedException e) {
+  				e.printStackTrace();
+  			}
   		}
-  		userInfo.setUsername("yh" + "8002" + Thread.currentThread().getName() + "等3s");
-  		System.out.println("OK");
-  		return R.ok(userInfo);
+  		return R.ok();
   	}
-  	
-  	public R  getHystrixUserWaitTimeFallback(String id) {
-  		return R.ok("fallback");
+  
+  	//fallback方法
+  	public R hystrixTestFallback(String id) {
+  		return R.error("已超时，请重试");
   	}
+  
   ```
 
 注意：
@@ -861,7 +862,7 @@ OpenFeign负载均衡完全使用Ribbon来实现，但需要注意：
 
 ### 4、基于feign进一步使用优化
 
-​	对于feign的引入，就很好的将远程调用代码和本地service代码解耦分离，同样的Hystrix的fallback方法也同样可以配合feign，与本地代码解耦，将fallback方法针对于每个微服务模块的feign接口进行处理：
+​	对于feign的引入，就很好的将远程调用代码和本地service代码解耦分离，同样的Hystrix的fallback方法也同样可以配合feign，与本地代码解耦，将fallback方法针对于每个微服务模块的feign接口进行全局处理：
 
 - 实现feign接口，编写指定fallback方法
 
@@ -892,26 +893,169 @@ feign.hystrix.enabled=true
 @FeignClient(value="PAYMENT",fallback = PymentFeignServiceFallback.class)
 ```
 
-5、服务熔断使用
+### 5、Hystrix原理
+
+Hystrix提供一个核心对象：HystrixCommand/HystrixObservableCommand命令对象，基于命令模式来实现对指定方法的调用与监控，并在底层使用了大量的RxJava响应式编程（观察者---订阅者）
+
+#### 工作流程：
+
+1、HystrixCommand/HystrixObservableCommand分别提供两种调用方式，是执行整个Hystrix的功能入口
+
+- HystrixObservableCommand：
+  - toObservable（）方法：当对依赖项订阅后，返回一个观察者对象（Observable），并且Hystrix命令不会立即执行，而是当所有订阅者订阅后才执行
+  - observeable（）方法：相对于toObservable()，在调用后会直接执行Hystrix命令
+
+- HystrixCommand：
+  - queue（）方法，toObservable().toBlocking().toFuture()，异步执行获取future对象
+  - execute（）方法，queue().get()，同步执行获取结果
+
+一般情况下，对外就是使用HystrixCommand来完成hystrix对依赖（调用方法）的异步、同步命令处理;而Hystrix也只提供HystrixCommand方式的直接@HystrixCommand
+
+2、Hystrix对于多个相同依赖，可以使用同一个HystrixCommand对象，即缓存机制，来直接返回结果
+
+3、如果没有缓存，则判断熔断器状态：开启（熔断发生），则直接调用getFallback（）方法，进行降级处理；关闭，则进行下一步判断
+
+4、判断当前依赖隔离的线程池和信号量是否已满（当前方法调用的并发量是否达到指定值），是，则进行降级处理；没有，则执行run（）方法，
+
+5、在run（）方法执行过程中，如果执行失败或超时，则进行降级处理
+
+#### Hystrix依赖隔离：
+
+Hystrix提供两种方式资源隔离计算，来单独限制每个依赖的并发量，防止请求阻塞，导致服务器线程资源全部浪费在该依赖上：
+
+- 线程池资源隔离
+
+  对于每一个依赖，其HystrixCommand都运行在一个单独的线程中，并通过其依赖的线程池进行并发控制，适合大部分依赖调用情景，如网络请求（远程调用），进行超时处理；缺点：隔离线程和调用线程的切换，增加了CPU的损耗
+
+- 信号量资源隔离
+
+  对于那些内部逻辑复杂，耗时长的依赖，其HystrixCommand在当前请求的线程中执行，通过信号量大小来进行并发控制，避免线程切换，同时也就不能支持超时调用、异步调用；但是可以动态调整并发量大小，
+
+### 6、Hystrix配置
+
+Hystrix的服务熔断建立在服务降级基础之上，之上触发条件有所不同,Hystrix配置如下：
+
+1、Execution，用于控制Hystrixcommand.run()如何执行
+
+| 参数                                                | 作用                                                         | 默认值 |
+| --------------------------------------------------- | ------------------------------------------------------------ | ------ |
+| execution.isolation.strategy                        | 隔离策略：THREAD（线程隔离），在单独的线程上执行，并发请求受该线程池的线程数影响；SEMAPHORE（信号隔离），在方法调用的线程上执行，并发请求受信号量限制 | THREAD |
+| execution.isolation.thread.timeoutInMilliseconds    | 超时时间                                                     | 1000ms |
+| execution.timeout.enabled                           | 是否开启超时中断                                             | true   |
+| execution.isolation.thread.interruptOnTimeout       | 发生超时时，是否中断（Thread有效，SEMAPHORE必须执行完成，才会判断超时） | true   |
+| execution.isolation.thread.interruptOnCancel        | 发生取消是，是否中断（Thread有效）                           | false  |
+| execution.isolation.semaphore.maxConcurrentRequests | 并发最大请求数（SEMAPHORE有效）                              | 10     |
+
+2、Fallback，控制HystrixCommand.getFallback()如何执行
+
+| 参数                                               | 作用                                                   | 默认值 |
+| -------------------------------------------------- | ------------------------------------------------------ | ------ |
+| fallback.enabled                                   | 是否开启执行备用方法                                   | true   |
+| fallback.isolation.semaphore.maxConcurrentRequests | 运行执行getFallback()方法的最大并发数（SEMAPHORE有效） | 10     |
+
+3、CircuitBreaker，控制HysertixCircuitBreaker（断路器）行为
+
+| 参数                                     | 作用                                                         | 默认值 |
+| ---------------------------------------- | ------------------------------------------------------------ | ------ |
+| circuitBreaker.enabled                   | 开启断路器功能                                               | true   |
+| circuitBreaker.requestVolumeThreshold    | 熔断触发的最小失败数  N/10s                                  | 20/10s |
+| circuitBreaker.errorThresholdPercentage  | 熔断触发的最小失败率 %                                       | 50     |
+| circuitBreaker.sleepWindowInMilliseconds | 熔断重试窗口期                                               | 5000   |
+| circuitBreaker.forceOpen                 | 熔断器强制打开（跳闸），拒绝服务调用（优先级高于forceClosed） | false  |
+| circuitBreaker.forceClosed               | 熔断器强制关闭，允许服务调用失败，不进行熔断处理             | false  |
+
+**其他配置基本不会使用，需要则可以查看官方文档**
+
+#### Hystrix配置方式
+
+在搭配feign使用时，对于feign接口的hystrix参数配置，只能使用全局配置进行设置：
+
+```properties
+#Hystrix配置
+hystrix.command.default.execution.isolation.thread.timeoutInMilliseconds=5000
+```
+
+而当使用@HystrixCommand注解时，除了在该注解中声明配置属性外，也可以使用配置文件：
+
+```java
+#Hystrix配置
+hystrix.command.xxxx.execution.isolation.thread.timeoutInMilliseconds=5000
+```
+
+xxxx为@HystrixCommand的commandKey属性属性值
+
+**注意：**
+
+- **Ribbon的超时时间必须小于Hystrix的超时时间，否则Ribbon会提前抛出超时异常，导致Hystrix不能进行服务降级处理**
+
+### 7、Hystrix的服务图形监控界面
+
+​	Hystrix提供准实时的调用监控，Hystrix Dashboard,来持续性记录所有通过Hystrix发起的请求的执行信息，并以表报和图形的形式展现给用户，如每秒执行多少请求、成功多少、失败多少等；
+
+​	如果Hystrix在服务消费者进行处理，则就对服务消费者进行监控，**因此对于使用feign整合Hystrix，则需要对服务消费者进行监控**
+
+- 导入图形化工具包：hystrix-dashboard
+
+  ```properties
+  <dependency>
+  	<groupId>org.springframework.cloud</groupId>
+  	<artifactId>spring-cloud-starter-netflix-hystrix-dashboard</artifactId>
+  </dependency>
+  ```
+
+- 启动类 :添加@EnableHystrixDashboard额外注解
+
+  ```java
+  @EnableHystrixDashboard
+  @SpringBootApplication
+  public class HystrixDashboardApplication {
+  	
+  	public static void main(String[] args) throws Exception {
+  		SpringApplication.run(HystrixDashboardApplication.class, args);
+  	}
+  }
+  ```
+
+- 对于监控的微服务，需要导入actuator服务监控驱动包，从而为hystrix-dashboard提供监控数据
+
+- 在新版本springcloud中，没有提供hystrix.stream的监控servlet端口，因此需要在被监控的微服务中手动配置:
+
+  ```java
+  	// springCloud新版本，需要手动创建hystrix监控页面的servlet
+  	@Bean
+  	public ServletRegistrationBean getServlet() {
+  		HystrixMetricsStreamServlet hystrixMetricsStreamServlet = new HystrixMetricsStreamServlet();
+  		ServletRegistrationBean servletRegistrationBean = new ServletRegistrationBean(hystrixMetricsStreamServlet);
+  		servletRegistrationBean.setLoadOnStartup(1);
+  		servletRegistrationBean.addUrlMappings("/hystrix.stream");
+  		servletRegistrationBean.setName("HystrixMetricsStreamServlet");
+  		return servletRegistrationBean;
+  	}
+  ```
+
+- 通过localhost:9001/ hystrix进入hystrix-dashboard配置页面，然后添加监控端口：http://localhost:82/hystrix.stream
+
+？？ 目前，配置页面正常、hystrix.stream返回值正常，但监控页面报错
+
+## 9、Gateway组件
+
+### 1、基本概念
+
+- Gateway，新一代API网关，用于代替zuul，原因是:
+
+1、zuul1.x,在springCloud F版作为推荐网关，其底层是基于Servlet2.5的阻塞式web架构（每个请求创建一个线程），并且不支持长连接（如websocket），和Nginx类似只是使用java实现，因此性能相对较差；zuul2.x,提供了基于Netty非阻塞和长连接支持，但是出来太慢，被springCloud推出的Gateway代替
+
+2、Gateway由springcloud推出，基于springBoot2.x、使用了spring5的新特性：spring WebFlux、Reactor-Netty，通过Netty实现**异步非阻塞式**web框架，**利用多核 CPU 的硬件资源去处理大量的并发请求，提升系统的吞吐量和伸缩性，但并不会使接口请求响应时间缩短**，因此可以利用在高并发、磁盘IO密集型,、网络IO密集型的使用场景，如api网关，从而提升转发下游服务的吞吐量；**并且支持websocket**
+
+- Gateway功能：
+
+  提供简单有效的方式，对api进行路由，并基于Filter链提供一些强大的过滤器功能，如安全、监控和限流
+
+  
 
 
-
-6、Hystrix的参数设置
-
-
-
-
-
-#####53
-
-
-
-
-
-
-
-Ribbon对于服务集群的信息，则通过discvorey进行获取**
-
-P40
+P68
 
 springCloud和Dubbo的区别
+
+Ribbon对于服务集群的信息，则通过discvorey进行获取**
