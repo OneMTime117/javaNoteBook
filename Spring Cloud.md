@@ -1051,7 +1051,81 @@ xxxx为@HystrixCommand的commandKey属性属性值
 
   提供简单有效的方式，对api进行路由，并基于Filter链提供一些强大的过滤器功能，如安全、监控和限流
 
-  
+  - Route（路由）：由ID、目标URI和一系列断言和过滤器组成，通过路由在来讲请求点位到真正的服务节点，并在转发的前后，进行精细化控制，并且**屏蔽所有微服务对外暴露的端口，统一使用gateway的端口，实现线程内的反向代理**
+  - Predicate（断言）：JDK8中，提供java.util.function.Predicate，用于实现匹配HTTP请求中所有内容的断言，用于匹配路由
+  - Filter（过滤）：通过过滤器，在请求被路由前后，进行修改
+
+- GateWay对请求的处理流程：
+  1. 客户端发起请求，交给GateWay处理，通过GateWayHandlerMapping找到与请求相匹配的路由
+  2. 然后通过过滤链，对请求进行额外处理（可以在路由转发请求前后执行，即被代理业务逻辑的执行前后）
+  3. 在转发前可以实现：参数校验、权限校验、流量监控、日志输出、协议转换等
+  4. 在转发后可以实现：响应修改、日志输出、流量监控等
+
+### 2、Gateway的使用
+
+- 搭建GateWay微服务：
+
+  - POM：
+
+    gateWay本身就是一个网关微服务，因此需要导入eureka依赖（**但是不能导入spring-web模块，因为gateWay内部本身就已经基于spring-web模块搭建，官方默认认为两者会冲突**），然后额外导入spring-cloud-starter-gateway包
+
+  - 主启动类：
+
+    ```java
+    @EnableEurekaClient
+    @EnableDiscoveryClient
+    @SpringBootApplication
+    public class GateWayApplication {
+    	public static void main(String[] args) throws Exception {
+    		SpringApplication.run(GateWayApplication.class, args);
+    	}
+    }
+    ```
+
+  - 配置文件：
+
+    ```properties
+    server.port=9527
+    spring.application.name=Gateway
+    
+    eureka.client.register-with-eureka=true
+    eureka.client.fetch-registry=true
+    
+    #单机
+    #eureka.client.service-url.defaultZone=http://localhost:7001/eureka
+    #集群，注册到所有eureka服务端中
+    eureka.client.service-url.defaultZone=http://eureka7001:7001/eureka,http://eureka7002:7002/eureka
+    eureka.instance.instance-id=gateway9527
+    
+    #gateway网关配置，可配置多个
+    spring.cloud.gateway.routes[0].id=pyment_route
+    spring.cloud.gateway.routes[0].uri=http://localhost:8001
+    spring.cloud.gateway.routes[0].predicates=Path=/**
+    ```
+
+- 此时，就可以直接通过localhost：9527/xxxx，直接转发请求到指定的微服务中：localhost:8001/xxxx
+
+### 3、Gateway基于硬编码实现网关配置
+
+### 4、Gateway整合eureka和ribbon，实现动态路由
+
+#### 1、基本概念：
+
+- 前提背景：
+
+  ​	在没有网关前，所有微服务的远程调用都是通过eureka服务发现与ribbon负载均衡来实现。但现在添加gateWay后，所有RESTapi的请求都需要经过网关，因此远程调用也就需要被网关处理后，进行转发
+
+- 结论：
+
+  ​	因此，对于网关路由配置，就不再针对于某个ip、端口（服务器）进行，而是通过微服务名，进行动态路由配置。从而实现请求被网关拦截处理的同时，ribbon进行负载均衡，即gateway指定当前请求转发给某个微服务，而erurka和ribbon在该微服务集群中，选择一个服务器**
+
+#### 2、整合实现：
+
+
+
+
+
+
 
 
 P68
