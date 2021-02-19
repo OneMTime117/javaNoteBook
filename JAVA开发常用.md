@@ -717,6 +717,157 @@ Map<Boolean, List<User>> collect = arrayList.stream().collect(Collectors.partiti
 String collect2 = arrayList.stream().map(user->user.getUsername()).collect(Collectors.joining());
 ```
 
+### 11、反射
+
+**反射：**
+
+​	指程序可以访问、检测和修改它本身状态或行为的一种能力；在面向对象编程过程中，java反射机制可以在程序运行时，动态加载类并获取类的详细信息，从而操作类或对象的属性、方法。本质上，就是JVM获取class对象，然后通过对class对象反编译，来获取对象的各种信息
+
+​	因此在java这种先编译后运行的语言中，反射能让我们更灵活的编写代码，将对象在运行时动态装配，更容易实现面向对象编程
+
+**反射的缺点：**
+
+​	1、反射需要消耗一定的系统资源，因此只有需要动态获取一个对象时，才使用反射
+
+​	2、反射调用方法时会忽略访问权限检查，因此会破坏类的封装性
+
+**反射机制的使用：**
+
+​	java提供java.lang.reflect反射包，来实现反射，而class对象就是反射入口对象，包含了当前类对于class文件中的所有信息
+
+- 获取class对象：
+
+  ```java
+  Class<?> perClazz = Class.forName("reflect_fanshe.Person");//Class类的静态方法
+  Class<?> perClazz2 = Person.class;//类名.class
+  
+  Person person = new Person();//通过对象获取class
+  Class<?> perClazz3 = person.getClass();
+  
+  ```
+
+  **这三种方式，都可以获取类的class对象，并且JVM能够保证该对象为单例**
+
+- 通过class对象获取类信息
+
+  - **Constructor类，表示类的构造方法，通过class对象的如下方法获取：**
+
+    | 方法                                               | 作用                                   |
+    | -------------------------------------------------- | -------------------------------------- |
+    | getConstructor(Class...<?> parameterTypes)         | 获得该类中与参数类型匹配的公有构造方法 |
+    | getConstructors()                                  | 获得该类的所有公有构造方法             |
+    | getDeclaredConstructor(Class...<?> parameterTypes) | 获得该类中与参数类型匹配的所有构造方法 |
+    | getDeclaredConstructors()                          | 获得该类所有构造方法                   |
+
+    **对于不带有Declared关键字方法，只会获取（public）公开元素；带有Declared关键字方法，则会获取所有元素**
+
+  - **Method类，代表类的普通方法**
+
+    和getConstructor的四个方法类似，为getMethods....
+
+  - **Field类,表示类的成员变量**
+
+    和getConstructor的四个方法类似，为getFields....
+
+  - **Annotation类，表示类的注解**
+
+    和getConstructor的四个方法类似，为getAnnotations....
+
+    由于JDK8提供了@Inherited新注解，实现一个地方可以提供多个相同注解，因此也提供getAnnotationsByType方法，更具指定注解类型，来获取多个Annotation对象数组
+
+    **对于不带有Declared关键字方法，只会获取当前类的注解；带有Declared关键字方法，则获取所有当前类及父类注解**
+
+  - **其他重要方法,用于获取类的一些信息**
+
+    | 方法                   | 作用                                           |
+    | ---------------------- | ---------------------------------------------- |
+    | isAnnotation()         | 是否为注解类型                                 |
+    | isAnonymousClass()     | 是否为匿名内部类                               |
+    | isArray()              | 是否为数组                                     |
+    | isEnum()               | 是否为枚举                                     |
+    | isInterface()          | 是否为接口                                     |
+    | isLocalClass()         | 是否为局部内部类                               |
+    | isMemberClass()        | 是否为内部类                                   |
+    | isInstance(Object obj) | 是否为某个对象实例                             |
+    | getName()              | 获取全类名                                     |
+    | getPackage()           | 获取包名                                       |
+    | getSimpleName()        | 获取类名                                       |
+    | getSuperclass()        | 获取继承的父类的class                          |
+    | getInterfaces()        | 获取实现的接口class数组                        |
+    | newInstance()          | 获取当前类的实例（调用默认构造器，没有回报错） |
+
+- Field对象方法：
+
+  | 方法                                                         | 作用                                                         |
+  | ------------------------------------------------------------ | ------------------------------------------------------------ |
+  | getName()                                                    | 获取字段名                                                   |
+  | getType()                                                    | 获取字段类型的class对象                                      |
+  | getModifiers（）                                             | 获取字段的权限修饰符，返回int类型，通过Modifier.toString（x）进行字符转换 |
+  | get（Object obj）                                            | 获取指定实例中，该字段的值（还提供其他八种基础数据类型）     |
+  | set（Object obj，Object obj ）                               | 设置指定实例的字段值（还提供其他八种基础数据类型）           |
+  | isAnnotationPresent(Class<? extends Annotation> annotationClass) | 是否存在该注解                                               |
+  | getAnnotation(Class<T> annotationClass)                      | 获取该字段上Annotation注解对象()                             |
+  | getAnnotations()                                             | 获取字段上的所有Annotation注解对象数组（和getDeclaredAnnotations作用一样） |
+  | isAccessible()                                               | 字段是否可以直接访问（默认private字段不能通过反射访问，返回false） |
+  | setAccessible()                                              | 设置该字段是否可以直接访问（本质就是关闭访问权限的安全检查，如果为false，则get、set方法就会抛出异常） |
+  | equals(Object obj)                                           | 比较两个对象是否为同一个Field对象，即来源于同一个class对象中的Field |
+
+- Method对象方法：
+
+  | 方法                                                         | 作用                                                         |
+  | ------------------------------------------------------------ | ------------------------------------------------------------ |
+  | getName（）                                                  | 获取方法名                                                   |
+  | getReturnType()                                              | 获取返回值类型                                               |
+  | getModifiers()                                               | 获取方法权限修饰符                                           |
+  | getParameterTypes()                                          | 获取参数类型class对象数组                                    |
+  | getAnnotations()                                             | 获取方法上的所有Annotation注解对象数组(和getDeclaredAnnotations作用一样） |
+  | isAnnotationPresent(Class<? extends Annotation> annotationClass) | 方法上是否存在该注解类型                                     |
+  | getAnnotation(Class<T> annotationClass)                      | 获取方法上的该注解                                           |
+  | setAccessible(Boolean bool);                                 | 设置方法是否能直接执行（本质就是关闭访问权限的安全检查，如果为false，则inoke方法就会抛出异常） |
+  | isAccessible()                                               | 方法是否能直接执行                                           |
+  | invoke（Object obj, Object... args）                         | 执行方法，提供该方法实例对象，方法参数（如果方法为静态方法，则不需要实例对象，使用null替代） |
+  | equals(Object obj)                                           | 比较两个对象是否为同一个Method对象，即来源于同一个class对象中的Method |
+
+- **Constructor对象方法**
+
+  | 方法                             | 作用                                                         |
+  | -------------------------------- | ------------------------------------------------------------ |
+  | newInstance(Object ... initargs) | 通过相应构造器参数，获取类的实例对象                         |
+  | isAccessible()                   | 构造器是否能直接执行（是否为public）                         |
+  | setAccessible(Boolean bool);     | 设置构造器是否能直接执行（本质就是关闭访问权限的安全检查，如果为false，则newInstance方法就会抛出异常） |
+
+- Annotation
+
+  Annotation对象是用于操作注解元数据信息，需要搭佩@interface（注解类）使用：
+
+  - 注解的基本使用：
+
+    - 定义注解
+
+    ```java
+    @Target(ElementType.TYPE)  //注解的作用域，常用有TYPE（类、接口、枚举、注解)、FIELD(字段、枚举常量)、METHOD（方法）、PARAMETER（方法参数）
+    @Retention(RetentionPolicy.RUNTIME)//注解的声明周期，一般情况下，就是RNUTIME，一直到运行阶段
+    public @interface DataTest {
+        //注解属性，需要有（），并且可以使用default关键字提供默认值
+        String value() default "";
+    }
+    ```
+
+    - 注解使用
+
+    在注解处理器代码内部，通过反射机制来获取类、成员变量、方法、构造方法上的注解元数据，然后进行相应处理，而获取方式，就是用通过Annotation对象进行操作
+
+  - Annotation对象常用方法：
+
+    | 方法           | 作用                              |
+    | -------------- | --------------------------------- |
+    | equals         | 判断是否为通过Annotation对象      |
+    | annotationType | 获取当前Annotation对象的class对象 |
+
+    **然后其他元数据的获取，则根据注解本身的方法提供**
+
+**综上所述，java反射的使用，就是对Class、Field、Method、Annotation、Constructor各个类的API使用**
+
 ## 5、JDk常用集合方法
 
 ### 1、Collection接口常用方法：
@@ -1841,3 +1992,6 @@ objectMapper.setSerializationInclusion(Include.NON_EMPTY);
 			}
 		});
 ````
+
+## 6、基于注解的AOP使用
+

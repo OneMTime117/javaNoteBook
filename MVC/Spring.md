@@ -2329,7 +2329,6 @@ public class SingerProxy {
           system.out.println("sing前B")
   		return "sing";
   	}
-  sys
   ```
 
   因此可以得知：**优先级越高，Before越后执行，after越先执行**

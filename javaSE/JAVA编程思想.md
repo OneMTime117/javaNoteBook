@@ -1404,7 +1404,7 @@ java 1.8加入 @FunctionalInterface ，函数式接口注解，用于注解接�
 
 @Target  定义注解的作用域
 
-@Rectetion  定义注解的生命周期     SOURCE（只在源码显示，编译时丢弃）,CLASS（编译时记录到class中，运行时忽略）,RUNTIME（运行时存在，可以通过反射读取）
+@Retention 定义注解的生命周期     SOURCE（只在源码显示，编译时丢弃）,CLASS（编译时记录到class中，运行时忽略）,RUNTIME（运行时存在，可以通过反射读取）
 
 @Inherited   注解会随着类的继承而作用到另一个类上
 
