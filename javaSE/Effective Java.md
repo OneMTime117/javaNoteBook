@@ -203,4 +203,118 @@ public class Test{
 
 1、String对象的创建直接使用 String s =”123“，而不是使用String s= new String("123")，因此String构造方法实际上创建了2个对象
 
-2、对于基础数据类型包装类
+2、对于基础数据类型包装类，同样不要使用构造器Interger（String s）进行创建，而是使用直接赋值获取Interger .valueOf(String s)，保证不可变对象的重用，即包装类可以使用常量池
+
+3、保证不会变对象的重用，如String.matcher（）方法，内部每次调用都会创建一个新的Pattern实例，如果需要使用同一个正则表达式，则应该显式创建Pattern实例，使用该对象的matcher方法来匹配
+
+4、优先使用基础数据类型，不要进行无意识的装箱操作，因此每一次装箱在常量池外都会创建一个新的包装类
+
+### 1.7、消除过期的对象引用
+
+### 1.8、避免使用终结方法和清除方法
+
+​	java提供finalizer（终结方法）、cleaner（清除方法，JDK9提供）来标记对象进行垃圾回收，但是他们都是不可预测的，并且存在性能问题，无法保证对象被立即回收
+
+### 1.9、try-with-resources优先于try-finally
+
+​	java类库中，存在需要需要手动关闭资源的close方法，如InputStream、java.sql.Connection等；在JDK7之前，我们使用try-catch-finally来保证及时方法发生异常，也能够正常调用close方法来关闭资源。但这种方式存在一些问题：
+
+- 代码繁琐,在使用close方法时，同样需要进行try-catch保证资源关闭时的异常捕获，在存在多个资源使用时，就会有很多嵌套，减低代码的可阅读性
+- 在try、和finally中都会对资源进行异常捕获，这样就会导致catch的异常信息被fianlly中的异常信息抹除，让系统的调试变的复杂
+
+​	在JDK7后，引入了try-with-resources语法糖，直接在try（）中创建资源，然后在{ }中编写资源使用的逻辑代码。但是需要**保证资源实现AutoCloseable接口**
+
+```java
+try(BufferedReader br = new BufferedReader(new FileReader("D://xxx.txt"))){
+    br.readLine();
+}catch(Exception)
+```
+
+​	可以发现try-with-resources直接省略了对资源finally中的close方法调用，使代码变得非常简洁。同时，当readLine（）方法和隐藏的close方法都发生异常时，会保留第一个异常信息，静止其他后续的异常。从而保证开发者能够快速找到导致资源使用异常的信息
+
+## 2、对于所有对象都通用的方法
+
+### 2.1、覆盖equals时请遵守通用约定
+
+​	Obejct为所有类提供equals方法：
+
+```java
+  public boolean equals(Object obj) {
+        return (this == obj);
+    }
+```
+
+该方法保证了**每个类的实例都是唯一的，不存在逻辑相等**
+
+​	但在实际需求过程中，需要逻辑相等的时候，比如比较值类（String、Integer）是否相等，此时就需要覆盖equals，而在覆盖equals方法时，需要遵守通用约定：
+
+- 自反性：非null对象x，x.equals(x)必须返回true
+- 对称性：非null对象x，y；x.equals(y)和y.equals(x)的结果一致
+- 传递性：非null对象x、y、z；x.equals(y)为true、y.equals(z)为true，则x.equals(z)必须为true
+- 一致性：x.equals(y)多次调用的结果一致，其方法不会对x、y对象进行修改
+- 非空性：对于任何非null对象x，x.equals（null）必须返回false
+
+**实现高质量的equals方法编写：**
+
+1、使用==操作符，检查参数是否为该对象的引用，是，则直接返回true，从而提高判断效率
+
+2、使用instanceof操作符，检查参数是否和该对象为同一个类型，避免进行类型转换时报错，同时还可以避免显式对参数进行null的检查
+
+3、将参数进行强转，从而进行接下来的逻辑相等判断（Object原方法，入参参数为Object类型）
+
+4、对类中每个”关键域“进行匹配检查，如果全部匹配则返回true：
+
+一般情况下，这些关键域就是基本数据类型和引用数据类型的比较：
+
+- 对于非float、double的基础类型，可以直接使用==；
+- 而float、double则使用静态Float.compare(float，float)方法，因此浮点数存在-0.0、NaN常量值；而Float.equals（Object ）方法需要进行自动装箱，影响效率
+
+- 对于引用对象类型，则调用其equals方法
+
+以String类的equals重写为例：
+
+```java
+   public boolean equals(Object anObject) {
+        if (this == anObject) {   //第一步
+            return true;
+        }
+        if (anObject instanceof String) {	//第二步
+            String anotherString = (String)anObject;  //第三步
+            int n = value.length;	//第四步，先比较长度
+            if (n == anotherString.value.length) {//再比较每个字符是否相同
+                char v1[] = value;
+                char v2[] = anotherString.value;
+                int i = 0;
+                while (n-- != 0) {
+                    if (v1[i] != v2[i])
+                        return false;
+                    i++;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+```
+
+
+
+**注意：**
+
+- 不要修改equals方法参数列表，这样就不是覆盖，而是重写了
+
+- 覆盖equals时，总要覆盖hashCode，原因看下一张
+
+### 2.2、覆盖equals时总要覆盖hashCode
+
+​	Object类提供hashCode（）方法，并遵循如下规范：
+
+```java
+  public native int hashCode();
+```
+
+- 只有对象的equals方法比较操作的信息（关键域）没有修改，则hashCode方法返回值永远不会改变
+- 如果两个对象equals方法比较相等，则hashCode方法返回值一定相等
+- 如果两个对象equals方法比较不相等，hashCode方法返回值也可能相等，但为了减少hash冲突，程序员应该降低冲突率
+
+当我们覆盖equals方法后，则第二条规范就会失效，O

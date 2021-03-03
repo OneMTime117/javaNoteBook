@@ -1753,7 +1753,7 @@ lombok是简化java开发代码编写的一个java库。通过添加注解的方
 
 ### 常用注解：
 
-@Data：自动为该类所有非静态属性添加setter/getter、equals、equal、hashCode、toString方法；对于final属性，则不会生成setter方法；
+@Data：自动为该类所有非静态属性添加setter/getter、equals、hashCode、toString方法；对于final属性，则不会生成setter方法；
 
 @Slf4j：自动创建该类的一个静态常量日志对象：log
 
@@ -1765,7 +1765,7 @@ lombok是简化java开发代码编写的一个java库。通过添加注解的方
 
 @ToString 注解在类上，自动生成toString方法
 
-@EqualsAndHashCode 注解在类上，自动生成hashCode和equal方法
+@EqualsAndHashCode 注解在类上，自动生成hashCode和equals方法
 
 @NoAragsConstructor 注解在类上，生成无参构造方法
 
