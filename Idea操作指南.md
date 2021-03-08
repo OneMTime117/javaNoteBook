@@ -32,9 +32,7 @@ Editor->Color scheme ->Console Font
 
 Editor->File Encodings
 
-5、xml代码注释：
 
-默认情况下，无法通过注释快捷键创建**空的注释**：<!--    -->,通过设置可以实现：
 
 
 
@@ -53,7 +51,7 @@ Editor->File Encodings
 | Ctrl + Alt + L          | 格式化代码                   |
 | Ctrl + Alt + O          | 重新导包                     |
 | Ctrl + Alt + 左右方向键 | 回到上一个操作点             |
-| ALT + Enter             | 代码补全(必须有;结尾)        |
+| ALT + Enter             | 代码补全                     |
 | Ctrl + Shift + U        | 全大小写轮换                 |
 
 类、方法信息查看：
@@ -64,5 +62,5 @@ Editor->File Encodings
 | Ctrl + Shift + F  | 全局查找                                 |
 | Ctrl + ALT + 左键 | 进入接口方法的实现方法（接口类的实现类） |
 | Ctrl + H          | 查看类的继承关系（Hierarchy窗口）        |
-| ALT + 7           | 查看类结构（Structure）                  |
+| ALT + 7           | 查看类结构（Structure窗口）              |
 
