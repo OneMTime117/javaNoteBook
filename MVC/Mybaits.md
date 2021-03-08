@@ -252,6 +252,8 @@ mybatis别名处理器，在mybatis所有的xml文件中，给所有的java类�
 
 date、decimal、bigdecimal、object、map、hashmap、list、arraylist、conllection、iterato
 
+**参考mybatis包下的TypeAliasRegistry类**
+
 ### typeHandlers标签：
 
 mybaits类型处理器，进行java类型和数据库数据类型的转化，从而实现数据映射
@@ -820,6 +822,8 @@ JDK的java.sql.JDBCType类对所有数据库数据类型提供了一个枚举值
 
 mybatis结果集映射，有两种选择：使用java.util.HashMap进行接收，key为结果集字段名、value为字段值；使用javaBean进行接收，结果集字段和javaBean属性一一对应
 
+**注意：myabtis不支持数组类型字段的结果集映射**
+
 ### 7.1、resultType自动映射：
 
 - mybatis提供resultType属性来进行实体类属性的自动映射，来接收数据库结果集中的字段数据；通过**autoMappingBehavior** setting标签属性进行全局设置，默认PARTIAL（开启局部自动映射），当设置为NONE时，则会关闭自动映射
@@ -1086,6 +1090,8 @@ private List<Gread> gread;
 ```
 
 - 嵌套结果映射
+
+  **注意：对于集合嵌套结果映射，必须指定外层对象的id，否则就无法实现1对多映射**
 
 ```xml
 	<resultMap id="gread" type="com.yh.entity.Gread">

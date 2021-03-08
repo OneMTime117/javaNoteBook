@@ -1107,6 +1107,22 @@ xxxx为@HystrixCommand的commandKey属性属性值
 
 ### 3、Gateway基于硬编码实现网关配置
 
+通过RoutLocator（路由定位器）对象，来对Gateway进行相应网关配置，并且**可以和配置文件的路由配置同时存在**
+
+```java
+@Configuration
+public class GatewayConfig {
+	@Bean
+	public RouteLocator getRouteLocator(RouteLocatorBuilder builder) {
+		// 创建路由
+		Builder routes = builder.routes();
+        //path为localhost:9527后面的路径,uri为转发地址
+		RouteLocator routeLocator = routes.route("baidu_route", r -> r.path("/free").uri("http://www.doyoudo.com")).build();
+		return routeLocator;
+	}
+}
+```
+
 ### 4、Gateway整合eureka和ribbon，实现动态路由
 
 #### 1、基本概念：
@@ -1117,10 +1133,120 @@ xxxx为@HystrixCommand的commandKey属性属性值
 
 - 结论：
 
-  ​	因此，对于网关路由配置，就不再针对于某个ip、端口（服务器）进行，而是通过微服务名，进行动态路由配置。从而实现请求被网关拦截处理的同时，ribbon进行负载均衡，即gateway指定当前请求转发给某个微服务，而erurka和ribbon在该微服务集群中，选择一个服务器**
+  ​	因此，对于网关路由配置，就不再针对于某个ip、端口（服务器）进行，而是通过微服务名，进行动态路由配置。从而实现请求被网关拦截处理的同时，ribbon进行负载均衡，即gateway指定当前请求转发给某个微服务，而erurka和ribbon在该微服务集群中，选择一个服务器
 
 #### 2、整合实现：
 
+- 修改配置文件：
+
+
+```properties
+#gateway基于微服务的动态网关配置
+spring.cloud.gateway.discovery.locator.enabled=true
+```
+
+- 配置PAYMENT微服务动态路由：
+
+```properties
+spring.cloud.gateway.routes[0].id=pyment
+# lb://表示使用Ribbon负载均衡的方式来进行实际ip端口路由转发  PAYMENT表示通过eureka服务名代替实际的ip端口
+spring.cloud.gateway.routes[0].uri=lb://PAYMENT   
+spring.cloud.gateway.routes[0].predicates=Path=/payment/**
+```
+
+### 5、Predicate断言的使用
+
+Gateway除了使用**Path匹配url外**，可以通过predicate断言，进行一些默认提供的请求拦截处理：
+
+- 通过请求时间来限制：
+
+  指定时间格式需要为：2021-02-25T18:28:22.421+08:00[Asia/Shanghai]，可以调用API：
+
+  ```java
+  ZonedDateTime now = ZonedDateTime.now();
+  System.out.println(now);
+  ```
+
+  - After   请求时间必须在指定时间后
+  - Before  请求时间必须在指定时间前
+  - Between 请求时间必须在指定时间之间
+
+- 通过HTTP规则来限制：
+  - Cookie  指定Cookie内容
+  - Header  指定HTTP请求头
+  - Method  指定HTTP的方法
+  - Host  指定域名路径
+  - Qurey  指定接口参数
+
+配置文件Predicate多种限制同时使用的编写规则：
+
+- properties
+
+```properties
+#gateway网关配置
+spring.cloud.gateway.routes[0].id=pyment
+# lb://表示使用Ribbon负载均衡的方式来进行实际ip端口路由转发  PAYMENT表示通过eureka服务名代替实际的ip端口
+spring.cloud.gateway.routes[0].uri=lb://PAYMENT
+spring.cloud.gateway.routes[0].predicates[0]=Path=/payment/**
+spring.cloud.gateway.routes[0].predicates[1]=After=2021-02-25T18:28:22.421+08:00[Asia/Shanghai]
+```
+
+- yml（配置更加简洁）
+
+```yaml
+serer:
+  port: 9527
+  
+spring:
+  application:
+    name: Gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+      routes:
+      - id: payment
+        uri: lb://PAYMENT
+        predicates:
+        - Path=/payment/**
+        - After=2021-02-25T18:28:22.421+08:00[Asia/Shanghai]
+    
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://eureka7001:7001/eureka,http://eureka7002:7002/eureka
+  instance:
+    instance-id: gateway9527
+```
+
+### 6、Filter过滤器使用
+
+Gateway提供一系列默认内置Filter，分为两类：
+
+- GatewayFilter：单一过滤器，只针对于某个路由转发的请求，一般直接使用Gateway内置提供的。和predicate类似，通过提供一系列GatewayFilterFactory，在配置文件中使用
+
+  常用GatewayFilter工厂如下：
+
+  - AddRequestHeaderGatewayFilterFactory：用于添加请求头
+
+  - AddResponseHeaderGatewayFilterFactory：用于添加响应头
+
+    两个的配置方式类似：
+
+    ```yml
+    
+    ```
+
+    
+
+- GlobalFilter：全局过滤器，针对所有路由转发的请求，一般用于开发者自定义，实现日志记录、网关鉴权等
+
+
+
+feign的远程调用，本质上和网关gateway没有联系，gateway只是对外进行反向代理，而feign是通过服务注册中心来进行http api的远程调用
 
 
 
@@ -1128,7 +1254,14 @@ xxxx为@HystrixCommand的commandKey属性属性值
 
 
 
-P68
+Gateway路由转发的负载均衡策略
+
+
+
+
+
+
+P73
 
 springCloud和Dubbo的区别
 
