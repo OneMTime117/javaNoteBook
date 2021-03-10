@@ -360,3 +360,44 @@ result为合并的结果值，c为当前需要合并的Hash值
 **目前IDE和相关插件可以自动化重写equals和HashCode方法**
 
 ### 2.3、始终要覆盖toString
+
+​	Object为所有类提供toString（）方法
+
+```java
+   public String toString() {
+        return getClass().getName() + "@" + Integer.toHexString(hashCode());
+    }
+```
+
+​	用于获取类的全类名@HashCode的16进制，这样的表达方式并不能完整表现当前对象的信息，因此推荐开发者所有子类都需要覆盖toString方法
+
+​	覆盖toString方法的好处：
+
+- 在println、+、assert方法内部，都自动调用的参数的toString方法，这样就能更加简便的打印对象信息
+- 在覆盖toString方法时，可以方便对打印信息进行格式化处理，方便查看
+
+### 2.4、谨慎地覆盖clone
+
+​	Object为所有类提供了clone（）方法
+
+```java
+    protected native Object clone() throws CloneNotSupportedException;
+```
+
+​	它是一个本地方法，必须搭配Cloneable接口使用，用于提供对对象的逐域拷贝：
+
+- Cloneable接口：
+
+  ​	它并没有提供任何方法，但在底层实现了对Object.clone()方法的开启，对于没有继承Cloneable接口的类，其对象调用clone（）方法时，会抛出CloneNotSupportedException异常（不支持clone），因此Cloneable接口就是开启Object.clone（）方法的使用
+
+- clone（）方法：
+
+  ​	该方法可以创建一个对象，提供java语言之外的一种构建对象的方式，其拷贝规范为：
+
+  ```java
+  x.clone（）！=x				//两者不为同一对象
+  x.clone（）.getClass==x.getClass()	//两者为同一个类型
+  x.clone().equals(x)			//不强求，但通常是相等的
+  ```
+
+  
