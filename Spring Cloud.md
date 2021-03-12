@@ -1226,25 +1226,74 @@ eureka:
 
 Gateway提供一系列默认内置Filter，分为两类：
 
-- GatewayFilter：单一过滤器，只针对于某个路由转发的请求，一般直接使用Gateway内置提供的。和predicate类似，通过提供一系列GatewayFilterFactory，在配置文件中使用
+- GatewayFilter：单一过滤器，只针对于某个路由转发的请求，一般直接使用Gateway内置提供的。和predicate类似，通过提供一系列**GatewayFilterFactory**，在配置文件中使用
 
   常用GatewayFilter工厂如下：
 
-  - AddRequestHeaderGatewayFilterFactory：用于添加请求头
-
-  - AddResponseHeaderGatewayFilterFactory：用于添加响应头
-
-    两个的配置方式类似：
+  - AddRequestHeaderGatewayFilterFactory，添加请求头
 
     ```yml
-    
+    filters:
+    	- AddRequestHeader=foo, bar-{segment}
+    ```
+
+  - AddResponseHeaderGatewayFilterFactory，添加响应头
+
+    ```yaml
+    filters:
+        - AddResponseHeader=X-Response-Red, Blue
+    ```
+
+  - AddRequestParameterGatewayFilterFacotry，添加请求K-V参数
+
+    ```yaml
+    filters:
+        - AddRequestParameter=color, blue
+    ```
+
+  - DedupeResponseHeaderGatewayFilterFactory，删除重复响应头，有时网关和下游服务会设置相同的请求头，因此需要删除重复的ResponseHeader：
+
+    可以指定多个，使用空格分隔，并且可以指定可选参数strategy，用逗号隔开：
+
+    RETAIN_FIRES（保留第一个，即下游服务的），RETAIN_LAST(保留最后一个，即网关的)
+
+    ```yaml
+    filters:
+    	- DedupeResponseHeader= Access-Control-Allow-Credentials Access-Control-Allow-Origin ，RETAIN_FIRST
     ```
 
     
 
+    
+
+  | 工厂名                                   | 关键字（用于配置）   | 作用                                                         | 参数        |
+  | ---------------------------------------- | -------------------- | ------------------------------------------------------------ | ----------- |
+  | AddRequestHeaderGatewayFilterFactory     | AddRequestHeader     |                                                              | name，value |
+  | AddResponseHeaderGatewayFilterFactory    | AddResponseHeader    | 添加响应头                                                   | name,value  |
+  | AddRequestParameterGatewayFilterFacotry  | AddRequestParameter  | 添加请求KV参数                                               |             |
+  | DedupeResponseHeaderGatewayFilterFactory | DedupeResponseHeader | 删除重复的响应头（有时可能网关和下游服务会同时添加相同的响应头，因此就可以选择保留第一个或最后一个，默认保留第一个，即下游服务的） |             |
+  |                                          |                      |                                                              |             |
+  |                                          |                      |                                                              |             |
+
+  配置方式：
+
+  关键字=key，value
+
+  ```yml
+  spring:
+    cloud:
+      gateway:
+        routes:
+        - id: add_request_header_route
+          uri: https://example.org
+          filters:
+          - AddRequestHeader=X-Request-color, blue
+          - AddResponseHeader=X-Response-color, red
+  ```
+
+  
+
 - GlobalFilter：全局过滤器，针对所有路由转发的请求，一般用于开发者自定义，实现日志记录、网关鉴权等
-
-
 
 feign的远程调用，本质上和网关gateway没有联系，gateway只是对外进行反向代理，而feign是通过服务注册中心来进行http api的远程调用
 
