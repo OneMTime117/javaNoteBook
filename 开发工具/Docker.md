@@ -16,13 +16,13 @@
 
 ​	docker主机（Host）：安装了Docker程序的机器（安装在服务器上）
 
-​	docker客户端（Client）：通过客服端来使用docker主机
+​	docker客户端（Client）：通过客户端来使用docker主机
 
 ​	docker仓库：存放docker镜像
 
 ​	docker镜像：软件打包好的镜像
 
-​	docker容器：docker镜像启动后的实例称之为docker容器；容器时独立运行的一个应用
+​	docker容器：docker镜像启动后的实例称之为docker容器；容器是独立运行的一个应用
 
 使用docker的步骤：
 
@@ -38,10 +38,10 @@
 
 - 首先查看Centos版本，要求内核版本高于3.10  通过   **uname  -r** 进行查看
 - 版本过低时，可以通过**yum  update**  进行升级
-- 通过 yum install docker 进行docker安装
+- 通过 **yum install docker** 进行docker安装
 - 通过 **docker -v** 可以查看docker的版本号，可以检测docker是否成功安装
-- 通过**systemctl start docker** 启动docker应用程序（可以通过 systemctl enable docker 设置程序开机自启动）
-- 通过 systemctl stop docker 关闭docker应用程序
+- 通过**systemctl start docker** 启动docker应用程序（可以通过 **systemctl enable docker** 设置程序开机自启动）
+- 通过 **systemctl stop docker** 关闭docker应用程序
 
 ## 4、docker的基本使用
 
@@ -68,6 +68,8 @@
   **注意：**由于dockerHub为外网地址（https://hub.docker.com/），因此下载是需要设置docker进行加速器：
 
   对应CentOS7 可以通过修改 /etc/docker/daemon.json文件，加入{"registry-mirrors":["https://423s8foo.mirror.aliyuncs.com"]}（其中加速器地址可以通过阿里云免费获取）
+
+  
 
 - **docker images**  
 
@@ -111,21 +113,25 @@
 
   -it         i 以交互模式运行容器，t 为容器分配一个伪终端;两者一般联合使用，在容器启动的同时，进入容器进行终端操作，称之为**启动交互式容器**
 
+  -v	指定容器数据卷
+
+  --restart  always	总是伴随docker一起启动
+
 - **docker ps**  
 
   查询系统正在运行的docker容器信息
 
   列表信息如下：
 
-  | 列名         | 说明     |
-  | ------------ | -------- |
-  | CONTAINER ID | 容器ID   |
-  | IMAGE        | 镜像名   |
-  | COMMAND      |          |
-  | CREATED      |          |
-  | STATUS       | 容器状态 |
-  | PORTS        |          |
-  | NAMES        | 容器名   |
+  | 列名         | 说明                                             |
+  | ------------ | ------------------------------------------------ |
+  | CONTAINER ID | 容器ID                                           |
+  | IMAGE        | 镜像名                                           |
+  | COMMAND      | 容器启动时，执行的命令                           |
+  | CREATED      | 创建时间                                         |
+  | STATUS       | 容器状态                                         |
+  | PORTS        | 端口映射（不指定则只能本地连接，无法暴露到外网） |
+  | NAMES        | 容器名                                           |
 
   -a	查询系统正在运行的容器信息+历史运行的容器信息
 
@@ -259,7 +265,66 @@ bootFs（kernel内核）、rootFS（centos系统）、JDK、tomcat
 
 ​	容器数据卷是一个特殊的目录，单独存放在宿主机中，它可以绕过联合文件系统，为一个和多个容器提供数据，从而实现**容器间的数据共享和数据持久化**
 
-## 7、使用docker进行本地应用部署
+在**docker run**命令中，使用**-v**来指定容器数据卷：
 
-容器中的数据，是否会保存到镜像中
+**docker run  -v  宿主机目录：容器目录    镜像id**
+
+此时宿主机目录的数据和容器目录数据互通，可以实现相互读写，当然也可以设置docker容器对数据卷只能读（only reader）
+
+**docker run  -v    宿主机目录：容器目录：or	镜像id**  
+
+**docker run  --volumes-from    A容器id	镜像id**
+
+将A容器作为当前容器的数据卷容器，从而实现将A容器中的数据卷复制到当前容器中，从而实现多个容器使用同一个数据卷，挂载到宿主机的同一个目录中
+
+## 7、Dockerfile
+
+​	将一个应用、软件进行docker构建镜像时，需要有个构建文件来控制整个docker构建过程。**因此Dockerfile就是docker镜像的构建文件**
+
+- **docker  history**   镜像名
+
+  查看指定镜像的构建过程，即Dockerfile构建文件的内容
+
+- **docker  build**   -t     构建的镜像名       执行目录          
+
+  -t	用于指定构建的镜像名和tag
+
+  .	表示在当前目录下执行构建（会影响到Dockerfile文件中所使用到的相对路径）
+
+  -f	用于指定Dockerfile文件路径（不指定，则默认在执行目录下，寻找name=Dockerfile的文件）
+
+  **一般情况下，将Dockerfile文件（注意大小写）和其他需要ADD文件放在当前目录下，dockerfile内部使用相对路径，然后执行：           docker  build   -t       构建的镜像名       .**         
+
+### 1、Dockerfile文件语法特点：
+
+1、指令按照从上到下书写，每一行表示一条执行指令，没有语法结束符，并按顺序执行
+
+2、每条语句的保留字必须大写，并且格式为 ： **保留字    参数**
+
+3、在更具Dockerfile文件进行docker镜像构建时，每条语句都会创建一个中间镜像层，并层层提交覆盖
+
+4、通过**#** 进行语句注释
+
+### 2、docker相关保留字指令：
+
+| 保留字     | 使用说明                                                     |
+| ---------- | ------------------------------------------------------------ |
+| FROM       | 指定基础镜像,指定当前镜像是在哪个镜像的基础上创建的          |
+| MAINTAINER | 镜像维护者的姓名、邮箱地址                                   |
+| RUN        | 镜像构建时，需要执行的命令                                   |
+| EXPOSE     | 声明容器创建后，对外暴露的端口号（只是声明，用于告诉开发者，容器启动后应该映射的端口，并能控制-P 随机映射所暴露的端口号） |
+| WORKDIR    | 镜像运行创建容器并进入后，默认的工作目录（不指定，则为/）    |
+| ENV        | 声明变量，使用在RUN  所声明的命令中，通过**$var** 引入       |
+| ADD        | 复制指定文件，并自动进行解压缩tar包                          |
+| COPY       | 复制指定文件（一般直接使用ADD）                              |
+| VOLUME     | 指定容器创建的数据卷，但只需要指定容器目录（原因：docker在镜像构建时，并不知道当前系统目录结构，因此会使用docker默认宿主机挂载目录） |
+| CMD        | 指定容器运行时，要执行的启动命令(虽然CMD能够指定多个，但只有最后一个会生效，并且可以被docker run   命令中的  --CMD  xxxx替换) |
+| ENTRYPOINT | 指定容器运行时，要执行的启动命令（它所指定的命令会追加到  docker run 命令最后名） |
+| ONBUILD    | 为一个触发器，并不会按照顺序执行，当该镜像作为基础镜像被继承后，则会执行当前对应命令，进行一些额外的工作 |
+
+### 3、Dockerfile镜像构建案例：
+
+
+
+
 
