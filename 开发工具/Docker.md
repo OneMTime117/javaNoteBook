@@ -37,10 +37,27 @@
 ## 3、安装Docker
 
 - 首先查看Centos版本，要求内核版本高于3.10  通过   **uname  -r** 进行查看
+
 - 版本过低时，可以通过**yum  update**  进行升级
-- 通过 **yum install docker** 进行docker安装
+
+  按照yum-utils， 提供yum-config-manager功能
+
+  ```
+   yum install -y yum-utils device-mapper-persistent-data lvm2
+  ```
+
+  添加yum镜像源：
+
+  **yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo**
+
+- 通过 **yum list docker-ce --showduplicates | sort -r** 查询docker版本
+
+- 通过**yum install xxx**进行docker安装
+
 - 通过 **docker -v** 可以查看docker的版本号，可以检测docker是否成功安装
+
 - 通过**systemctl start docker** 启动docker应用程序（可以通过 **systemctl enable docker** 设置程序开机自启动）
+
 - 通过 **systemctl stop docker** 关闭docker应用程序
 
 ## 4、docker的基本使用
@@ -64,12 +81,6 @@
 - **docker pull ** 镜像名：标签名
 
   docker镜像拉取（下载）如果不指定标签名，默认拉取latest 最新版本）
-
-  **注意：**由于dockerHub为外网地址（https://hub.docker.com/），因此下载是需要设置docker进行加速器：
-
-  对应CentOS7 可以通过修改 /etc/docker/daemon.json文件，加入{"registry-mirrors":["https://423s8foo.mirror.aliyuncs.com"]}（其中加速器地址可以通过阿里云免费获取）
-
-  
 
 - **docker images**  
 
@@ -99,9 +110,9 @@
 
 #### 2.1、容器创建
 
-- **docker run **      镜像仓库名：版本号    
+- **docker run **      镜像仓库名：版本号     command（一般情况下，不在这指定命令，而使用通过Dockerfile完成）
 
-  运行镜像，从而创建出一个容器
+  运行镜像，从而创建出一个容器，并启动后，执行相应指令
 
    --name	指定容器名（没有则随机分配） 
 
@@ -211,18 +222,6 @@
 
 **对于官方docker镜像。都有使用文档进行参考，获取更多的docker命令操作**
 
-### 3、docker各种常用开发软件镜像启动规范：
-
-- mysql： docker run --name mysql01  -e MYSQL_ROOT_PASSWORD=123456  -p 3306:3360 -d   -restart always  mysql:5.5
-
-指定root用户登入的密码（否则mysql启动失败）、指定端口映射（用于访问mysql）
-
-- redis :     docker run --name redis01    -p 6379:6379 -d   --restart always  redis
-
-- zookeeper:  docker run --name zookeeper01 -p 2181:2181   -d  --restart always zookeeper
-
-  其中--restart  always 指该容器伴随docker启动，而启动
-
 ## 5、docker镜像原理
 
 ### 1、docker镜像：
@@ -309,22 +308,66 @@ bootFs（kernel内核）、rootFS（centos系统）、JDK、tomcat
 
 | 保留字     | 使用说明                                                     |
 | ---------- | ------------------------------------------------------------ |
-| FROM       | 指定基础镜像,指定当前镜像是在哪个镜像的基础上创建的          |
-| MAINTAINER | 镜像维护者的姓名、邮箱地址                                   |
-| RUN        | 镜像构建时，需要执行的命令                                   |
-| EXPOSE     | 声明容器创建后，对外暴露的端口号（只是声明，用于告诉开发者，容器启动后应该映射的端口，并能控制-P 随机映射所暴露的端口号） |
-| WORKDIR    | 镜像运行创建容器并进入后，默认的工作目录（不指定，则为/）    |
-| ENV        | 声明变量，使用在RUN  所声明的命令中，通过**$var** 引入       |
-| ADD        | 复制指定文件，并自动进行解压缩tar包                          |
-| COPY       | 复制指定文件（一般直接使用ADD）                              |
-| VOLUME     | 指定容器创建的数据卷，但只需要指定容器目录（原因：docker在镜像构建时，并不知道当前系统目录结构，因此会使用docker默认宿主机挂载目录） |
-| CMD        | 指定容器运行时，要执行的启动命令(虽然CMD能够指定多个，但只有最后一个会生效，并且可以被docker run   命令中的  --CMD  xxxx替换) |
-| ENTRYPOINT | 指定容器运行时，要执行的启动命令（它所指定的命令会追加到  docker run 命令最后名） |
-| ONBUILD    | 为一个触发器，并不会按照顺序执行，当该镜像作为基础镜像被继承后，则会执行当前对应命令，进行一些额外的工作 |
+| FROM       | 指定基础镜像,指定当前镜像是在哪个镜像的基础上创建的,FROM  centos |
+| MAINTAINER | 镜像维护者的姓名、邮箱地址,MAINTAINER   yh< xxxxx.@e-mail >  |
+| RUN        | 镜像构建时，需要执行的命令,   RUN  yum -y install vim        |
+| EXPOSE     | 声明容器创建后，对外暴露的端口号（只是声明，用于告诉开发者，容器启动后应该映射的端口，并能控制-P 随机映射所暴露的端口号,EXPOSE   8008 |
+| WORKDIR    | 镜像运行创建容器并进入后，默认的工作目录（不指定，则为/）,WORKDIR  /local |
+| ENV        | 声明变量，使用在RUN  所声明的命令中，通过**$var** 引入,ENV   path   /usr/tmp |
+| ADD        | 复制指定文件，并自动进行解压缩tar包, ADD  jdk.jar.tar    jdk.jar |
+| COPY       | 复制指定文件（一般直接使用ADD）,COPY    jdk.jar   jdk.jar    |
+| VOLUME     | 指定容器创建的数据卷，但只需要指定容器目录（原因：docker在镜像构建时，并不知道当前系统目录结构，因此会使用docker默认宿主机挂载目录）,VOLUME   /data |
+| CMD        | 指定容器运行时，要执行的启动命令(虽然CMD能够指定多个，但只有最后一个会生效，并且可以被docker run命令最后声明的命令 **所替换**),CMD ["each" "hello world"] |
+| ENTRYPOINT | 指定容器运行时，要执行的启动命令（同样，ENTRYPOINT可以指定多个，但是只有最后一个会生效，但它所指定的命令会追加到  docker run 命令最后,CMD指令前面）ENTRYPOINT ["each" "hello world"] |
+| ONBUILD    | 为一个触发器，并不会按照顺序执行，当该镜像作为基础镜像被继承构建后，则会执行当前对应命令，进行一些额外的工作 |
+
+**CMD和ENTRYPOINT书写格式：**
+
+虽然可以直接字符串形式书写（**shell格式**），但是这样在执行时，会默认在命令前面添加 **/bin/sh -c**，有时会导致命令执行错误，因此一般情况下，使用字符串数组（**exec格式**）来声明，将空格分隔的命令，作为每个单独的字符串数组元素
+
+**当启动命令需要多条时，可以使用sh脚本或者使用&&符号连接**
 
 ### 3、Dockerfile镜像构建案例：
 
+**构建springboot的jar镜像：**
+
+1、创建一个文件夹，放入jar、创建Dockerfile文件
+
+2、编写Dockerfile文件，test.jar为j对于jar文件名、app.jar为打包到镜像中的jar包文件名
+
+```dockerfile
+FROM openjdk:8
+ADD  test.jar  app.jar
+EXPOSE 8001
+ENTRYPOINT java - jar app.jar
+```
+
+3、在当前文件夹下构建镜像,system为构建的镜像名
+
+```she
+docker build  -t  system   .
+```
+
+4、运行镜像，创建容器
+
+```shell
+docker run --name system -d -p 8001:8001
+```
+
+## 8 、docker各种常用开发软件镜像启动规范：
+
+- mysql： docker run --name mysql01  -e MYSQL_ROOT_PASSWORD=123456  -p 3306:3360 -d   -restart always  mysql:5.5
+
+指定root用户登入的密码（否则mysql启动失败）、指定端口映射（用于访问mysql）
+
+- redis :     docker run --name redis01    -p 6379:6379 -d   --restart always  redis
+
+- zookeeper:  docker run --name zookeeper01 -p 2181:2181   -d  --restart always zookeeper
+
+  其中--restart  always 指该容器伴随docker启动，而启动
+
+# Jenkins
 
 
 
-
+# K8S
