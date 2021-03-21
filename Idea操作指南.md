@@ -175,7 +175,7 @@ Debug常用快捷键：
   | Ctrl + Shift + F  | 全局文件内容查找（可以指定模块）                             |
   | Ctrl + R          | 文件内容替换                                                 |
   | Ctrl + /          | 注释                                                         |
-  | Ctrl + Shift + /  | 多行注释                                                     |
+  | Ctrl + Shift + /  | 多行注释（内部新增行使，不会自动生成*，需要手动修改第一行为 /**） |
   | Ctrl + Z          | 撤销                                                         |
   | Ctrl + Shift + Z  | 取消撤销                                                     |
   | Ctrl + Shift + U  | 大小写轮换                                                   |
@@ -184,6 +184,7 @@ Debug常用快捷键：
   | Ctrl + Alt + L    | 格式化代码                                                   |
   | Ctrl + Alt + O    | 优化导包（无法确认的，需要使用Alt + Enter进行代码修复）      |
   | Ctrl + Shift + J  | 自动将下一行合并到当前行末尾（可以用于去掉空白行，全选后执行，然后格式化） |
+  | Ctrl + Alt + T    | 对选择内容进行环绕处理（try-catch、if、while。。。）         |
 
 - 窗口操作
 
@@ -195,4 +196,120 @@ Debug常用快捷键：
   | Shift + 左键     | 关闭指定文件窗口                  |
   | Ctrl + H         | 查看类的继承关系（Hierarchy窗口） |
   | ALT + 7          | 查看类结构（Structure窗口）       |
+
+## 常用代码的模板、补全：
+
+- 打印
+
+  使用后缀补全,对指定对象进行打印
+
+  ```java
+  //s.sout
+  System.out.println(s);
+  //s.souts
+  System.out.println("s = " + s);
+  //s.serr
+  System.err.println(s);
+  ```
+
+- for循环
+
+  使用后缀补全，对数组、集合、数字进行循环遍历
+
+  ```java
+  //s.for,foreach语法
+  for (String s1 : s) {
+  }
+  
+  //s.fori
+  for (int i = 0; i < s.length; i++) {
+  }
+  
+  //s.forr
+  for (int i = s.length - 1; i >= 0; i--) {
+  }
+  
+  //10.for
+  for (int i = 0; i < 10; i++) {			
+  }
+  ```
+
+- if
+
+  使用后缀补全，对boolean表达式进行if判断
+
+  ```java
+  //Objects.equals("1","2").if
+  if (Objects.equals("1","2")) {
+  }
+  
+  //Objects.equals("1","2").not
+  !Objects.equals("1","2")
+  
+  //Objects.equals("1","2").else
+  if (Objects.equals("1", "2")) {
+  }
+  ```
+
+  使用后缀补全，对对象进行是否为null的if判断
+
+  ```java
+  s.notnull
+  if (s != null) {			
+  }
+  s.null
+  if (s == null) {
+  }
+  ```
+
+- while、switch
+
+  使用后缀补全、对boolean表达式进行while语句判断
+
+  ```java
+  Iterator<String> iterator = listStr.iterator();
+  //iterator.hashNext.while
+  while (iterator.hasNext()) {
+  }
+  ```
+
+  使用后缀补全、对基本数据类型、String、枚举进行switch处理
+
+  ```java
+  //s.switch
+  switch (s) {
+  }
+  ```
+
+- 数组获取stream对象
+
+  ```java
+  //s.stream
+  Arrays.stream(s);
+  ```
+
+- xml文件中，生成
+- javaDoc
+
+​	**使用实时模板生成：**
+
+​		cdoc：class doc
+
+​		mdoc：method doc
+
+- main方法
+
+​	**使用实时模板生成：**
+
+​		main：main方法
+
+​		mains：springBoot的main方法
+
+- XML中生成<![CDATA[ ]]>标签
+
+  **使用实时模板生成：**
+
+  ​	cd：在xml文件中生成<![CDATA[ ]]>标签
+
+
 
