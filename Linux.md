@@ -904,11 +904,7 @@ ls -l |grep ^-	|wc -l
 ls -l |grep ^d	|wc -l
 ```
 
-**1、指令别名**
-
-**2、ctrlC\ctrlD\ctrlV\ctrlZ\table**
-
-# 3、配置
+# 3、进程管理
 
 # 4、开发环境搭建
 
@@ -917,3 +913,7 @@ ls -l |grep ^d	|wc -l
 # 6、系统调优
 
 # 7、深入理解Linux内核
+
+**1、指令别名**
+
+**2、ctrlC\ctrlD\ctrlV\ctrlZ\table**
