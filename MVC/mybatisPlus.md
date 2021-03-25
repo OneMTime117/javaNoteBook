@@ -21,11 +21,12 @@ MyBatis-Plus是myBatis的增强工具，在MyBaits的基础上只做增强不做
 
 mybatis-plus支持springboot的快速启动：
 
+- 需要提供springboot父pom文件
+
 ```xml
     <dependency>
         <groupId>com.baomidou</groupId>
         <artifactId>mybatis-plus-boot-starter</artifactId>
-        <version>Latest Version</version>
     </dependency>
 ```
 
