@@ -314,3 +314,17 @@ Debug常用快捷键：
 
 
 
+# idea常用插件：
+
+1、MyBatisCodeHelperPro
+
+2、mybatis log
+
+3、lombok
+
+4、Grep console
+
+**power_mode_II**：代码特效
+
+**Alibaba Java Coding Guidelines**：阿里巴巴公司试行的开发设计规范
+
