@@ -1,3 +1,5 @@
+
+
 # Docker
 
 ## 1、什么是Docker
@@ -59,6 +61,16 @@
 - 通过**systemctl start docker** 启动docker应用程序（可以通过 **systemctl enable docker** 设置程序开机自启动）
 
 - 通过 **systemctl stop docker** 关闭docker应用程序
+
+- 设置docker镜像加速器，添加/etc/docker/daemon.json（Linux）文件
+
+  ```json
+  {
+    "registry-mirrors": ["https://docker.mirrors.ustc.edu.cn"]
+  }
+  ```
+
+  
 
 ## 4、docker的基本使用
 
@@ -356,7 +368,7 @@ docker run --name system -d -p 8001:8001
 
 ## 8 、docker各种常用开发软件镜像启动规范：
 
-- mysql： docker run --name mysql01  -e MYSQL_ROOT_PASSWORD=123456  -p 3306:3360 -d   -restart always  mysql:5.5
+- mysql： docker run --name mysql01  -e MYSQL_ROOT_PASSWORD=123456  -p 3306:3306 -d   --restart always  mysql
 
 指定root用户登入的密码（否则mysql启动失败）、指定端口映射（用于访问mysql）
 

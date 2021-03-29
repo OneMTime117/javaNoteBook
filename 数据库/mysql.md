@@ -304,7 +304,7 @@ index（name）、index（name，password）、index（name，password，age）
 
 设置客户端查询数据的字符集：  set names utf8（控制台打印使用的GBK编码，因此每次进入数据库默认GBK，修改为utf8时乱码）
 
-GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'password' WITH GRANT OPTION  允许任意主机IP使用root账号访问（mysql默认root账号只能为localhost；也可以注释mysql.cnf文件中的bind-address字段）
+GRANT ALL PRIVILEGES ON  *.*  TO 'root'@'%' IDENTIFIED BY 'password' WITH GRANT OPTION  允许任意主机IP使用root账号访问（mysql默认root账号只能为localhost；也可以注释mysql.cnf文件中的bind-address字段）
 
 通过 select user,host from user 可以查看当前所有账号，允许使用的ip；%代表所有
 
