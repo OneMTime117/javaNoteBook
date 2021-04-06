@@ -407,7 +407,7 @@ springMVC提供多个默认HttpMessageConverter，常用有两个：
 
 1、我们可以通过@RequestMapping的Produces属性，来控制跳过StringHttpMessageConverter，选择MappingJackson2HttpMessageConverter进行处理；
 
-2、StringHttpMessageConverter的supportedMediaTypes属性为“application/json；charset=UTF-8”
+2、设置StringHttpMessageConverter的supportedMediaTypes属性为“application/json；charset=UTF-8”
 
 ##### 映射注解
 
