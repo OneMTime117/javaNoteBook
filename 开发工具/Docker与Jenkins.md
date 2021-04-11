@@ -1,3 +1,5 @@
+
+
 # Docker
 
 ## 1、什么是Docker
@@ -59,6 +61,16 @@
 - 通过**systemctl start docker** 启动docker应用程序（可以通过 **systemctl enable docker** 设置程序开机自启动）
 
 - 通过 **systemctl stop docker** 关闭docker应用程序
+
+- 设置docker镜像加速器，添加/etc/docker/daemon.json（Linux）文件
+
+  ```json
+  {
+    "registry-mirrors": ["https://docker.mirrors.ustc.edu.cn"]
+  }
+  ```
+
+  
 
 ## 4、docker的基本使用
 
@@ -356,7 +368,7 @@ docker run --name system -d -p 8001:8001
 
 ## 8 、docker各种常用开发软件镜像启动规范：
 
-- mysql： docker run --name mysql01  -e MYSQL_ROOT_PASSWORD=123456  -p 3306:3360 -d   -restart always  mysql:5.5
+- mysql： docker run --name mysql01  -e MYSQL_ROOT_PASSWORD=123456  -p 3306:3306 -d   --restart always  mysql
 
 指定root用户登入的密码（否则mysql启动失败）、指定端口映射（用于访问mysql）
 
@@ -367,6 +379,49 @@ docker run --name system -d -p 8001:8001
   其中--restart  always 指该容器伴随docker启动，而启动
 
 # Jenkins
+
+## 1、基本概念
+
+**CI持续集成（Continuous Integration）：**
+
+​	频繁的将代码集成到主干上，并通过自动化构建和测试来验证合并后代码的正确性
+
+优点：
+
+- 快速发现错误，每当有新的更新时，直接自动集成到主干，可以快速发现错误或冲突
+- 防止分支长久未合并，大幅偏离主干，而加大代码集成合并难度
+
+**CD持续交付（Continuous Delivery）：**
+
+​	**包含了持续集成的过程**，在进行代码的构建和测试后，将正确健康的代码进行自动打包，并发布的指定存储库。交付给运维团队进行相应环境的部署（部署需要手动完成）
+
+**CD持续部署（Continuous Deloyment）：**
+
+​	**包含了持续交付过程**，并自动将应用部署到相应环境，从而实现开发人员对代码进行更新后，几分钟内直接进行部署
+
+**Jenkins就是实现CI/CD流水线的自动化工具，实现应用的轻松部署，减少重复性工作**
+
+## 2、Jenkins工作流程
+
+1、开发人员提交代码到git仓库
+
+2、Jenkins通过在git上的钩子程序，监测到代码的提交，从而配置JDK\Maven对代码进行编译、测试、打包
+
+3、Jenkins然后将打包好的应用分发部署到测试服务器/生成服务器上，提供给测试人员/用户使用
+
+因此Jenkins作为实现CI/CD自动化工具，实际上需要借助git、Maven、和应用部署工具来完成整个工作流程
+
+## 3、Jenkins环境搭建
+
+### 1、GitLab
+
+​	GitLab是一个基于git作为代码管理工具的开源仓库管理系统，类似于GitHub，区别是可以部署在本地服务器上，将所有代码掌握在自己手中，适合公司团队内部协作开发
+
+​	**个人使用则可以用GitHub代替**
+
+### 2、Jenkins安装、配置
+
+**使用docker镜像安装**
 
 
 

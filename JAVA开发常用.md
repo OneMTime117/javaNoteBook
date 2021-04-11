@@ -1769,6 +1769,8 @@ lombok是简化java开发代码编写的一个java库。通过添加注解的方
 
 @NoAragsConstructor 注解在类上，生成无参构造方法
 
+@AllArgsConstructor 注解在类，生成全参构造器
+
 ### lombok实现原理：
 
 实际上是在javac执行之前，添加对应Lombok的语法树，并进行修改；之后添加到class文件的相应节点（代码块）

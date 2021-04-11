@@ -108,42 +108,15 @@ pom.xml常用标签：
 </project>
 ````
 
+## 2、maven的配置文件 setting.xml:
 
-
-## 2、maven的配置文件 setting.xml,常用配置:
-
-````java
-<localRepository>D:\JAVA\maven-localRepository</localRepository>//设置本地仓库路径
-    
-<mirrors> //使用阿里云镜像，进行远程仓库jar下载
-  <mirror>             
-  <id>alimaven</id>             
-  <name>aliyun maven</name>             
-  <url>http://maven.aliyun.com/nexus/content/groups/public/</url>             
-  <mirrorOf>central</mirrorOf>         
-  </mirror> 
- </mirrors>
- 
- //配置默认环境下，项目使用jdk1.8
-<profiles> 
-  <profile>  
-    <id>jdk-1.8</id>  
-    <activation>  
-    <activeByDefault>true</activeByDefault>  
-    <jdk>1.8</jdk>  
-    </activation>  
-    <properties>  
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target> 
-    <maven.compiler.compilerVersion>1.8</maven.compiler.compilerVersion>  
-    </properties>
- </profile>  
-</profiles>
-````
-
-#### 3、maven仓库：
+### 2.1、maven仓库：
 
 仓库分为：本地仓库、中央仓库、远程仓库
+
+仓库访问顺序：本地仓库  > 中央仓库 >远程仓库 >找不到时抛开异常    **仓库镜像会拦截指定仓库的访问**
+
+#### 2.1.1、本地仓库：
 
 本地仓库：用于保存从远程仓库下载的jar包，给项目使用（在pom文件中添加依赖时，会先扫描本地仓库，没有在到远程仓库下载）
 
@@ -153,28 +126,87 @@ pom.xml常用标签：
 <localRepository>D:\JAVA\maven-localRepository</localRepository>
 ````
 
+#### 2.1.2、中央仓库
+
 中央仓库：为maven社区管理的公共远程仓库，提供绝大部分流行开源的java构件，但在由于在国外，下载速度慢
 
-远程仓库：用于开发人员自己定义的仓库，便于其他人使用；如阿里云（Aliyun）远程仓库就是国内比较著名的公共远程仓库（推荐以该仓库作为maven的默认远程仓库）
+通过在setting.xml中添加mirrors（仓库镜像）节点,可以实现对中央仓库的镜像下载：
 
-通过在setting.xml中添加mirrors（仓库镜像）节点来实现
+- mirror相当于一个拦截器，拦截maven对远程仓库的依赖下载请求，而转发到指定地址的远程仓库中，去下载jar包
+- mirrorOf，表示拦截返回，central代表中央仓库，即拦截中央仓库的下载请求
+- mirror可以设置多个，
 
- ````java
- <mirrors>
-  <mirror>             
-  <id>alimaven</id>             
-  <name>aliyun maven</name>             
-  <url>http://maven.aliyun.com/nexus/content/groups/public/</url>             
-  <mirrorOf>central</mirrorOf>         
-  </mirror> 
-  </mirrors>
- ````
+```xml
+<mirrors>
+  	<mirror>             
+  	<id>alimaven</id>             
+  	<name>aliyun maven</name>             
+  	<url>http://maven.aliyun.com/nexus/content/groups/public/</url>             
+  	<mirrorOf>central</mirrorOf>         
+  	</mirror> 
+</mirrors>
+```
 
-mirrors节点可以拦截访问指定 < mirrorOf>central< /mirrorOf> id为central的仓库（中央仓库），从而转向访问mirror节点指定的远程仓库。达到替换默认远程仓库（中央仓库）的作用
+#### 2.1.3、远程仓库
 
-远程仓库可以通过< repositories>依赖远程仓库、< pluginRepositories>插件远程仓库两个标签，在pom.xml和setting.xml中配置；**但pom.xml配置的优先级高（此时setting.xml直接不生效）**
+远程仓库：用于开发人员自己定义的仓库，便于其他人使用；如阿里云（Aliyun）远程仓库就是国内比较著名的公共远程仓库
 
-仓库访问顺序：本地仓库  > 中央仓库 >远程仓库 >找不到时抛开异常    **仓库镜像会拦截指定id仓库的访问**
+远程仓库可以通过 repositories， pluginRepositories两个标签进行设置：
+
+```xml
+<repositories>
+	<repository>
+		<id>nexus</id>
+		<url>http://mvn.onesport.com.cn/nexus/content/groups/public/</url>
+		<releases>
+			<enabled>true</enabled>
+			<updatePolicy>never</updatePolicy>
+		</releases>
+			<snapshots>
+				<enabled>true</enabled>
+				<updatePolicy>always</updatePolicy>
+			</snapshots>
+		</repository>
+</repositories>
+
+<pluginRepositories>
+	<pluginRepository>
+		<id>nexus</id>
+		<url>http://mvn.onesport.com.cn/nexus/content/groups/public/</url>
+		<releases>
+			<enabled>true</enabled>
+		</releases>
+		<snapshots>
+			<enabled>true</enabled>
+			<updatePolicy>always</updatePolicy>
+		</snapshots>
+	</pluginRepository>
+</pluginRepositories>
+```
+
+### 2.2、maven环境参数配置：
+
+​	在setting.xml中，使用profile在不同环境参数下的设置配置信息：
+
+```java
+ 		//配置默认环境下，项目使用jdk1.8
+		<profile>
+			<id>jdk-1.8</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+				<jdk>1.8</jdk>
+			</activation>
+			<properties>
+				<maven.compiler.source>1.8</maven.compiler.source>
+				<maven.compiler.target>1.8</maven.compiler.target>
+				<maven.compiler.compilerVersion>1.8</maven.compiler.compilerVersion>
+			</properties>
+		</profile>
+```
+
+- activation  用于激活当前配置
+- properties 设置指定参数
+- 也可以使用repositories， pluginRepositories，在profile 内部进行远程仓库的配置，从而实现不同环境下，切换不同远程仓库
 
 ## 4、maven插件
 

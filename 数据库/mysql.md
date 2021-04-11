@@ -61,7 +61,7 @@ time：‘HH:MM:SS’,长度自定义，用于限制s后面的小数点位数，
 
 **datetime：‘YYYY-MM-DD HH:MM:SS’，最常使用的日期格式，8个字节存储，长度一般为0（和time一致）**
 
-timestamp：格式和datetime一样，4个字节存储，存储时间范围小一点，并且存储的时间会根据当前时区将其转化为UTC（时间标准时间）格式保存，进行查询时，会根据查询系统的当前时区进行转化。
+timestamp：格式和datetime一样，4个字节存储，存储时间范围小一点，并且存储的时间会根据当前时区将其转化为UTC（时间标准时间）格式保存，进行查询时，会根据查询系统的当前时区进行转化
 
 ​	4、常用字符串类型
 
@@ -304,7 +304,7 @@ index（name）、index（name，password）、index（name，password，age）
 
 设置客户端查询数据的字符集：  set names utf8（控制台打印使用的GBK编码，因此每次进入数据库默认GBK，修改为utf8时乱码）
 
-GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'password' WITH GRANT OPTION  允许任意主机IP使用root账号访问（mysql默认root账号只能为localhost；也可以注释mysql.cnf文件中的bind-address字段）
+GRANT ALL PRIVILEGES ON  *.*  TO 'root'@'%' IDENTIFIED BY 'password' WITH GRANT OPTION  允许任意主机IP使用root账号访问（mysql默认root账号只能为localhost；也可以注释mysql.cnf文件中的bind-address字段）
 
 通过 select user,host from user 可以查看当前所有账号，允许使用的ip；%代表所有
 

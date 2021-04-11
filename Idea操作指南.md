@@ -29,7 +29,7 @@
 
 - Project窗口
 
-  idea中，并没有工作空间这个概念，一个project项目就是要给windows窗口，其次以及就是Module模块，这种工程项目思想来源于微服务架构，因此一般情况下，即使要给项目也是通过构建Module来完成
+  idea中，并没有工作空间这个概念，一个project项目就是一个windows窗口，其次以及就是Module模块，这种工程项目思想来源于微服务架构，因此一般情况下，即使一个项目也是通过构建Module来完成
 
   - 在project项目创建后，会自动生成.idea目录，当前project的配置文件目录
 
@@ -58,7 +58,7 @@ idea默认自动保存，但是并不会实时编译，需要进行手动编译�
 
 - 设置git的执行路径：一般情况下，idea安装后会自动找到git.exe路径
 - commit 提交设置：
-  - beforeCommit  >>> Optimize imports           提交前重新导包
+  - beforeCommit  >>> Reformat code、Optimize imports           提交前格式化代码、重新导包
 
 - confirmation  确认设置
   - 当有新文件创建、文件被删除时，是否询问进行版本控制
@@ -106,7 +106,7 @@ Live Template编写：
 
 ## Debug调试
 
-​	在Debugger配置中，设置传输类型：Shared memory（相对于socket更快
+​	在Debugger配置中，设置传输类型：Shared memory（相对于socket更快）
 
 Debug常用快捷键：
 
@@ -311,8 +311,6 @@ Debug常用快捷键：
   **使用实时模板生成：**
 
   ​	cd：在xml文件中生成<![CDATA[ ]]>标签
-
-
 
 # idea常用插件：
 
