@@ -906,7 +906,248 @@ ls -l |grep ^d	|wc -l
 
 # 3、进程管理
 
-# 4、开发环境搭建
+## 1、Linux进程基本概念
+
+1、每一个执行的程序、代码都称之为一个进程，每个进程都分配一个ID号
+
+2、每个进程都对应要给父进程，一个父进程可以有多个子进程
+
+3、进程存在的方式有两种：前台和后台，前台进程用户可以直接在屏幕上看到并操作；后台进程则无法显示在屏幕中，以后台方式执行
+
+4、一般系统服务都是以后台进程方式存在，知道系统关机时才结束运行
+
+## 2、基本进程指令
+
+- **PS指令**
+
+  ps	[选项]	查看当前终端下，正在执行的进程信息（**process 运行、进程**）
+
+  进程信息：
+
+  | 字段 | 说明                                                         |
+  | ---- | ------------------------------------------------------------ |
+  | PID  | 进程识别号（唯一id）                                         |
+  | TTY  | 终端机号（远程或本地操作系统的终端窗口唯一id），**Teletype**电传打字机，用于输入指令字符的设备，本地tty也叫做控制台（console） |
+  | TIME | 进程所消耗CPU的执行时间                                      |
+  | CMD  | 当前进程所执行的命令（指令代码）或进程名（程序），（太长会被截取） |
+
+  -a	显示当前终端下的所有进程信息（包括其他用户的程序）
+
+  -u	以用户格式显示进程信息（会显示额外信息：用户名user、占用CPU量CPU、占用内存量MEM、虚拟内存量VSZ、物理内存量RSS、进程状态STA（s表示休眠、r表示运行））
+
+  -x	显示额外没有控制终端的进程
+
+  **一般情况下，我们只需要查看指定进程的状态，因此需要配置| grep管道符+过滤指令，来筛选：**
+
+  **ps	-aux	|grep	xxx**
+
+  **ps	-ef	用于查看所有进程，并且显示其父进程**
+
+- **kill、killall指令**
+
+  kill	[选项]	用于通过进程号杀死进程
+
+  killall	进程名	用于通过进程名杀死进程，且支持通配符，一次性杀死多个满足匹配条件的进程
+
+  -9	强制杀死进程
+
+- **pstree指令**
+
+  pstree	[选项]	以树形图方式查看进程信息
+
+  -p	显示进程pid
+
+  -u	显示进程所属用户
+
+## 3、服务管理指令
+
+​	服务也是一种进程，运行在后台中，也称之为守护进程
+
+### 1、Linux系统启动过程
+
+- 内核引导，BIOS进行开启自检，启动设置，之后引入硬盘中/boot目录下的内核文件
+- 运行init进程，确定系统的运行级别
+- 系统初始化，根据init进程运行的脚本，完成系统的初始化
+- 建立终端
+- 用户登录系统
+
+对应init进程，在CentOS不同版本中，也对应不同：
+
+- CentOS5，使用SystemV
+- CentOS7，使用Systemd
+
+### 2、SystemV下的服务管理
+
+**service指令：**
+
+​	service	服务名	start|stop|restart|reload|status	服务启动、停止、重启、重新加载配置文件、服务状态查询
+
+**chkconfig指令：**
+
+​	chkconfig	--list	显示所有SysV服务在每个级别下的自启动状态（check  config）
+
+​	chkconfig	--level	5	服务名	on/off	指定服务在5运行级别下的自启动状态
+
+### 3、Systemd介绍
+
+**1、由来**
+
+​	Linux的启动采用init的进程（SystemV）来完成，但这样会有两个缺点：
+
+- 启动时间长，init进程的代码是串行执行的，执行时间长
+
+- 启动脚本复杂，init进程本质上就是执行了一段启动脚本，因此如果需要进行一些特殊处理，则要编写很长的脚本
+
+  因此Systemd就由此诞生，它设计目标就是为系统的启动和管理，提供一套完整的解决方案；d是守护进程（daemon）的缩写，Systemd，就是系统的守护进程，成为系统的第一个进程（PID为1），而后面运行所有的进程，都是它的子进程
+
+**2、特点：**
+
+​	Systemd功能强大，使用方便，但是体系庞大复杂，与操作系统的其他部分耦合性很高，违反了keep simple, keep stupid的Unix 哲学
+
+​	Systemd将所有脚本称之为unit，分为12类：service、socket、target、path...,并且提供对这些脚本执行的管理操作；每个unit都有一个配置文件，来告诉systemd如何启动；systemd默认从目录**/etc/systemd/system/**读取配置文件，而该目录中大部分都为符号连接（软连接），真正的配置文件存放在**/usr/lib/system/system/**中，而**自启动命令的作用就是创建两者的软连接**，因此自启动不会受默认target的影响
+
+**3、Systemd常用指令：**
+
+**Systemctl**就是Systemd的主命令，用于管理系统资源（Unit）:
+
+- systemctl         [command]         [unit]	管理指定unit
+
+command主要有：
+
+| command                        | 作用                                                    |
+| ------------------------------ | ------------------------------------------------------- |
+| start/stop/restart/reload/kill | 开启、停止、重启、重载、杀死                            |
+| enable/disable                 | 开机自启动开启或停止（Systemd中不存在系统不同运行级别） |
+| status                         | 状态                                                    |
+| show                           | 查看unit底层参数                                        |
+| is-active                      | 是否运行                                                |
+| is-enabled                     | 是否自启动                                              |
+
+- systemctl	list-units	[选项]	查看所有unit列表
+
+  --all	列出所有unit，包括启动失败的
+
+  --type=unit	列出所有service类型的unit
+
+- systemctl有关target类型的单位操作
+
+  target就是unit组，包含了需要unit，也就对应了SystemV中的7个运行级别，但是**在设计上，System中7中运行级别是互斥的，但Systemd中的target可以同时指定一起启动**
+
+  systemctl	get-default	获取系统的默认启动组
+
+  systemctl	list-units	--type=target	查询系统所有target
+
+  systemctl	set-default	xxx.target	设置系统默认启动组
+
+  systemctl	isolate	xxx.target	切换组，并关闭前一个组中不需要启动的unit
+
+### 4、CentOS7常用服务
+
+- firewall.service	防火墙（IP、端口管理）
+- sshd.service         SSH远程连接
+- network.service          网络管理（其指令ifconfig，查看当前网络状态）
+
+### 5、常用进程监控指令
+
+- **top指令**
+
+  top	[选项]	和ps指令类似，用于显示正在执行的进程信息，但是top可以进行动态监控，实时更新当前进程状态（**提供整体系统的运行状态**）
+
+  -d	指定top命令每隔几秒更新执行，默认3秒
+
+  -i	top不再显示任何停止（stopped）或僵死（zombie）的进程
+
+  -p	指定pid，动态监控某个进程的状态
+
+  top进行动态监控数据展示时，提供交互操作：
+
+  P	以cpu使用率排序
+
+  M	以内存使用率排序
+
+  N	以PID排序
+
+  q	推出top动态监控
+
+- **netstat指令（属于network服务指令)**
+
+  netstat	[选项]	监控系统所有网络服务状态，即需要暴露监听端口的服务（net status）
+
+  -a	所有tcp、udp、unix网络连接
+
+  -at	所有tcp网络连接
+
+  -p	额外展示PID和服务名
+
+  -n	显示端口号，而不是用服务名代替
+
+  因此一般情况下，使用:
+
+  ```shell
+  netstat	-atpn
+  ```
+
+  打印的数据中，0.0.0.0表示所有IVP4地址，：：：：表示所有IVP6地址
+
+# 4、软件包管理
+
+## 1、RPM
+
+​	RPM，即RedHat Package Manager,红帽软件包管理工具，用于互联网下载包的打包和安装工具，生成或执行.RPM拓展文件。被广泛用于Linux发行版本中，已成为行业标准
+
+该工具的常用指令：
+
+### 1、查看（-q query）
+
+- rpm	-qa	查看系统中已安装的所有RPM包（一般情况下，会使用|grep 过滤）
+
+查询信息会显示RPM包的包名、版本和适合的系统版本,如：
+
+```shell
+docker-ce-cli-20.10.5-3.el7.x86_64
+```
+
+- rpm          -q	软件包名	查询系统是否安装该软件
+- rpm          -qi       软件包名         查询系统是否安装该软件，如果安装则显示具体的安装信息和软件包信息
+- rpm           -ql        文件名           查看当前文件属于哪个RPM包的文件
+
+### 2、卸载（-e erase）
+
+- rpm	-e	软件包名	卸载指定软件包（如果当前软件包依赖于其他时，会报错）
+- rpm         -e       --nodeps      软件包         忽略依赖关系，强制卸载（一般不会使用）
+
+### 3、安装（-ivh）
+
+- rpm	-ivh	软件包路径	install安装、verboset提示、hash进度
+
+## 2、YUM
+
+​	yum（ Yellow dog Updater, Modified），是一个Shell前端软件包管理器（前端即支持图形化界面），基于RPM包管理工具之上，从指定的服务器自动下载RPM包并且安装，同时自动处理RPM包的依赖关系，保证一次性安装所有依赖的RPM包
+
+### 1、yum基本指令
+
+- yum	list	从yum服务器中，查询所有RPM包（一般情况下，搭配|grep过滤）
+- yum        install        RPM包           下载安装指定的RPM包
+
+### 2、yum实际开发场景中的配置
+
+1、对yum进行更新，保证能获取到最新的RPM包
+
+```shell
+yum  update
+```
+
+2、安装yum-utils，提供添加yum服务器镜像源功能(yum-config-manager)
+
+```shell
+yum install -y yum-utils
+
+yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo           //添加aliyun的yum服务器镜像
+```
+
+# 5、开发环境搭建
+
+
 
 # 5、shell脚本
 
