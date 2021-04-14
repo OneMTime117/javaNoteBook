@@ -144,20 +144,20 @@ VMware虚拟机提供工具，来方便Linux系统的基本操作：
 - /sbin       SuperUser Binary，用于存放系统管理员权限（Root）使用的程序
 - /home    存放每个普通用户的主目录，并且目录名为该用户名
 - /root       系统管理员主目录
-- /lib           系统所需要的所有动态连接库，几乎所有Linux程序都会用到
-- /etc          所有系统管理所需要的配置文件
-- /usr          存放系统程序的安装文件
+- /lib           library，系统所需要的所有动态连接库，几乎所有Linux程序都会用到
+- /etc         etcetra（附加）， 所有系统管理所需要的配置文件
+- /usr          unix  system  resource,存放系统程序的安装文件
 - /boot        存放启动Linux时的核心文件
-- /proc        系统内存映射，是一个虚拟目录
+- /proc       process 系统内存映射，是一个虚拟目录
 - /srv           service，存放服务启动后需要读取的数据
-- /sys          系统文件
-- /tmp         存放临时文件
-- /dev          设备目录，将所有设备以文件形式进行存储（类似于window设备管理器）
+- /sys          system，系统文件
+- /tmp         temp，存放临时文件
+- /dev          device，设备目录，将所有设备以文件形式进行存储（类似于window设备管理器）
 - /media      自动挂载目录，当识别外部设备（U盘、光驱），则将在该目录下临时挂载文件
-- /mnt          手动挂载目录，用于给用户手动挂载
-- /opt            存放软件安装包
-- /usr/local   存放非自代软件的安装文件
-- /var             用于存放不断变化的文件，如日志文件
+- /mnt          mount（挂载）,手动挂载目录，用于给用户手动挂载
+- /opt            optional（可选择的），存放软件安装包
+- /usr/local   存放非自带软件的安装文件
+- /var             variable，用于存放不断变化的文件，如日志文件
 - /selinux      security-enhanced Linux，存放安全系统
 
 **注意：**
@@ -733,13 +733,15 @@ ls  -al展示当前目录下所有文件、目录,包括隐藏文件，并且以
 
 一般情况下，打包和压缩同时进r行，因此一般都是操作的*.tar.gz文件：
 
+**注意：cz、zx的顺序有严格要求，即先打包后压缩、先解压后解包**
+
 打包压缩文件
 
 ​	tar	-cvfz	myhome.tar.gz	/home
 
 解压、解包tar.gz：
 
-​	tar	-xvfz	myhome.tar.gz
+​	tar	-zxvf	myhome.tar.gz                    
 
 ​	**在整个解压指令结尾，可以添加	-C	/home来指定解压后，文件存放的目录（需要保证该目录存在）**
 
@@ -1127,7 +1129,10 @@ docker-ce-cli-20.10.5-3.el7.x86_64
 ### 1、yum基本指令
 
 - yum	list	从yum服务器中，查询所有RPM包（一般情况下，搭配|grep过滤）
+- yum       search       RPM包         和list类似，不需要使用|grep过滤
 - yum        install        RPM包           下载安装指定的RPM包
+- yum         list        installed      获取已安装的所有RPM包（一般情况下，搭配|grep过滤）
+- yum         remove        RPM包          卸载指定RPM包
 
 ### 2、yum实际开发场景中的配置
 
@@ -1147,9 +1152,74 @@ yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/d
 
 # 5、开发环境搭建
 
+**Linux进行安装软件有两种方式：**
 
+- 使用yum，下载对应RPM包
+
+  - 优点：安装快捷方便，不需要进行额外配置
+  - 缺点：只能选择yum服务器上现有的最新版本
+
+- 在官网下载对应版本的.tar.gz 压缩包，进行解压和运行环境配置
+
+  - 优点：可以随意选择指定版本
+
+  - 缺点：需要手动解压、配置
+
+## 1、JAVAEE开发环境
+
+### 1、JDK1.8
+
+- yum安装：
+
+  使用YUM按照JDK开发环境，即**java-1.8.0-openjdk-devel.x86_64**,他会以来下其他rpm包：
+
+  - **java-1.8.0-openjdk-headless.x86_64**	用于支持headless模式，通过headless工具包，实现对图像、文本、声音的操作
+  -  **java-1.8.0-openjdk .x86_64**              JDK运行环境，即JRE
+  - **copy-jdk-configs**                   JDK相关配置
+
+  安装后，默认保存在**/usr/lib/jvm**下，可以直接使用（java、javac、java -version）
+
+  ```java
+  yum search java-1.8
+      
+  yum install java-1.8.0-openjdk-devel.x86_64
+  ```
+
+- .tar.gz 压缩包安装：
+
+  配置Linux环境变量，修改**/etc/profile文件**，添加如下环境变量：
+
+  ```java
+  export JAVA_HOME=/opt/jdk1.8            //为jdk软件压缩包解压后的文件目录
+  export PATH=$PATH:/opt/jdk1.8/bin	//配置path,$用于引入之前的path，：为分隔符，在后面追加JDK的path	
+  ```
+
+
+### 2、Tomcat
+
+​	tomcat根据所支持的servlet、jdk版本，会有多种选择，一般情况下都会在官网下tar.gz包：
+
+​	**tomcat9，支持JDK8即以上、servlet3.1；**
+
+- 启动tomcat：
+
+  进入到bin目录下，执行startup.sh脚本
+
+  ```java
+  ./ startup.sh  在当前目录下，搜索执行指定脚本，如果不指定目录，则默认在环境变量Path下查找
+  ```
+
+  此时就可以使用 ip：8080访问tomcat页面（注意需要开放端口）
+
+### 3、Mysql
+
+​	**mysql使用docker进行安装**
+
+由于各种软件包安装都需要进行配置，因此通过使用docker容器化技术，能够有效减少这一部分的工作，并且方便软件管理（更适合应用服务部署）
 
 # 5、shell脚本
+
+
 
 # 6、系统调优
 
