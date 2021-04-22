@@ -28,7 +28,7 @@
 
 缺点：
 
-1、由于全自动，也因此带来了sql无法优化、复杂sql无法实现的问题（因此提供了一个HSQL语句方式，来实现自己定制sql，但这也带来了学习新sql语句的负担）
+1、由于全自动，也因此带来了sql无法优化、复杂sql无法实现的问题（因此提供了一个HSQL语法，实现定制化sql，但这也带来了学习新sql语句的负担）
 
 2、全字段映射，导致表字段过大时，只能一次性映射所有字段，无法选择单个字段映射，大大增加程序运行的额外负载（或者使用HSQL来手动获取）
 
@@ -36,7 +36,7 @@
 
 ### 2、spring data jpa：
 
-​		是spring提供的一套简化JPA开发的框架，相当于是在JPA的基础上，进行接口抽象封装，通过Hibernate的JPA技术进行部分实现，既能独立完成JDBC操作，又可以整合其他遵循JPA规范的ORM框架**(在整合mybatis时，其实两种没有联系，只是各自完整自己的sql执行工作)**
+​		是spring提供的一套简化JPA开发的框架，相当于是在JPA的基础上，进行接口抽象封装，通过Hibernate的JPA技术进行部分实现，既能独立完成JDBC操作，又可以整合其他遵循JPA规范的ORM框架**(在整合mybatis时，其实两种没有联系，只是各自完成自己的sql执行工作)**
 
 ​		spring data jpa通过dao层Repository接口方法的命名规范，来规定方法对应的CRUD操作，并提供分页、排序、自定义使用定制sql；可以在不改变代码的情况下，直接整合其他实现jpa规范的ORM框架（本身已经整合了hibernate的JPA模块部分，但没有hibernate性能强大，单纯的只解决了ORM，但没有实现缓存、不同数据库平台的兼容等）
 
@@ -56,16 +56,18 @@
 
 5、mybatis完全支持存储过程，而其他ORM框架不能太好的兼容
 
-### 4、spring data jdbc和JdbcTemplate：不属于ORM框架
+### 4、spring data jdbc和JdbcTemplate：
+
+​	两者，都不属于ORM框架，只是对jdbc进行封装，简化jdbc操作，没有完整的ORM体系和缓存等功能
 
 ## 3、mybatis的使用：
 
 ### 1、mybatis配置使用过程（整合spring）：
 
 1. 在spring容器的配置文件中，配置数据源、JDBC连接池和JDBC事务管理器
-2. 通过数据源来创建mybatis的sqlSessionFactory、sqlSessionTemplate对象
-3. 配置mybatis mapper接口扫描器，指定获取mapperProxy对象使用的sqlSessionTemplate对象
-4. 创建mapper接口对应的数据映射器，mybatis支持使用注解和XML两种方式进行配置创建映射器；**当两种同时使用时，XML方式会覆盖掉注解方式**
+2. 通过数据源来创建mybatis的sqlSessionFactory、sqlSession对象
+3. 创建mapper接口、和对应的数据映射器，mybatis支持使用注解和XML两种方式进行配置创建映射器；**当两种同时使用时，XML方式会覆盖掉注解方式**
+4. 配置mybatis mapper接口扫描器，获取所有mapper接口，注入到spring容器
 5. 使用spring容器依赖注入mapper接口实现类mapperProxy，进行方法调用，从而实现ORM
 
 ### 2、mybatis的数据映射器的两种配置方式(不整合spring)：
@@ -205,6 +207,8 @@ SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(confi
 
 2、mybatis-config.xml根标签 < configuration > 下的子标签配置：
 
+**所有标签是固定顺序的，严格按照下面顺序排序编写**
+
 ### properties标签：
 
 mybatis可以使用properties文件来进行外部属性配置
@@ -278,15 +282,15 @@ mybaits类型处理器，进行java类型和数据库数据类型的转化，从
 
 ### plugins标签：
 
-mybatis插件，mybatis允许开发者手动拦截内部映射的关键方法，在其前后进行一定的代码处理，从而更底层的自定义映射规则，主要包括四个对象的执行方法：
+mybatis插件，mybatis允许开发者手动拦截内部映射的关键方法，在其前后进行一定的代码处理，从而定义更底层的sql执行、映射规则，主要包括四个对象的执行方法：
 
-1、Excutor（执行器），进行sql的执行
+1、Executor（执行器），执行sql
 
-2、ParamterHandler（参数处理器），将参数注入到sql中
+2、ParamterHandler（参数处理器），参数注入
 
-3、ResultSetHandler（结果集处理器），对sql执行的结果集进行数据映射
+3、StatementHandler（sql语句处理器），创建Statement对象，声明构建sql
 
-4、StatementHandler（sql语句处理器），在sql执行前，进行额外处理
+4、ResultSetHandler（结果集处理器），结果集映射
 
 ### environments标签：
 
@@ -387,8 +391,6 @@ mybatis默认对VendorDatabaseIdProvider 进行了别名注册：DB_VENDOR，用
 
 1. 对于接口注解配置方式，由于没有使用xml文件，因此只能通过mapper-class和package标签方式，进行映射器接口注册（当然通过整合spring，可以通过@Mapper、@MapperScaner注解完成）
 2.  对于xml注解配置方式，前两种引入xml文件没有任何问题，但当使用接口全类名注册时，需要保证xml文件和接口文件在同一目录下，并且名字相同
-
-**所有标签是固定顺序的，严格按照上面顺序排序编写**
 
 ## 5、mybatis的sql映射文件（xxxMapper.xml）
 
@@ -1396,7 +1398,7 @@ mybatis就在动态sql中提供了三个标签，来解决这类问题：
 
 - 注解方式的符号问题：
 
-  **由于注解编写时，是以字符串、字符串数组的形式进行表示，因此在使用标签属性时，推荐使用单引号，否则就需要使用转义字符来代替双引号的编写（xml中标签属性是支持单引号和双引号，但一般情况下推荐使用双引号，除非需要在属性中，进行字符串的表达，此时就外面使用双引号，里面字符串使用单引号；而对于注解方式，就只能外面使用单引号，里面使用双引号的转义字符）**
+  **由于注解编写时，是以字符串、字符串数组的形式进行表示，因此在使用标签属性时，推荐使用单引号，否则就需要使用转义字符来代替双引号的编写(xml中标签属性是支持单引号和双引号，但一般情况下推荐使用双引号，除非需要在属性中，进行字符串的表达，此时就外面使用双引号，里面字符串使用单引号；而对于注解方式，就只能外面使用单引号，里面使用双引号的转义字符）**
 
 ### 6、其他标签和操作：
 
@@ -1425,83 +1427,87 @@ CRUD标签的lang属性：通过lang属性，可以动态指定当前标签下�
 
 mybatis提供两级缓存：
 
-- 一级缓存：本地缓存，属于sqlSesson级别缓存，与数据库同一次会话中查询的数据，会放在本地缓存中，如果需要获取相同数据，则直接从缓存中获取；一级缓存是mybatis默认开启的，不能够手动关闭
+### 1、一级缓存：
 
-  实际场景：使用一个sqlsession来调用相同mapper接口的select查询方法时，默认情况下只会执行一次sql
+​	本地缓存，属于sqlSesson级别缓存，与数据库同一次会话中查询的数据，会放在本地缓存中，如果需要获取相同数据，则直接从缓存中获取；一级缓存是mybatis默认开启的，不能够手动关闭
 
-  **默认情况：即一级缓存不失效的情况下**
+实际场景：使用一个sqlsession来调用相同mapper接口的select查询方法时，默认情况下只会执行一次sql
 
-  - 一级缓存的失效情况：
+**默认情况：即一级缓存不失效的情况下**
 
-    1. sqlsession执行增删改操作（即使当前操作对之前查询的数据没有影响，如调用操作其他表的mapper方法），此时sqlsession会自动清除一级缓存
+- 一级缓存的失效情况：
 
-    2. sqlsession执行commit操作时，也会自动清除一级缓存
+  1. sqlsession执行增删改操作（即使当前操作对之前查询的数据没有影响，如调用操作其他表的mapper方法），此时sqlsession会自动清除一级缓存
 
-    3. sqlsession手动清除一级缓存
+  2. sqlsession执行commit操作时，也会自动清除一级缓存
 
-       ```java
-       openSession.clearCache();
-       ```
+  3. sqlsession手动清除一级缓存
 
-    4. sqlsession生命周期结束（即sqlsession关闭），一级缓存随之消失
+     ```java
+     openSession.clearCache();
+     ```
 
-- 二级缓存：全局缓存，属于namespace级别缓存，每个一个mapper接口，对应一个二级缓存；
+  4. sqlsession生命周期结束（即sqlsession关闭），一级缓存随之消失
 
-  实际场景：两个sqlsession执行相同查询，由于一级缓存为sqlSession级别，因此不能够共享；此时就需要使用二级缓存
+### 2、二级缓存：
 
-  - 二级缓存机制：
+全局缓存，属于namespace级别缓存，每个一个mapper接口，对应一个二级缓存；
 
-    当会话关闭时，mybatis会将一级缓存中的数据保存到二级缓存中，当新的会话进行相同查询时，可以使用二级缓存；
+实际场景：两个sqlsession执行相同查询，由于一级缓存为sqlSession级别，因此不能够共享；此时就需要使用二级缓存
 
-    **注意：当sqlsession关闭或commit时，一级缓存失效，才会将数据转移到二级缓存中；当二级缓存和一级缓存同时存在，优先使用二级缓存（一个sqlsession查询后关闭，生成该查询的二级缓存，另一个sqlsession在二级缓存未生成前，进行相同查询生成一级缓存；此时就会存在二级缓存和一级缓存共存的情况）**
+- 二级缓存机制：
 
-  - 二级缓存失效：
+  当会话关闭时，mybatis会将一级缓存中的数据保存到二级缓存中，当新的会话进行相同查询时，可以使用二级缓存；
 
-    当任意一个sqlsession调用该mapper接口的增删改方法时，会自动清空二级缓存
+  **注意：当sqlsession关闭或commit时，一级缓存失效，才会将数据转移到二级缓存中；当二级缓存和一级缓存同时存在，优先使用二级缓存（一个sqlsession查询后关闭，生成该查询的二级缓存，另一个sqlsession在二级缓存未生成前，进行相同查询生成一级缓存；此时就会存在二级缓存和一级缓存共存的情况）**
 
-  - 二级缓存配置：
+- 二级缓存失效：
 
-    ```xml
-    <setting name="cacheEnabled" value="true" /> 默认true，开启二级缓存
-    ```
+  当任意一个sqlsession调用该mapper接口的增删改方法时，会自动清空二级缓存
 
-    - 使用cache、cache-ref标签，进行查询sql的二级缓存配置
+- 二级缓存配置：
 
-      cache标签属性：
+  ```xml
+  <setting name="cacheEnabled" value="true" /> 默认true，开启二级缓存
+  ```
 
-      | 属性          | 描述                                        |
-      | ------------- | ------------------------------------------- |
-      | eviction      | 缓存清除算法，默认LRU（最近最少使用的缓存） |
-      | flushInterval | 缓存刷新间隔；默认不定时刷新                |
-      | size          | 缓存数据对象引用个数，默认1024个            |
-      | readOnly      | 缓存数据是否只读，默认为false（非只读）     |
-      | type          | mybatis二级缓存接口实现类的全类名，有默认值 |
+  - 使用cache、cache-ref标签，进行查询sql的二级缓存配置
 
-      - eviction：提供四种缓存回收策略
+    cache标签属性：
 
-        LRU：最近最少使用：优先删除最长时间不被使用的缓存对象
+    | 属性          | 描述                                        |
+    | ------------- | ------------------------------------------- |
+    | eviction      | 缓存清除算法，默认LRU（最近最少使用的缓存） |
+    | flushInterval | 缓存刷新间隔；默认不定时刷新                |
+    | size          | 缓存数据对象引用个数，默认1024个            |
+    | readOnly      | 缓存数据是否只读，默认为false（非只读）     |
+    | type          | mybatis二级缓存接口实现类的全类名，有默认值 |
 
-        FIFO：先进先出：按照缓存创建顺序删除，优先删除存活时间最早的
+    - eviction：提供四种缓存回收策略
 
-        SOFT：软引用：基于垃圾回收器状态和软引用规则移除缓存对象
+      LRU：最近最少使用：优先删除最长时间不被使用的缓存对象
 
-        WEAK：弱引用：基于垃圾回收器状态和弱引用规则移除缓存对象
+      FIFO：先进先出：按照缓存创建顺序删除，优先删除存活时间最早的
 
-      - readOnly：
+      SOFT：软引用：基于垃圾回收器状态和软引用规则移除缓存对象
 
-        true，只读；表示只读缓存会使用一个实例，让所有调用者共享，认为调用者不会修改实例，这样性能更快，但存在被修改导致所有调用者获取错误数据的安全风险
+      WEAK：弱引用：基于垃圾回收器状态和弱引用规则移除缓存对象
 
-        false，非只读：即可读写，可读写缓存会使用JDK序列化的方式，来进行缓存对象数据的拷贝；因此需要所有实体类对象实现Serializable序列化接口，并且性能会慢一点，但是安全
+    - readOnly：
 
-      - type:
+      true，只读；表示只读缓存会使用一个实例，让所有调用者共享，认为调用者不会修改实例，这样性能更快，但存在被修改导致所有调用者获取错误数据的安全风险
 
-        用于自定义缓存，通过实现org.apache.ibatis.cache.Cache 接口，来自定义二级缓存的实现
+      false，非只读：即可读写，可读写缓存会使用JDK序列化的方式，来进行缓存对象数据的拷贝；因此需要所有实体类对象实现Serializable序列化接口，并且性能会慢一点，但是安全
 
-  - 二级缓存注解：
+    - type:
 
-    xml的Cache标签和mapper接口的@CacheNamespace缓存注解，它们都可以开启二级缓存；但是它们只作用于自己（**即二级缓存只会被当前方式定义的查询sql使用**），并且不能够同时开启；解决方式：
+      用于自定义缓存，通过实现org.apache.ibatis.cache.Cache 接口，来自定义二级缓存的实现
 
-    使用xml的Cache标签的同时，可以通过@CacheNamespaceRef来引用xml中的缓存，便于使用注解定义的查询sql使用当前mapper的二级缓存
+- 二级缓存注解：
+
+  xml的Cache标签和mapper接口的@CacheNamespace缓存注解，它们都可以开启二级缓存；但是它们只作用于自己（**即二级缓存只会被当前方式定义的查询sql使用**），并且不能够同时开启；解决方式：
+
+  使用xml的Cache标签的同时，可以通过@CacheNamespaceRef来引用xml中的缓存，便于使用注解定义的查询sql使用当前mapper的二级缓存
 
 - mybatis二级缓存整合第三方缓存框架
 
@@ -1521,7 +1527,9 @@ mybatis提供两级缓存：
 
 ## 10、sqlSession对象的深入理解：
 
-sqlSession：用于获取数据库连接，执行sql，**其线程不安全，每一个sqlSession对应一个Connection，但一个Connection可能对应多个sqlSession，当sqlSession关闭时，其对应的Connection资源也会关闭，因此一般进行一对一的使用；**
+### 1、sqlSession作用：
+
+​	用于获取数据库连接，执行sql。**其线程不安全，每一个sqlSession对应一个Connection，但一个Connection可能对应多个sqlSession，当sqlSession关闭时，其对应的Connection资源也会关闭，因此一般进行一对一的使用；**
 
 要保证每个线程都有自己的sqlSession实例。因此推荐其作用域在请求作用域或方法作用域中，对于一个http请求，进行数据库操作后，直接关闭sqlSession：
 
@@ -1532,7 +1540,9 @@ try (SqlSession session = sqlSessionFactory.openSession()) {
 }
 ```
 
-**sqlSession特征（构造方法的属性设置）：**
+### 2、sqlSession特征：
+
+**即构造方法的属性设置**
 
 - 事务处理：对于大多数JDBC驱动，默认是事务手动提交，事务隔离级别由数据库驱动决定
 
@@ -1559,7 +1569,7 @@ try (SqlSession session = sqlSessionFactory.openSession()) {
   - `ExecutorType.REUSE`：该类型的执行器会复用预处理语句。
   - `ExecutorType.BATCH`：该类型的执行器会批量执行所有更新语句
 
-**sqlSession方法：**
+### 3、sqlSession方法：
 
 - 语句执行方法
 
@@ -1813,7 +1823,7 @@ try (SqlSession session = sqlSessionFactory.openSession()) {
 
 mybatis-spring包，帮助mybatis代码无缝整合到spring中，它将允许 MyBatis 参与到 Spring 的事务管理之中，创建映射器 mapper 和 `SqlSession` 并注入到 bean 中，以及将 Mybatis 的异常转换为 Spring 的 `DataAccessException`
 
-### SqlSessionTemplate是怎样实现线程安全和绑定spring事务管理器：
+### SqlSessionTemplate的线程安全和spring事务管理器：
 
 SqlSessionTemplate内部实际上每个线程都会创建了多个sqlSession，也就对应了多个数据库连接；
 
@@ -1830,7 +1840,7 @@ mybatis是一个ORM框架，是在JDBC的基础上，作为中间层来解决数
 
 **整个动态代理和功能实现过程如下：**
 
-![](C:\Users\OneMTime\Desktop\Typora图片\mybatis动态代理执行映射器接口方法.png)
+![mybatis动态代理执行映射器接口方法](../Typora图片/mybatis动态代理执行映射器接口方法.png)
 
 - sqlsession通过MapperRegistry获取指定mapper接口的代理实现类MapperProxy
 - MapperProxy中创建MapperMethod，来是实现mapper接口方法的动态代理
@@ -1850,7 +1860,6 @@ sqlsession中所有的CRUD操作，都是通过Executor执行器来完成的,myb
   - 以查询方法为例，需要MappedStatement（映射器元数据）、parameter（传递的参数）、RowBounds（结果集边界）、ResultHandler（额外的结果集映射处理器）、BoundSql（sql语句）5个参数，来执行doQuery
 
   - 通过confinguration对象创建SimpleStatmentHandler，从而进一步创建JDBC所需要的PrepareStatement对象；
-
   - 最后使用JDBC完成对应sql操作，再将结果交给SimpleStatementHandler.ResultSetHandler对象处理，返回一个mapper接口方法返回值类型的对象
 
   ```java
@@ -1868,7 +1877,7 @@ sqlsession中所有的CRUD操作，都是通过Executor执行器来完成的,myb
   ```
 
 - ReuseExecutor执行器，额外实现预编译sql语句的重用
-- BatchExecutor执行器，额外实现update的批量操作（实际就是提供一个批处理刷新的方法，并让修改方法不会直接执行）
+- BatchExecutor执行器，额外实现update的批量操作（实际就是提供一个批处理刷新的方法，并且修改方法不会直接执行）
 
 - BaseExecutor提供了Query方法，而实现mybatis的一级缓存，实际执行sql还是使用子实现类的doQuery方法
 
@@ -1936,7 +1945,7 @@ sqlsession中所有的CRUD操作，都是通过Executor执行器来完成的,myb
     }
   ```
 
-![](C:\Users\OneMTime\Desktop\Typora图片\mybatis执行器原理.jpg)
+![](..\Typora图片\mybatis执行器原理.jpg)
 
 ### 手动使用SimpleExecutor，实现mybatis底层的查询操作：
 
@@ -1967,3 +1976,241 @@ sqlsession中所有的CRUD操作，都是通过Executor执行器来完成的,myb
 	}
 ```
 
+## 14、mybatis拦截器（插件）
+
+​	mybatis全局配置文件中，通过plugins标签引入插件，实现对四个关键对象的方法进行拦截处理：
+
+1、Executor（执行器），执行sql
+
+2、ParamterHandler（参数处理器），参数注入
+
+3、StatementHandler（sql语句处理器），创建Statement对象，声明构建sql
+
+4、ResultSetHandler（结果集处理器），结果集映射
+
+**因此，我们可以手动编写mybatis拦截器，来实现mybatis插件的编写**
+
+### 1、自定义拦截器
+
+**1、添加拦截器注解@Intercepts**
+
+​	@Intercepts用于指定拦截对象及其方法，其value属性类型为Signature[]，通过多个@Singnature来指定：
+
+@Signature属性规则：
+
+- type：对应mybatis的四种类型接口
+- method：对应接口中的方法
+- args：对应方法参数（方法可能被重载，因此需要指定参数列表）
+
+| 拦截接口         | 拦截的方法                                                   |
+| ---------------- | ------------------------------------------------------------ |
+| Executor         | update, query, flushStatements, commit, rollback,getTransaction, close, isClosed |
+| ParameterHandler | getParameterObject, setParameters                            |
+| ResultSetHandler | ResultSets, handleOutputParameters                           |
+| StatementHandler | prepare, parameterize, batch, update, query，queryCursor     |
+
+**2、实现org.apache.ibatis.plugin.Interceptor接口**
+
+​	提供三个重写方法：
+
+- Object intercept(Invocation invocation)，对拦截的方法进行动态代理
+- Object plugin(Object target)，获取拦截的对象，判断是否需要对拦截对象的方法进行动态代理；**返回target对象，则不进行拦截方法的动态代理；调用Plugin.wrap(target, this)，则通过@Signature注解定义的拦截规则，在4个接口实例化时，进行动态代理，因此一共会执行4次**；默认实现调用Plugin.wrap(target, this)方法
+- setProperties(Properties properties)，为拦截器设置变量属性，用于在intercept内部使用（当整合spring时，则可以直接用@Value来获取变量）；默认不执行任何设置
+
+**3、配置拦截器（插件）**
+
+根据myabtis的使用方式，有如下三种：
+
+1、使用mybatis全局配置文件，来引入插件
+
+2、如果整合了spring，则可以手动注入Configuration对象
+
+​	通过org.apache.ibatis.session.Configuration对象的来进行配置：
+
+```java
+	@Bean
+	public Configuration mybatisConfiguration(){
+		Configuration configuration = new Configuration();
+		configuration.addInterceptor(new PageMybatisInterceptor());
+		return configuration;
+	}
+```
+
+3、整合springBoot，由于springBoot已经提供了Configuration对象的自动配置，为了自动配置生效，并且可以通过配置文件全局配置，springBoot提供**ConfigurationCustomizer对象**，来对已注入的Configuration进行额外配置：
+
+```java
+	@Bean
+	public ConfigurationCustomizer configurationCustomizer() {
+		return configuration -> configuration.addInterceptor(new PageMybatisInterceptor());
+	}
+```
+
+2、mybatis拦截器实例：
+
+- 自定义分页：
+
+1、进行@Intercepts注解声明需要拦截的方法；实现Interceptor接口，前两个方法不需要重写
+
+```java
+@Intercepts({
+		@Signature(type = Executor.class, method = "query", args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class, CacheKey.class, BoundSql.class}),
+		@Signature(type = Executor.class, method = "query", args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class})
+})
+@Slf4j
+public class PageMybatisInterceptor implements Interceptor {
+	@Override
+	public Object plugin(Object target) {
+		return Plugin.wrap(target, this);
+	}
+
+	@Override
+	public void setProperties(Properties properties) {
+	}
+
+```
+
+2、动态代理逻辑
+
+Invocation包含了当前sql执行对象中的：target（处理器对象）、method（方法）、agrs（方法参数）
+
+对于executor执行器query方法，参数提供了MappedStatement、mapper方法参数，从而可以实现对sql的修改、并执行sql
+
+```java
+	//拦截处理指定处理器方法,进行动态代理
+	@Override
+	public Object intercept(Invocation invocation) throws Throwable {
+		log.info("进入拦截器");
+		//方法参数:ms、param
+		Object[] args = invocation.getArgs();
+		MappedStatement ms = (MappedStatement) args[0];
+		Object param = args[1];
+		//获取BoundSql，sql信息对象
+		BoundSql boundSql = ms.getBoundSql(param);
+
+		//获取sql注入参数map(单个参数则使用对象),查询是否含有分页参数IPage
+		IPage page = null;
+		Object parameterObject = boundSql.getParameterObject();
+		if (parameterObject != null) {
+			if (parameterObject instanceof Map) {
+				Map<?, ?> parameterMap = (Map) parameterObject;
+				Iterator entryIterator = parameterMap.entrySet().iterator();
+
+				while (entryIterator.hasNext()) {
+					Map.Entry entry = (Map.Entry) entryIterator.next();
+					if (entry.getValue() != null && entry.getValue() instanceof IPage) {
+						page = (IPage) entry.getValue();
+					}
+				}
+			} else if (parameterObject instanceof IPage) {
+				page = (IPage) parameterObject;
+			}
+		}
+
+		//如果page参数正确，则：
+		if (page != null && page.getSize() >= 0L && page.isSearchCount()) {
+			log.info("分页参数：{}",JSONUtil.parseObj(page).toString());
+			//获取当前sql、数据库连接对象connection
+			String sql = boundSql.getSql();
+			Configuration configuration = ms.getConfiguration();
+			Connection connection = configuration.getEnvironment().getDataSource().getConnection();
+
+			//拼接countSql
+			String countSql = "select count(*) from (" + sql + ") a";
+			PreparedStatement preparedStatement = connection.prepareStatement(countSql);
+			BoundSql boundCountSql = new BoundSql(configuration, sql, boundSql.getParameterMappings(), boundSql.getParameterObject());
+			DefaultParameterHandler defaultParameterHandler = new DefaultParameterHandler(ms, parameterObject, boundCountSql);
+			defaultParameterHandler.setParameters(preparedStatement);
+			//获取总条数
+			ResultSet resultSet = preparedStatement.executeQuery();
+			int count = 0;
+			if (resultSet.next()) {
+				count = resultSet.getInt(1);
+			}
+			page.setTotal(count);
+
+			//拼接分页sql
+			String pageSql = sql + " limit " + page.offset() + " , " + page.getSize();
+			//创建新的BoundSql、ms对象
+			BoundSql newBoundSql = new BoundSql(configuration, pageSql, boundSql.getParameterMappings(), boundSql.getParameterObject());
+			MappedStatement newMappedStatement = newMappedStatement(ms, newBoundSql);
+			//将新的ms对象放在invocation参数中
+			args[0]=newMappedStatement;
+			//将获取的结果封装
+			List result = (List)invocation.proceed();
+			connection.close();
+			log.info("分页结果集{}", JSONUtil.parseObj(page).toString());
+//			return 	page.setRecords(result);//需要对结果为page类型进行额外处理（默认会使用List接口报错）
+			return result;
+		}
+		return invocation.proceed();
+	}
+
+	//通过修改后的sql,构建新的MappedStatement对象
+	private MappedStatement newMappedStatement(MappedStatement ms, BoundSql newBoundSql) {
+		//创建sqlSource对象
+		MySqlSource mySqlSource = new MySqlSource(newBoundSql);
+		//创建新的ms对象
+		MappedStatement.Builder builder = new MappedStatement.Builder(ms.getConfiguration(), ms
+				.getId(), mySqlSource, ms.getSqlCommandType());
+		builder.resource(ms.getResource());
+		builder.fetchSize(ms.getFetchSize());
+		builder.statementType(ms.getStatementType());
+		builder.keyGenerator(ms.getKeyGenerator());
+		if (ms.getKeyProperties() != null && ms.getKeyProperties().length != 0) {
+			StringBuilder keyProperties = new StringBuilder();
+			for (String keyProperty : ms.getKeyProperties()) {
+				keyProperties.append(keyProperty).append(",");
+			}
+			keyProperties.delete(keyProperties.length() - 1, keyProperties.length());
+			builder.keyProperty(keyProperties.toString());
+		}
+		builder.timeout(ms.getTimeout());
+		builder.parameterMap(ms.getParameterMap());
+		builder.resultMaps(ms.getResultMaps());
+		builder.resultSetType(ms.getResultSetType());
+		builder.cache(ms.getCache());
+		builder.flushCacheRequired(ms.isFlushCacheRequired());
+		builder.useCache(ms.isUseCache());
+		return builder.build();
+	}
+}
+```
+
+- 基于mapper方法注解，实现sql级别的数据权限过滤
+
+  同自定义分页类似，也是进行sql拼接修改；但是区别在于利用反射，获取mapper接口方法上的注解，从而获取当前线程下，用户数据权限，然后进行判断：
+
+  ```java
+  		//获取requestHeader,校验权限
+  		RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+  		if (requestAttributes == null){//跳过非Web接口调用时的权限过滤
+  			return invocation.proceed();
+  		}
+  		HttpServletRequest request = ((ServletRequestAttributes) requestAttributes).getRequest();
+  		String token = request.getHeader("token");
+  		if (StrUtil.isBlank(token)) {
+  			throw new AuthenticationAccessException("权限异常");
+  		}
+  		//编写权限过滤sql,todo 伪代码省略，使用原sql
+  		String newSql = boundSql.getSql();
+  ```
+
+### 2、拦截方法类型解析：
+
+​	mybatis拦截器的本质，就是通过反射机制，在四个处理器类型接口实例化后，调用过滤器链，进行方法的动态代理
+
+- 处理器实例化顺序：
+
+  Executor>>ParameterHandler>>ResultSetHandler>>StatementHandler
+
+  **StatementHandler的创建，建立在ParameterHandler、ResultSetHandler基础上，它们先完成实例化**
+
+  由于处理器实例化的先后问题，因此对于相同类型的修改，实例化越后面的，其优先级越高；同理由于过滤器链的执行顺序，过滤器越后加载，其优先级越高（**一般情况下，需要避免这样的事发生**）
+
+- 常用拦截点：
+
+  **Executor**：	
+
+  ​	执行增删改查方法，是最为常见的拦截点，能修改的参数也最多,以query为例：**MappedStatement.class、 Object.class、 RowBounds.class、ResultHandler.class、CacheKey.class、 BoundSql.class**
+
+  但优先级最低，部分参数能够在其他拦截点覆盖
