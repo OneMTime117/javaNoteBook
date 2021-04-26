@@ -581,15 +581,21 @@ ls  -al展示当前目录下所有文件、目录,包括隐藏文件，并且以
 
 **cat、more、less都能够在分页查询状态下，使用/ xxx,进行字符串查找**
 
-- **》指令和   》》指令**
+- **>指令和   >>指令**
 
-  xxxxx    》   hello.java 
+  xxxxx    >/>>   hello.java 
 
   前者是将内容覆盖写入到指定文件中；后者是将内容追加到指定文件的末尾
 
   可以搭配一些信息查询指令，将查询到的数据写入指定文件中，如ls、cat、echo:
 
-  ls  -l  》》hello.java    将当前目录列表信息追加到hello.java文件的末尾
+  ls  -l  >> hello.java    将当前目录列表信息追加到hello.java文件的末尾
+
+  **注意:**
+
+  **1、该指令只能对打印到控制台的数据进行操作，无法直接处理字面量或变量中的数据，因此对于变量中数据的处理，需要搭配echo指令**
+
+  **2、先执行指令前的命令，然后将命令打印结果写入指定文件，并需要确保文件存在**
 
 - **echo指令**
 
@@ -638,6 +644,8 @@ ls  -al展示当前目录下所有文件、目录,包括隐藏文件，并且以
   通过 +  来设置时间显示格式，如显示日期
 
   date  +%Y:%m:%d   :只是自定义的分割符，可以随意代替或省略
+
+  **注意：对于格式，如果存在空格时，则需要使用引号括起来**
 
   | 参数 | 描述 |
   | ---- | ---- |
@@ -1191,7 +1199,7 @@ yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/d
 
   ```java
   export JAVA_HOME=/opt/jdk1.8            //为jdk软件压缩包解压后的文件目录
-  export PATH=$PATH:/opt/jdk1.8/bin	//配置path,$用于引入之前的path，：为分隔符，在后面追加JDK的path	
+  export PATH=$PATH:$JAVA_HOME/bin	//配置path,$用于引入之前的path，：为分隔符，在后面追加JDK的path	
   ```
 
 
@@ -1217,13 +1225,448 @@ yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/d
 
 由于各种软件包安装都需要进行配置，因此通过使用docker容器化技术，能够有效减少这一部分的工作，并且方便软件管理（更适合应用服务部署）
 
-# 5、shell脚本
+# 6、shell脚本
+
+**shell：**命令行解释器，提供给用户进行Linux内核的操作；既是命令语言，又是一个程序设计语言，作为命令语言，它可以交互式解释和执行用户输入的命令；作为程序设计语言，它可以定义各种变量、函数、参数和流程控制，实现脚本式的程序调用
+
+## 1、shell脚本创建和执行
+
+​	创建一个简单的shell脚本，文件后缀为sh（**所有文件进行创建后，都没有执行权限**）：
+
+**熟悉格式注意：**
+
+- shell脚本以 **#！/bin/bash**开头，用于指定该shell脚本使用哪种shell版本（因此是可以改变的，但一般都是/bin/bash）
+- shell脚本每条语句通过换行分割，不需要使用分号
+
+```shell
+#！/bin/bash 
+echo helloworld
+```
+
+### 1、shell注释
+
+- 单行注释	
+
+```shell
+#注释
+```
+
+- 多行注释
+
+```shell
+:<<!
+注释1
+注释2
+!
+```
+
+### 2、shell脚本执行：
+
+提供两种方式：
+
+1. 将shell脚本修改为可执行文件（即赋予文件所有者的执行权限）,此时文件颜色为绿色，然后**使用绝对路径运行文件**
+
+   ```shell
+   chmod 755 helloworld.sh    
+   
+   ./helloworld.sh						./代表当前文件夹路径，本质上也是绝对路径
+   /home/java/helloworld.sh			或直接手写绝对路径
+   ```
+
+2. 使用sh命令，强制执行该文件（不推荐）,也必须指定绝对路径
+
+   ```java
+   sh  ./helloworld.sh        
+   ```
+
+**以后台方式运行shell脚本：**
+
+```shell
+./helloworld.sh   &              需要保证该文件有可执行权限
+```
+
+## 2、shell变量
+
+​	Linux Shell变量分为四种：
+
+- 系统变量：
+
+  ​	通过 **$变量名**   进行引用，如$HOME、$PWD
+
+  ​	通过 **set指令**，可以查看当前Linux所有系统变量
+
+- 用户自定义变量：
+
+  ​	使用在指定的shell脚本中，类似于局部变量：
+
+- 位置参数变量：
+
+  ​	用于获取shell脚本执行命令的参数，类似于函数调用时的入参
+
+- 预定义变量
+
+  ​	是在shell语法设计上，就预先定义好的关键字，代表指定信息
+
+### 1、自定义变量的定义
+
+```java
+A=100              //定义变量A为100
+echo A=$A          //打印
+unset	A          //删除变量A
+readonly	A=100  //定义静态变量A为100，静态变量不能重新赋值或删除，否则会报错无法找到A
+```
+
+注意：
+
+- 当局部变量和系统变量重名时，优先加载局部变量（就近原则）
+- 但进行变量卸载时，如果该变量和系统变量重名，则也无法获取系统变量的值（因此要避免自定义变量名和当前脚本中需要使用的系统变量名重复）
+- 进行变量定义时，**=两边不能有空格**
+- 变量名，推荐使用大写（因此Linux命令一般都是小写，又便于区分）
+
+**命令结果赋值：**
+
+```java
+A=`ls -l`
+A=$(ls -l)                   //两种方式作用一致
+echo $A                     //此时会打印当前目录下的文件列表信息
+```
+
+### 2、系统环境变量设置
+
+​	Linux系统环境变量通过 **/etc/profile**文件，来进行设置
+
+- 基本语法：
+
+  ​	export 变量名=变量值             创建环境变量
+
+  ​	source    /etc/profile		使修改后的配置文件生效
+
+  ​	echo    $变量名			打印环境变量值
+
+  ​	set						查询所有环境变量
+
+### 3、位置参数变量
+
+**作用：**
+
+​	**在进行shell脚本编写时，可能希望能获取执行该脚本的外部参数，实现让执行者能够在脚本外面设置入参，来决定整个脚本的执行逻辑**
+
+- 基本语法：以 ./myshell.sh 100 200 为例
+
+  - $n：通过n来指定获取shell脚本执行命令中，第n个参数值。注意：
+
+    ​	1、第一位数以上时，需要将数字用括号括起来，如$（10）
+
+    ​	2、$0,表示命令行本身，如./myshell.sh
+
+  - $*：获取所有参数，当作一个整体，即 100 200
+
+  - $@：获取所有参数，和$*打印一致，但可以作为数组
+
+  - $#：统计参数个数，即2
+
+### 4、预定义变量
+
+​	shell设计者，方便shell编程，事先定义好的变量：
+
+| 变量名 | 值                                                       |
+| ------ | -------------------------------------------------------- |
+| $$     | 当前进程号（PID），即执行当前shell脚本的进程             |
+| $!     | **后台运行的**最后一个进程的进程号                       |
+| $?     | 最后一个命令执行后的返回状态，0代表执行成功，非0代表失败 |
+
+## 3、shell表达式的赋值
+
+基本语法：
+
+一共有三种方式，进行表达式的赋值
+
+```shell
+A=$(((2+3)*4))       注意最外层有连续两个括号，第一个表示将表达式作为一个整体；第二个搭配$使用，将其赋值到变量上/或者用于打印
+A=$[(2+3)*4]		使用中括号代替两个小括号（推荐使用）
+A=`expr 2 + 3`		使用expr输出表达式的值，赋值到变量中,注意每个字符间需要空格分隔，部分操作符需要反斜杠作为转义符，如\* 乘
+```
+
+## 4、变量和字面量的搭配使用
+
+在一个表达式中，如果变量和字面量需要连接使用时，那么需要使用{}来定义变量名的范围，防止编译器无法识别
+
+```java
+date=$(date '+%Y-%m-%d %H:%M:%S')
+echo ${date}开始备份
+```
+
+因此，一般情况下，在表达式中使用变量时，用${}引入
+
+## 5、shell逻辑判断
+
+- if语句：
+
+```shell
+if [ condition ]			condition，[]必须使用空格分隔
+then					成立，则执行cmd1
+     cmd1	
+else
+	 cmd2				否则，则执行cmd2
+fi						和if组合，表示一个完整的if语句
+```
+
+- 常用判断条件关键字
+
+  **注意：判000断条件的关键字两端需要有空格**
+
+  - 比较符
+
+    | 条件 | 作用                       |
+    | ---- | -------------------------- |
+    | -lt  | less than小于              |
+    | -le  | less equal than小于等于    |
+    | -gt  | geater than 大于           |
+    | -ge  | geater equal than 大于等于 |
+    | -ne  | not equal  不等于          |
+    | =    | 等于                       |
+
+    ```shell
+    if [ 3 -lt 4 ]
+    then
+    echo 大于
+    else
+    echo 小于等于
+    fi
+    ```
+
+  - 文件权限判断
+
+    | 条件 | 作用                   |
+    | ---- | ---------------------- |
+    | -r   | 当前用户是否有读的权限 |
+    | -w   | 当前用户是否有写的权限 |
+    | -x   | 当前用户是否有执行权限 |
+
+    ```shell
+    if [ -r ./myshell.sh ]
+    then
+    echo 有读的权限
+    else
+    echo 没有读的权限
+    fi
+    ```
+
+  - 文件类型判断
+
+    | 条件 | 作用                   |
+    | ---- | ---------------------- |
+    | -e   | 文件存在               |
+    | -f   | 文件存在，并为常规文件 |
+    | -d   | 文件存在，并为目录文件 |
+
+    ```shell
+    if [ -f ./myshell.sh ]
+    then
+    echo 该文件存在
+    fi
+    ```
+
+- if-else-if语句
+
+  ```java
+  if [ condition1 ]
+  then
+       cmd1					如果condition1成立，则执行cmd1
+  elif [ condition2 ]			如果condition1不成立、condition2成立，则执行cmd2 
+  then
+       cmd2
+  else						如果condition1、condition2都不成立，则执行cmd3
+       cmd3
+  fi
+  ```
+
+- case语句
+
+  ```shell
+  case  $变量名  in
+  value1 )			变量值满足value1时，执行cmd1
+  	cmd1		
+  ;;					；；表示结束break
+  value1 )
+  	cmd2			变量值满足value1时，执行cmd1
+  ;;
+  * )
+  	cmd3			变量值为其他时，执行cmd3
+  ;;
+  esac
+  
+  ```
+
+- for循环语句
+
+  - 方式一，结果集/数组遍历
+
+  ```shell
+  for C in 1 2 3 4       in后面可以多个值，使用空格分隔，也可以是一个结果集/数组遍历变量，如$@/$#
+  do
+          echo $C
+  done
+  ```
+
+  - 方式二，递增、递减遍历
+
+  ```shell
+  SUM=0
+  for((i=1;i<=100;i++))    for中，两个括号相邻，即 for（表达式）
+  do
+          SUM=$(($SUM+$i))
+  done
+  echo $SUM
+  ```
+
+- while循环
+
+  ```shell
+  while [ condition ]		如果condition成立，则执行cmd，循环重复
+  do
+  	CMD					
+  done		
+  ```
+
+## 6、控制台输入输出
+
+- 输出：
+
+  ​	使用**echo指令**，来完成信息的输出，打印到控制台
+
+- 输入：
+
+  ​	使用**read指令**，来读取控制台的输入，并在shell脚本中，使用变量接受
+
+**read指令：**
+
+read	【选项】	变量名
+
+-p		指定读取值的提示符
+
+-t		指定程序等待控制台输入的时间（秒）,完成一次输入后，不再等待;**不指定时，一直等待**
+
+```java
+read -p 请输入一个数：	NUM
+echo  $NUM
+```
+
+## 7、shell函数
+
+​	shell和其他编程语言一样，可以定义函数，分为系统函数和自定义函数；并且shell函数本身，也是命令
+
+### 1、系统函数
+
+- **basename命令/函数**	
+
+  basename	【String】	【suffix】	删除String中，最后一个/字符前的字符串，用于路径文件名截取；suffix可以选择性指定，对截取后的字符串进行后缀匹配
+
+  ```shell
+  basename /home/java/test.txt			结果为test.txt
+  basenaem /home/java/test.txt	xt		结果为test.t  		
+  ```
+
+- dirname	【String】		删除String中，最后一个/字符后的字符串，用于路径目录截取
+
+  ```shell
+  dirname	/home/java/test.txt			结果为 /home/java
+  ```
+
+### 2、自定义函数
+
+- shell函数基本语法：
+
+  ```shell
+  function  funcName(){		shell函数中，不需要定义形参，只需要保证函数中的实参在脚本中被定义
+  	cmd    
+  	return  变量/表达式		return可以省略，则使用最后一条命令运行结果作为返回值
+  }
+  
+  A=[ funcName 实参1  实参2 ]   []和里面的内容，要用空格分隔
+  ```
+
+  计算两个数的和
+
+  ```shell
+  function sum(){						定义sum函数，无返回值
+          SUM=$[$n1+$n2]
+          echo $SUM
+          return	$SUM		
+  }
+  
+  read -p 请输入第一个数 n1				
+  read -p 请输入第二个数 n2
+  A=[ sum $n1 $n2 ]							调用sum函数，保证当前传递的实参变量与函数中的参数对应
+  
+  ```
+
+## 8、shell脚本案例使用：
+
+需求、流程：
+
+1、在指定时间备份数据库数据（docker 容器中的，mysql）到指定文件夹
+
+2、创建日志文件，记录备份开始时间和结束时间
+
+3、将备份好的文件以时间命名，并打包为.tar.gz
+
+4、备份成功后，检查所有备份文件，删除十天前的
+
+前提：
+
+- mysql备份数据库语句：
+
+  ```java
+  mysqldump -uroot	-p123456 --host=localhost  >  mysql.sql
+  ```
+
+- 进入docker执行命令，将获取的数据写入容器外部文件
+
+  ```java
+  docker exec -i mysql mysqldump -uroot -p123456 myProject > home/data/mysql.sql
+  ```
+
+  **注意：写入的文件地址，为宿主机的，即先执行>前面的语句，然后将结果写入文件**
+
+完整流程：
+
+```java
+mysql_container=mysql
+mysql_user=root
+mysql_password=123456
+dbname=myProject
+backtime=$(date '+date %Y-%m-%d %H:%M:%S')
+logpath='/home/java/log'
+datapath='/home/java/data'
 
 
+if [ ! -d $logpath ]
+then
+mkdir -p $logpath
+fi
 
-# 6、系统调优
+if [ ! -d $datapath ]
+then
+mkdir -p $datapath
+fi
 
-# 7、深入理解Linux内核
+
+echo 备份时间为$backtime,备份数据库为$dbname >>  $logpath/mysqllog.log
+
+for table in $dbname
+do
+result=$(docker exec -i ${mysql_container} mysqldump -u${mysql_user} -p${mysql_password} ${table} > ${datapath}/mysql.sql)
+if [ $? != 0 ]
+then
+echo 备份失败cho $log >> ./testLog.log
+fi
+done
+```
+
+# 7、系统调优
+
+# 8、深入理解Linux内核
 
 **1、指令别名**
 

@@ -288,6 +288,8 @@ bootFs（kernel内核）、rootFS（centos系统）、JDK、tomcat
 
 将A容器作为当前容器的数据卷容器，从而实现将A容器中的数据卷复制到当前容器中，从而实现多个容器使用同一个数据卷，挂载到宿主机的同一个目录中
 
+**通过docker inspect 可以查看容器已经挂载的容器卷**
+
 ## 7、Dockerfile
 
 ​	将一个应用、软件进行docker构建镜像时，需要有个构建文件来控制整个docker构建过程。**因此Dockerfile就是docker镜像的构建文件**
@@ -382,7 +384,7 @@ docker run --name system -d -p 8001:8001
 
 ## 1、基本概念
 
-**CI持续集成（Continuous Integration）：**
+**1、CI持续集成（Continuous Integration）：**
 
 ​	频繁的将代码集成到主干上，并通过自动化构建和测试来验证合并后代码的正确性
 
@@ -391,11 +393,11 @@ docker run --name system -d -p 8001:8001
 - 快速发现错误，每当有新的更新时，直接自动集成到主干，可以快速发现错误或冲突
 - 防止分支长久未合并，大幅偏离主干，而加大代码集成合并难度
 
-**CD持续交付（Continuous Delivery）：**
+**2、CD持续交付（Continuous Delivery）：**
 
 ​	**包含了持续集成的过程**，在进行代码的构建和测试后，将正确健康的代码进行自动打包，并发布的指定存储库。交付给运维团队进行相应环境的部署（部署需要手动完成）
 
-**CD持续部署（Continuous Deloyment）：**
+**3、CD持续部署（Continuous Deloyment）：**
 
 ​	**包含了持续交付过程**，并自动将应用部署到相应环境，从而实现开发人员对代码进行更新后，几分钟内直接进行部署
 
@@ -421,7 +423,13 @@ docker run --name system -d -p 8001:8001
 
 ### 2、Jenkins安装、配置
 
-**使用docker镜像安装**
+**使用docker镜像安装**：
+
+```shell
+docker pull jenkins/jenkins
+```
+
+
 
 
 
