@@ -144,20 +144,20 @@ VMware虚拟机提供工具，来方便Linux系统的基本操作：
 - /sbin       SuperUser Binary，用于存放系统管理员权限（Root）使用的程序
 - /home    存放每个普通用户的主目录，并且目录名为该用户名
 - /root       系统管理员主目录
-- /lib           系统所需要的所有动态连接库，几乎所有Linux程序都会用到
-- /etc          所有系统管理所需要的配置文件
-- /usr          存放系统程序的安装文件
+- /lib           library，系统所需要的所有动态连接库，几乎所有Linux程序都会用到
+- /etc         etcetra（附加）， 所有系统管理所需要的配置文件
+- /usr          unix  system  resource,存放系统程序的安装文件
 - /boot        存放启动Linux时的核心文件
-- /proc        系统内存映射，是一个虚拟目录
+- /proc       process 系统内存映射，是一个虚拟目录
 - /srv           service，存放服务启动后需要读取的数据
-- /sys          系统文件
-- /tmp         存放临时文件
-- /dev          设备目录，将所有设备以文件形式进行存储（类似于window设备管理器）
+- /sys          system，系统文件
+- /tmp         temp，存放临时文件
+- /dev          device，设备目录，将所有设备以文件形式进行存储（类似于window设备管理器）
 - /media      自动挂载目录，当识别外部设备（U盘、光驱），则将在该目录下临时挂载文件
-- /mnt          手动挂载目录，用于给用户手动挂载
-- /opt            存放软件安装包
-- /usr/local   存放非自代软件的安装文件
-- /var             用于存放不断变化的文件，如日志文件
+- /mnt          mount（挂载）,手动挂载目录，用于给用户手动挂载
+- /opt            optional（可选择的），存放软件安装包
+- /usr/local   存放非自带软件的安装文件
+- /var             variable，用于存放不断变化的文件，如日志文件
 - /selinux      security-enhanced Linux，存放安全系统
 
 **注意：**
@@ -581,15 +581,21 @@ ls  -al展示当前目录下所有文件、目录,包括隐藏文件，并且以
 
 **cat、more、less都能够在分页查询状态下，使用/ xxx,进行字符串查找**
 
-- **》指令和   》》指令**
+- **>指令和   >>指令**
 
-  xxxxx    》   hello.java 
+  xxxxx    >/>>   hello.java 
 
   前者是将内容覆盖写入到指定文件中；后者是将内容追加到指定文件的末尾
 
   可以搭配一些信息查询指令，将查询到的数据写入指定文件中，如ls、cat、echo:
 
-  ls  -l  》》hello.java    将当前目录列表信息追加到hello.java文件的末尾
+  ls  -l  >> hello.java    将当前目录列表信息追加到hello.java文件的末尾
+
+  **注意:**
+
+  **1、该指令只能对打印到控制台的数据进行操作，无法直接处理字面量或变量中的数据，因此对于变量中数据的处理，需要搭配echo指令**
+
+  **2、先执行指令前的命令，然后将命令打印结果写入指定文件，并需要确保文件存在**
 
 - **echo指令**
 
@@ -638,6 +644,8 @@ ls  -al展示当前目录下所有文件、目录,包括隐藏文件，并且以
   通过 +  来设置时间显示格式，如显示日期
 
   date  +%Y:%m:%d   :只是自定义的分割符，可以随意代替或省略
+
+  **注意：对于格式，如果存在空格时，则需要使用引号括起来**
 
   | 参数 | 描述 |
   | ---- | ---- |
@@ -733,13 +741,15 @@ ls  -al展示当前目录下所有文件、目录,包括隐藏文件，并且以
 
 一般情况下，打包和压缩同时进r行，因此一般都是操作的*.tar.gz文件：
 
+**注意：cz、zx的顺序有严格要求，即先打包后压缩、先解压后解包**
+
 打包压缩文件
 
 ​	tar	-cvfz	myhome.tar.gz	/home
 
 解压、解包tar.gz：
 
-​	tar	-xvfz	myhome.tar.gz
+​	tar	-zxvf	myhome.tar.gz                    
 
 ​	**在整个解压指令结尾，可以添加	-C	/home来指定解压后，文件存放的目录（需要保证该目录存在）**
 
@@ -906,13 +916,757 @@ ls -l |grep ^d	|wc -l
 
 # 3、进程管理
 
-# 4、开发环境搭建
+## 1、Linux进程基本概念
 
-# 5、shell脚本
+1、每一个执行的程序、代码都称之为一个进程，每个进程都分配一个ID号
 
-# 6、系统调优
+2、每个进程都对应要给父进程，一个父进程可以有多个子进程
 
-# 7、深入理解Linux内核
+3、进程存在的方式有两种：前台和后台，前台进程用户可以直接在屏幕上看到并操作；后台进程则无法显示在屏幕中，以后台方式执行
+
+4、一般系统服务都是以后台进程方式存在，知道系统关机时才结束运行
+
+## 2、基本进程指令
+
+- **PS指令**
+
+  ps	[选项]	查看当前终端下，正在执行的进程信息（**process 运行、进程**）
+
+  进程信息：
+
+  | 字段 | 说明                                                         |
+  | ---- | ------------------------------------------------------------ |
+  | PID  | 进程识别号（唯一id）                                         |
+  | TTY  | 终端机号（远程或本地操作系统的终端窗口唯一id），**Teletype**电传打字机，用于输入指令字符的设备，本地tty也叫做控制台（console） |
+  | TIME | 进程所消耗CPU的执行时间                                      |
+  | CMD  | 当前进程所执行的命令（指令代码）或进程名（程序），（太长会被截取） |
+
+  -a	显示当前终端下的所有进程信息（包括其他用户的程序）
+
+  -u	以用户格式显示进程信息（会显示额外信息：用户名user、占用CPU量CPU、占用内存量MEM、虚拟内存量VSZ、物理内存量RSS、进程状态STA（s表示休眠、r表示运行））
+
+  -x	显示额外没有控制终端的进程
+
+  **一般情况下，我们只需要查看指定进程的状态，因此需要配置| grep管道符+过滤指令，来筛选：**
+
+  **ps	-aux	|grep	xxx**
+
+  **ps	-ef	用于查看所有进程，并且显示其父进程**
+
+- **kill、killall指令**
+
+  kill	[选项]	用于通过进程号杀死进程
+
+  killall	进程名	用于通过进程名杀死进程，且支持通配符，一次性杀死多个满足匹配条件的进程
+
+  -9	强制杀死进程
+
+- **pstree指令**
+
+  pstree	[选项]	以树形图方式查看进程信息
+
+  -p	显示进程pid
+
+  -u	显示进程所属用户
+
+## 3、服务管理指令
+
+​	服务也是一种进程，运行在后台中，也称之为守护进程
+
+### 1、Linux系统启动过程
+
+- 内核引导，BIOS进行开启自检，启动设置，之后引入硬盘中/boot目录下的内核文件
+- 运行init进程，确定系统的运行级别
+- 系统初始化，根据init进程运行的脚本，完成系统的初始化
+- 建立终端
+- 用户登录系统
+
+对应init进程，在CentOS不同版本中，也对应不同：
+
+- CentOS5，使用SystemV
+- CentOS7，使用Systemd
+
+### 2、SystemV下的服务管理
+
+**service指令：**
+
+​	service	服务名	start|stop|restart|reload|status	服务启动、停止、重启、重新加载配置文件、服务状态查询
+
+**chkconfig指令：**
+
+​	chkconfig	--list	显示所有SysV服务在每个级别下的自启动状态（check  config）
+
+​	chkconfig	--level	5	服务名	on/off	指定服务在5运行级别下的自启动状态
+
+### 3、Systemd介绍
+
+**1、由来**
+
+​	Linux的启动采用init的进程（SystemV）来完成，但这样会有两个缺点：
+
+- 启动时间长，init进程的代码是串行执行的，执行时间长
+
+- 启动脚本复杂，init进程本质上就是执行了一段启动脚本，因此如果需要进行一些特殊处理，则要编写很长的脚本
+
+  因此Systemd就由此诞生，它设计目标就是为系统的启动和管理，提供一套完整的解决方案；d是守护进程（daemon）的缩写，Systemd，就是系统的守护进程，成为系统的第一个进程（PID为1），而后面运行所有的进程，都是它的子进程
+
+**2、特点：**
+
+​	Systemd功能强大，使用方便，但是体系庞大复杂，与操作系统的其他部分耦合性很高，违反了keep simple, keep stupid的Unix 哲学
+
+​	Systemd将所有脚本称之为unit，分为12类：service、socket、target、path...,并且提供对这些脚本执行的管理操作；每个unit都有一个配置文件，来告诉systemd如何启动；systemd默认从目录**/etc/systemd/system/**读取配置文件，而该目录中大部分都为符号连接（软连接），真正的配置文件存放在**/usr/lib/system/system/**中，而**自启动命令的作用就是创建两者的软连接**，因此自启动不会受默认target的影响
+
+**3、Systemd常用指令：**
+
+**Systemctl**就是Systemd的主命令，用于管理系统资源（Unit）:
+
+- systemctl         [command]         [unit]	管理指定unit
+
+command主要有：
+
+| command                        | 作用                                                    |
+| ------------------------------ | ------------------------------------------------------- |
+| start/stop/restart/reload/kill | 开启、停止、重启、重载、杀死                            |
+| enable/disable                 | 开机自启动开启或停止（Systemd中不存在系统不同运行级别） |
+| status                         | 状态                                                    |
+| show                           | 查看unit底层参数                                        |
+| is-active                      | 是否运行                                                |
+| is-enabled                     | 是否自启动                                              |
+
+- systemctl	list-units	[选项]	查看所有unit列表
+
+  --all	列出所有unit，包括启动失败的
+
+  --type=unit	列出所有service类型的unit
+
+- systemctl有关target类型的单位操作
+
+  target就是unit组，包含了需要unit，也就对应了SystemV中的7个运行级别，但是**在设计上，System中7中运行级别是互斥的，但Systemd中的target可以同时指定一起启动**
+
+  systemctl	get-default	获取系统的默认启动组
+
+  systemctl	list-units	--type=target	查询系统所有target
+
+  systemctl	set-default	xxx.target	设置系统默认启动组
+
+  systemctl	isolate	xxx.target	切换组，并关闭前一个组中不需要启动的unit
+
+### 4、CentOS7常用服务
+
+- firewall.service	防火墙（IP、端口管理）
+- sshd.service         SSH远程连接
+- network.service          网络管理（其指令ifconfig，查看当前网络状态）
+
+### 5、常用进程监控指令
+
+- **top指令**
+
+  top	[选项]	和ps指令类似，用于显示正在执行的进程信息，但是top可以进行动态监控，实时更新当前进程状态（**提供整体系统的运行状态**）
+
+  -d	指定top命令每隔几秒更新执行，默认3秒
+
+  -i	top不再显示任何停止（stopped）或僵死（zombie）的进程
+
+  -p	指定pid，动态监控某个进程的状态
+
+  top进行动态监控数据展示时，提供交互操作：
+
+  P	以cpu使用率排序
+
+  M	以内存使用率排序
+
+  N	以PID排序
+
+  q	推出top动态监控
+
+- **netstat指令（属于network服务指令)**
+
+  netstat	[选项]	监控系统所有网络服务状态，即需要暴露监听端口的服务（net status）
+
+  -a	所有tcp、udp、unix网络连接
+
+  -at	所有tcp网络连接
+
+  -p	额外展示PID和服务名
+
+  -n	显示端口号，而不是用服务名代替
+
+  因此一般情况下，使用:
+
+  ```shell
+  netstat	-atpn
+  ```
+
+  打印的数据中，0.0.0.0表示所有IVP4地址，：：：：表示所有IVP6地址
+
+# 4、软件包管理
+
+## 1、RPM
+
+​	RPM，即RedHat Package Manager,红帽软件包管理工具，用于互联网下载包的打包和安装工具，生成或执行.RPM拓展文件。被广泛用于Linux发行版本中，已成为行业标准
+
+该工具的常用指令：
+
+### 1、查看（-q query）
+
+- rpm	-qa	查看系统中已安装的所有RPM包（一般情况下，会使用|grep 过滤）
+
+查询信息会显示RPM包的包名、版本和适合的系统版本,如：
+
+```shell
+docker-ce-cli-20.10.5-3.el7.x86_64
+```
+
+- rpm          -q	软件包名	查询系统是否安装该软件
+- rpm          -qi       软件包名         查询系统是否安装该软件，如果安装则显示具体的安装信息和软件包信息
+- rpm           -ql        文件名           查看当前文件属于哪个RPM包的文件
+
+### 2、卸载（-e erase）
+
+- rpm	-e	软件包名	卸载指定软件包（如果当前软件包依赖于其他时，会报错）
+- rpm         -e       --nodeps      软件包         忽略依赖关系，强制卸载（一般不会使用）
+
+### 3、安装（-ivh）
+
+- rpm	-ivh	软件包路径	install安装、verboset提示、hash进度
+
+## 2、YUM
+
+​	yum（ Yellow dog Updater, Modified），是一个Shell前端软件包管理器（前端即支持图形化界面），基于RPM包管理工具之上，从指定的服务器自动下载RPM包并且安装，同时自动处理RPM包的依赖关系，保证一次性安装所有依赖的RPM包
+
+### 1、yum基本指令
+
+- yum	list	从yum服务器中，查询所有RPM包（一般情况下，搭配|grep过滤）
+- yum       search       RPM包         和list类似，不需要使用|grep过滤
+- yum        install        RPM包           下载安装指定的RPM包
+- yum         list        installed      获取已安装的所有RPM包（一般情况下，搭配|grep过滤）
+- yum         remove        RPM包          卸载指定RPM包
+
+### 2、yum实际开发场景中的配置
+
+1、对yum进行更新，保证能获取到最新的RPM包
+
+```shell
+yum  update
+```
+
+2、安装yum-utils，提供添加yum服务器镜像源功能(yum-config-manager)
+
+```shell
+yum install -y yum-utils
+
+yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo           //添加aliyun的yum服务器镜像
+```
+
+# 5、开发环境搭建
+
+**Linux进行安装软件有两种方式：**
+
+- 使用yum，下载对应RPM包
+
+  - 优点：安装快捷方便，不需要进行额外配置
+  - 缺点：只能选择yum服务器上现有的最新版本
+
+- 在官网下载对应版本的.tar.gz 压缩包，进行解压和运行环境配置
+
+  - 优点：可以随意选择指定版本
+
+  - 缺点：需要手动解压、配置
+
+## 1、JAVAEE开发环境
+
+### 1、JDK1.8
+
+- yum安装：
+
+  使用YUM按照JDK开发环境，即**java-1.8.0-openjdk-devel.x86_64**,他会以来下其他rpm包：
+
+  - **java-1.8.0-openjdk-headless.x86_64**	用于支持headless模式，通过headless工具包，实现对图像、文本、声音的操作
+  -  **java-1.8.0-openjdk .x86_64**              JDK运行环境，即JRE
+  - **copy-jdk-configs**                   JDK相关配置
+
+  安装后，默认保存在**/usr/lib/jvm**下，可以直接使用（java、javac、java -version）
+
+  ```java
+  yum search java-1.8
+      
+  yum install java-1.8.0-openjdk-devel.x86_64
+  ```
+
+- .tar.gz 压缩包安装：
+
+  配置Linux环境变量，修改**/etc/profile文件**，添加如下环境变量：
+
+  ```java
+  export JAVA_HOME=/opt/jdk1.8            //为jdk软件压缩包解压后的文件目录
+  export PATH=$PATH:$JAVA_HOME/bin	//配置path,$用于引入之前的path，：为分隔符，在后面追加JDK的path	
+  ```
+
+
+### 2、Tomcat
+
+​	tomcat根据所支持的servlet、jdk版本，会有多种选择，一般情况下都会在官网下tar.gz包：
+
+​	**tomcat9，支持JDK8即以上、servlet3.1；**
+
+- 启动tomcat：
+
+  进入到bin目录下，执行startup.sh脚本
+
+  ```java
+  ./ startup.sh  在当前目录下，搜索执行指定脚本，如果不指定目录，则默认在环境变量Path下查找
+  ```
+
+  此时就可以使用 ip：8080访问tomcat页面（注意需要开放端口）
+
+### 3、Mysql
+
+​	**mysql使用docker进行安装**
+
+由于各种软件包安装都需要进行配置，因此通过使用docker容器化技术，能够有效减少这一部分的工作，并且方便软件管理（更适合应用服务部署）
+
+# 6、shell脚本
+
+**shell：**命令行解释器，提供给用户进行Linux内核的操作；既是命令语言，又是一个程序设计语言，作为命令语言，它可以交互式解释和执行用户输入的命令；作为程序设计语言，它可以定义各种变量、函数、参数和流程控制，实现脚本式的程序调用
+
+## 1、shell脚本创建和执行
+
+​	创建一个简单的shell脚本，文件后缀为sh（**所有文件进行创建后，都没有执行权限**）：
+
+**熟悉格式注意：**
+
+- shell脚本以 **#！/bin/bash**开头，用于指定该shell脚本使用哪种shell版本（因此是可以改变的，但一般都是/bin/bash）
+- shell脚本每条语句通过换行分割，不需要使用分号
+
+```shell
+#！/bin/bash 
+echo helloworld
+```
+
+### 1、shell注释
+
+- 单行注释	
+
+```shell
+#注释
+```
+
+- 多行注释
+
+```shell
+:<<!
+注释1
+注释2
+!
+```
+
+### 2、shell脚本执行：
+
+提供两种方式：
+
+1. 将shell脚本修改为可执行文件（即赋予文件所有者的执行权限）,此时文件颜色为绿色，然后**使用绝对路径运行文件**
+
+   ```shell
+   chmod 755 helloworld.sh    
+   
+   ./helloworld.sh						./代表当前文件夹路径，本质上也是绝对路径
+   /home/java/helloworld.sh			或直接手写绝对路径
+   ```
+
+2. 使用sh命令，强制执行该文件（不推荐）,也必须指定绝对路径
+
+   ```java
+   sh  ./helloworld.sh        
+   ```
+
+**以后台方式运行shell脚本：**
+
+```shell
+./helloworld.sh   &              需要保证该文件有可执行权限
+```
+
+## 2、shell变量
+
+​	Linux Shell变量分为四种：
+
+- 系统变量：
+
+  ​	通过 **$变量名**   进行引用，如$HOME、$PWD
+
+  ​	通过 **set指令**，可以查看当前Linux所有系统变量
+
+- 用户自定义变量：
+
+  ​	使用在指定的shell脚本中，类似于局部变量：
+
+- 位置参数变量：
+
+  ​	用于获取shell脚本执行命令的参数，类似于函数调用时的入参
+
+- 预定义变量
+
+  ​	是在shell语法设计上，就预先定义好的关键字，代表指定信息
+
+### 1、自定义变量的定义
+
+```java
+A=100              //定义变量A为100
+echo A=$A          //打印
+unset	A          //删除变量A
+readonly	A=100  //定义静态变量A为100，静态变量不能重新赋值或删除，否则会报错无法找到A
+```
+
+注意：
+
+- 当局部变量和系统变量重名时，优先加载局部变量（就近原则）
+- 但进行变量卸载时，如果该变量和系统变量重名，则也无法获取系统变量的值（因此要避免自定义变量名和当前脚本中需要使用的系统变量名重复）
+- 进行变量定义时，**=两边不能有空格**
+- 变量名，推荐使用大写（因此Linux命令一般都是小写，又便于区分）
+
+**命令结果赋值：**
+
+```java
+A=`ls -l`
+A=$(ls -l)                   //两种方式作用一致
+echo $A                     //此时会打印当前目录下的文件列表信息
+```
+
+### 2、系统环境变量设置
+
+​	Linux系统环境变量通过 **/etc/profile**文件，来进行设置
+
+- 基本语法：
+
+  ​	export 变量名=变量值             创建环境变量
+
+  ​	source    /etc/profile		使修改后的配置文件生效
+
+  ​	echo    $变量名			打印环境变量值
+
+  ​	set						查询所有环境变量
+
+### 3、位置参数变量
+
+**作用：**
+
+​	**在进行shell脚本编写时，可能希望能获取执行该脚本的外部参数，实现让执行者能够在脚本外面设置入参，来决定整个脚本的执行逻辑**
+
+- 基本语法：以 ./myshell.sh 100 200 为例
+
+  - $n：通过n来指定获取shell脚本执行命令中，第n个参数值。注意：
+
+    ​	1、第一位数以上时，需要将数字用括号括起来，如$（10）
+
+    ​	2、$0,表示命令行本身，如./myshell.sh
+
+  - $*：获取所有参数，当作一个整体，即 100 200
+
+  - $@：获取所有参数，和$*打印一致，但可以作为数组
+
+  - $#：统计参数个数，即2
+
+### 4、预定义变量
+
+​	shell设计者，方便shell编程，事先定义好的变量：
+
+| 变量名 | 值                                                       |
+| ------ | -------------------------------------------------------- |
+| $$     | 当前进程号（PID），即执行当前shell脚本的进程             |
+| $!     | **后台运行的**最后一个进程的进程号                       |
+| $?     | 最后一个命令执行后的返回状态，0代表执行成功，非0代表失败 |
+
+## 3、shell表达式的赋值
+
+基本语法：
+
+一共有三种方式，进行表达式的赋值
+
+```shell
+A=$(((2+3)*4))       注意最外层有连续两个括号，第一个表示将表达式作为一个整体；第二个搭配$使用，将其赋值到变量上/或者用于打印
+A=$[(2+3)*4]		使用中括号代替两个小括号（推荐使用）
+A=`expr 2 + 3`		使用expr输出表达式的值，赋值到变量中,注意每个字符间需要空格分隔，部分操作符需要反斜杠作为转义符，如\* 乘
+```
+
+## 4、变量和字面量的搭配使用
+
+在一个表达式中，如果变量和字面量需要连接使用时，那么需要使用{}来定义变量名的范围，防止编译器无法识别
+
+```java
+date=$(date '+%Y-%m-%d %H:%M:%S')
+echo ${date}开始备份
+```
+
+因此，一般情况下，在表达式中使用变量时，用${}引入
+
+## 5、shell逻辑判断
+
+- if语句：
+
+```shell
+if [ condition ]			condition，[]必须使用空格分隔
+then					成立，则执行cmd1
+     cmd1	
+else
+	 cmd2				否则，则执行cmd2
+fi						和if组合，表示一个完整的if语句
+```
+
+- 常用判断条件关键字
+
+  **注意：判000断条件的关键字两端需要有空格**
+
+  - 比较符
+
+    | 条件 | 作用                       |
+    | ---- | -------------------------- |
+    | -lt  | less than小于              |
+    | -le  | less equal than小于等于    |
+    | -gt  | geater than 大于           |
+    | -ge  | geater equal than 大于等于 |
+    | -ne  | not equal  不等于          |
+    | =    | 等于                       |
+
+    ```shell
+    if [ 3 -lt 4 ]
+    then
+    echo 大于
+    else
+    echo 小于等于
+    fi
+    ```
+
+  - 文件权限判断
+
+    | 条件 | 作用                   |
+    | ---- | ---------------------- |
+    | -r   | 当前用户是否有读的权限 |
+    | -w   | 当前用户是否有写的权限 |
+    | -x   | 当前用户是否有执行权限 |
+
+    ```shell
+    if [ -r ./myshell.sh ]
+    then
+    echo 有读的权限
+    else
+    echo 没有读的权限
+    fi
+    ```
+
+  - 文件类型判断
+
+    | 条件 | 作用                   |
+    | ---- | ---------------------- |
+    | -e   | 文件存在               |
+    | -f   | 文件存在，并为常规文件 |
+    | -d   | 文件存在，并为目录文件 |
+
+    ```shell
+    if [ -f ./myshell.sh ]
+    then
+    echo 该文件存在
+    fi
+    ```
+
+- if-else-if语句
+
+  ```java
+  if [ condition1 ]
+  then
+       cmd1					如果condition1成立，则执行cmd1
+  elif [ condition2 ]			如果condition1不成立、condition2成立，则执行cmd2 
+  then
+       cmd2
+  else						如果condition1、condition2都不成立，则执行cmd3
+       cmd3
+  fi
+  ```
+
+- case语句
+
+  ```shell
+  case  $变量名  in
+  value1 )			变量值满足value1时，执行cmd1
+  	cmd1		
+  ;;					；；表示结束break
+  value1 )
+  	cmd2			变量值满足value1时，执行cmd1
+  ;;
+  * )
+  	cmd3			变量值为其他时，执行cmd3
+  ;;
+  esac
+  
+  ```
+
+- for循环语句
+
+  - 方式一，结果集/数组遍历
+
+  ```shell
+  for C in 1 2 3 4       in后面可以多个值，使用空格分隔，也可以是一个结果集/数组遍历变量，如$@/$#
+  do
+          echo $C
+  done
+  ```
+
+  - 方式二，递增、递减遍历
+
+  ```shell
+  SUM=0
+  for((i=1;i<=100;i++))    for中，两个括号相邻，即 for（表达式）
+  do
+          SUM=$(($SUM+$i))
+  done
+  echo $SUM
+  ```
+
+- while循环
+
+  ```shell
+  while [ condition ]		如果condition成立，则执行cmd，循环重复
+  do
+  	CMD					
+  done		
+  ```
+
+## 6、控制台输入输出
+
+- 输出：
+
+  ​	使用**echo指令**，来完成信息的输出，打印到控制台
+
+- 输入：
+
+  ​	使用**read指令**，来读取控制台的输入，并在shell脚本中，使用变量接受
+
+**read指令：**
+
+read	【选项】	变量名
+
+-p		指定读取值的提示符
+
+-t		指定程序等待控制台输入的时间（秒）,完成一次输入后，不再等待;**不指定时，一直等待**
+
+```java
+read -p 请输入一个数：	NUM
+echo  $NUM
+```
+
+## 7、shell函数
+
+​	shell和其他编程语言一样，可以定义函数，分为系统函数和自定义函数；并且shell函数本身，也是命令
+
+### 1、系统函数
+
+- **basename命令/函数**	
+
+  basename	【String】	【suffix】	删除String中，最后一个/字符前的字符串，用于路径文件名截取；suffix可以选择性指定，对截取后的字符串进行后缀匹配
+
+  ```shell
+  basename /home/java/test.txt			结果为test.txt
+  basenaem /home/java/test.txt	xt		结果为test.t  		
+  ```
+
+- dirname	【String】		删除String中，最后一个/字符后的字符串，用于路径目录截取
+
+  ```shell
+  dirname	/home/java/test.txt			结果为 /home/java
+  ```
+
+### 2、自定义函数
+
+- shell函数基本语法：
+
+  ```shell
+  function  funcName(){		shell函数中，不需要定义形参，只需要保证函数中的实参在脚本中被定义
+  	cmd    
+  	return  变量/表达式		return可以省略，则使用最后一条命令运行结果作为返回值
+  }
+  
+  A=[ funcName 实参1  实参2 ]   []和里面的内容，要用空格分隔
+  ```
+
+  计算两个数的和
+
+  ```shell
+  function sum(){						定义sum函数，无返回值
+          SUM=$[$n1+$n2]
+          echo $SUM
+          return	$SUM		
+  }
+  
+  read -p 请输入第一个数 n1				
+  read -p 请输入第二个数 n2
+  A=[ sum $n1 $n2 ]							调用sum函数，保证当前传递的实参变量与函数中的参数对应
+  
+  ```
+
+## 8、shell脚本案例使用：
+
+需求、流程：
+
+1、在指定时间备份数据库数据（docker 容器中的，mysql）到指定文件夹
+
+2、创建日志文件，记录备份开始时间和结束时间
+
+3、将备份好的文件以时间命名，并打包为.tar.gz
+
+4、备份成功后，检查所有备份文件，删除十天前的
+
+前提：
+
+- mysql备份数据库语句：
+
+  ```java
+  mysqldump -uroot	-p123456 --host=localhost  >  mysql.sql
+  ```
+
+- 进入docker执行命令，将获取的数据写入容器外部文件
+
+  ```java
+  docker exec -i mysql mysqldump -uroot -p123456 myProject > home/data/mysql.sql
+  ```
+
+  **注意：写入的文件地址，为宿主机的，即先执行>前面的语句，然后将结果写入文件**
+
+完整流程：
+
+```java
+mysql_container=mysql
+mysql_user=root
+mysql_password=123456
+dbname=myProject
+backtime=$(date '+date %Y-%m-%d %H:%M:%S')
+logpath='/home/java/log'
+datapath='/home/java/data'
+
+
+if [ ! -d $logpath ]
+then
+mkdir -p $logpath
+fi
+
+if [ ! -d $datapath ]
+then
+mkdir -p $datapath
+fi
+
+
+echo 备份时间为$backtime,备份数据库为$dbname >>  $logpath/mysqllog.log
+
+for table in $dbname
+do
+result=$(docker exec -i ${mysql_container} mysqldump -u${mysql_user} -p${mysql_password} ${table} > ${datapath}/mysql.sql)
+if [ $? != 0 ]
+then
+echo 备份失败cho $log >> ./testLog.log
+fi
+done
+```
+
+# 7、系统调优
+
+# 8、深入理解Linux内核
 
 **1、指令别名**
 
