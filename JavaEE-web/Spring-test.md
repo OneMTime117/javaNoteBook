@@ -1,4 +1,4 @@
-# Spring-Test
+# Spring-test
 
 spring测试，相对于普通单元测试，提供了基于IOC容器的单元测试和多种模拟对象来提供测试运行环境，提高单元测试速度，通过**spring-test**包来实现
 

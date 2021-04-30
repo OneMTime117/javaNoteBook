@@ -1,4 +1,4 @@
-# mybatisPlus
+# MybatisPlus
 
 MyBatis-Plus是myBatis的增强工具，在MyBaits的基础上只做增强不做改变，为简化开发、提高效率而生
 
@@ -138,6 +138,8 @@ mapper类继承mubaits-plus中的BaseMapper<T>接口，从而直接提供该T实
   ```
 
 #### 2、service CRUD方法
+
+​	**mybatisPlus默认实现的一套Service接口，内部通过mybatis底层（使用SqlHelper进行了封装）和BaseMapper方法完成**
 
 service 方法为了和mapper方法进行区分，方法命名改为save（新增）、remove（删除）、get（单行查询）、list（多行查询）、page（分页查询）、count（总数查询）前缀开头
 
@@ -705,11 +707,91 @@ public class SysUser extends BaseEntity {
   	}
   ```
 
-### 5、自定义sql注入器
+### 6、sql注入器
 
 ​	mybatisPlus所有CRUD操作都是基于sql注入器来完成的，本质上就是对mybatis的增强，流程如下：
 
-- mybatis扫描mapper类，进行mapper的动态代理，生成mapper代理对象
+- mybatis扫描注册mapper类，使用sqlSession对其进行动态代理，创建MapperProxy
+- MapperProxy调用方法，使用executor完成相应操作：
+  - 获取方法签名、sql命令,sql命令来判断为那种sql操作（CRUD），通过方法签名中的返回值类型，来选择sqlSession需要执行的方法
+  - 通过方法签名获取statement信息，并使用sqlsession获取configuration，对statement进行处理
+  - 在MybatisConfiguration中，提供了mappedStatements用于保存当前mapper的所有注入器方法的mappedStatements
+  - 之后就完成mybatis的后续操作
+
+而mybatisPlus的sql注入器，就可以完成MybatisConfiguration.mappedStatements的创建
+
+#### 1、自定义sql注入器
+
+1、自定义父类mapper接口，继承BaseMapper
+
+```java
+public interface MyBaseMapper<T> extends BaseMapper<T> {
+	//自定义CRUD方法
+	int deleteAll();
+}
+```
+
+2、自定义mapper方法的MappedStatement的生成类
+
+```java
+public class DeleteAll extends AbstractMethod  {
+
+	@Override
+	public MappedStatement injectMappedStatement(Class<?> mapperClass, Class<?> modelClass, TableInfo tableInfo) {
+		SqlMethod sqlMethod = SqlMethod.LOGIC_DELETE;
+		String methodName ="deleteAll";//对应配置的mapper方法名
+		String sql;
+		SqlSource sqlSource;
+		if (tableInfo.isWithLogicDelete()) {//逻辑删除
+			//只拼接表名和逻辑删除条件判断
+			sql = String.format(sqlMethod.getSql(), tableInfo.getTableName(), this.sqlLogicSet(tableInfo),"","");
+			sqlSource = this.languageDriver.createSqlSource(this.configuration, sql, modelClass);
+			return this.addUpdateMappedStatement(mapperClass, modelClass, this.getMethod(sqlMethod), sqlSource);
+		} else {//非逻辑删除
+			sqlMethod = SqlMethod.DELETE;
+			//只拼接表名
+			sql = String.format(sqlMethod.getSql(), tableInfo.getTableName(),"","");
+			sqlSource = this.languageDriver.createSqlSource(this.configuration, sql, modelClass);
+			return this.addDeleteMappedStatement(mapperClass, methodName, sqlSource);
+		}
+	}
+
+```
+
+3、创建sql注入器类，实现`ISqlInjector`接口（如果是继承了BaseMapper，则直接继承DefaultSqlInjector，重写它的方法，保证将BaseMapper中的mapper方法一起注册）
+
+ ```java
+public class MySqlInjector extends DefaultSqlInjector {
+	@Override
+	public List<AbstractMethod> getMethodList(Class<?> mapperClass) {
+		//注入BaseMapper的sql
+		List<AbstractMethod> methodList = super.getMethodList(mapperClass);
+		//注入自定义sql
+		methodList.add(new DeleteAll());
+		return methodList;
+	}
+}
+ ```
+
+4、配置sql注入器
+
+```java
+	//添加mybatisPlus自定义sql注入器（由于sql注入器只能有一个，因此需要继承DefaultSqlInjector,保证原有mapperCRUD方法的sql注入）
+	@Bean
+	public ISqlInjector iSqlInjector(){
+		return new MySqlInjector();
+	}
+```
+
+#### 2、mybatis默认可装配mapper方法
+
+继承指定类，编写sql注入的生成器，重写Predicate默认值（指定实体类中起作用的字段）：
+
+| mapper方法                                | 作用                     |
+| ----------------------------------------- | ------------------------ |
+| alwaysUpdateSomeColumnById(T entity)      | 更新指定字段             |
+| insertBatchSomeColumn(List<T> entityList) | 批量插入指定字段         |
+| deleteByIdWithFill(T entity)              | 根据指定字段条件进行删除 |
 
 ## 6、插件（拦截器）
 
@@ -717,12 +799,12 @@ public class SysUser extends BaseEntity {
 
 | 插件拦截器类                     | 作用               |
 | -------------------------------- | ------------------ |
-| PaginationInnerInterceptor       | 自动分页           |
+| **PaginationInnerInterceptor**   | 自动分页           |
 | TenantLineInnerInterceptor       | 多租户             |
 | DynamicTableNameInnerInterceptor | 动态表名           |
 | OptimisticLockerInnerInterceptor | 乐观锁             |
 | IllegalSQLInnerInterceptor       | sql性能规范        |
-| BlockAttackInnerInterceptor      | 防止全表更新与删除 |
+| **BlockAttackInnerInterceptor**  | 防止全表更新与删除 |
 
 在引入插件时，需要保证拦截器的顺序，推荐：
 
@@ -732,28 +814,46 @@ public class SysUser extends BaseEntity {
 
 **对sql进行单次改造的优先；不对sql进行改造的放在最后，从而保证互不影响**
 
-​	mybatisPlus的内置拦截器使用InnerInterceptor接口实现，与mybatis自定义拦截器进行区分，
+### @InterceptorIgnore
 
-## 6、代码生成器
+mybatisPlus提供@InterceptorIgnore注解，作用于Mapper接口方法上，来忽略某些内置拦截器的拦截：
 
-​	AutoGenerator 是 MyBatis-Plus 的代码生成器，通过 AutoGenerator 可以快速生成 Entity、Mapper、Mapper XML、Service、Controller 等各个模块的代码，极大的提升了开发效率。
+| 属性名           | 作用                                   |
+| ---------------- | -------------------------------------- |
+| tenantLine       | 行级租户                               |
+| dynamicTableName | 动态表名                               |
+| blockAttack      | 攻击 SQL 阻断解析器,防止全表更新与删除 |
+| illegalSql       | 垃圾SQL拦截                            |
 
-**AutoGenerator 使用：**
+**这些属性默认为false，如果设置为ture，则忽略该方法的对应拦截**
 
-- MyBatis-Plus 从 `3.0.3` 之后移除了代码生成器与模板引擎的默认依赖，需要额外引入：
+## 7、关于sql注入问题：
 
-  ```xml
-  <dependency>
-      <groupId>com.baomidou</groupId>
-      <artifactId>mybatis-plus-generator</artifactId>
-      <version>3.4.2</version>
-  </dependency>
-  
-  <dependency>
-      <groupId>org.freemarker</groupId>
-      <artifactId>freemarker</artifactId>
-      <version>2.3.31</version>
-  </dependency>
+​	对于已有BaseMapper中的方法，其模板已经被myabtisPlus固定，放在**SqlMethod**枚举中，然后通过mapper接口类型确定modelClass，从而获取实体类中的mybatisPlus注解、字段数据，进行sql拼接
+
+​	因此对于多余大部分拼接的sql字符串，都是通过实体类固定死的，不会存在sql注入问题，但mybatisPlus通过条件构造器，还提供了一些更灵活的方法，需要我们注意sql注入问题：
+
+- AbstractWrapper.apply（String applySql, Object... params）方法，如果applySql作为参数交给用户控制时，就会存在sql注入问题，当然mybatisPlus提供了占位符的写法避免这个问题，如：
+
+  ```java
+  apply("date_format(dateColumn,'%Y-%m-%d') = {0}", "2008-08-08")--->date_format(dateColumn,'%Y-%m-%d') = '2008-08-08'")
   ```
 
-  
+- AbstractWrapper.lastSql（String lastSql）、AbstractWrapper.exists（）、insql（）等直接进行sql拼接时，如果sql中使用了用户传递的参数，则需要注意sql注入问题
+
+
+## 8、其他
+
+​	mybatisPlus还可以通过引入其他的依赖包，进行增强处理：
+
+- **sql分析打印**
+
+  该功能依赖 `p6spy` 组件，完美的输出打印 SQL 及执行时长
+
+- **多数据源处理**
+
+  需要根据实际情况，进行配置使用
+
+- **代码生成器（AutoGenerator） **
+
+  AutoGenerator 是 MyBatis-Plus 的代码生成器，通过 AutoGenerator 可以快速生成 Entity、Mapper、Mapper XML、Service、Controller 等各个模块的代码，极大的提升了开发效率

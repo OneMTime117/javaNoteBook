@@ -1,4 +1,4 @@
-## Spring-Data
+## Spring-data
 
 spring数据访问模块由如下几个包构成：spring-jdbc、spring-tx、spring-orm、spring-oxm
 
