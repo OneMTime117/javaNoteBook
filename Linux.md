@@ -1000,7 +1000,7 @@ ls -l |grep ^d	|wc -l
 
 ### 3、Systemd介绍
 
-**1、由来**
+#### 1、由来
 
 ​	Linux的启动采用init的进程（SystemV）来完成，但这样会有两个缺点：
 
@@ -1010,13 +1010,13 @@ ls -l |grep ^d	|wc -l
 
   因此Systemd就由此诞生，它设计目标就是为系统的启动和管理，提供一套完整的解决方案；d是守护进程（daemon）的缩写，Systemd，就是系统的守护进程，成为系统的第一个进程（PID为1），而后面运行所有的进程，都是它的子进程
 
-**2、特点：**
+#### 2、特点：
 
 ​	Systemd功能强大，使用方便，但是体系庞大复杂，与操作系统的其他部分耦合性很高，违反了keep simple, keep stupid的Unix 哲学
 
-​	Systemd将所有脚本称之为unit，分为12类：service、socket、target、path...,并且提供对这些脚本执行的管理操作；每个unit都有一个配置文件，来告诉systemd如何启动；systemd默认从目录**/etc/systemd/system/**读取配置文件，而该目录中大部分都为符号连接（软连接），真正的配置文件存放在**/usr/lib/system/system/**中，而**自启动命令的作用就是创建两者的软连接**，因此自启动不会受默认target的影响
+​	Systemd将所有脚本称之为unit，分为12类：service、socket、target、path...,并且提供对这些脚本执行的管理操作；每个unit都有一个配置文件，来告诉systemd如何启动；systemd默认从目录**/etc/systemd/system/**读取配置文件，而该目录中大部分都为符号连接（软连接），真正的配置文件存放在**/usr/lib/systemd/system/**中，而**自启动命令的作用就是创建两者的软连接**，因此自启动不会受默认target的影响
 
-**3、Systemd常用指令：**
+#### 3、Systemd常用指令：
 
 **Systemctl**就是Systemd的主命令，用于管理系统资源（Unit）:
 
@@ -1050,6 +1050,15 @@ command主要有：
   systemctl	set-default	xxx.target	设置系统默认启动组
 
   systemctl	isolate	xxx.target	切换组，并关闭前一个组中不需要启动的unit
+
+#### 4、自定义systemd服务
+
+分为三步，脚本内容根据具体程序决定：
+
+- 自定义服务脚本，/usr/lib/systemd/system/tomcat.service
+
+- 添加可执行权限
+- 设置该服务为开启自启动
 
 ### 4、CentOS7常用服务
 
