@@ -421,7 +421,7 @@ springMVC提供基于注解的编程模型，来实现控制器功能，处理�
 
   ​	**对于javaBean，会通过HttpMessageConverter进行数据转化，默认使用JSON序列化的形式，将JAVAbean转化为JSON字符串，并且修改response.ContentType="application/json;charset=UTF-8"**；
 
-#### HttpMessageConverter：
+#### HttpMessageConverter
 
 HttpMessageConverter，http消息转化器，有两个使用场景：
 
@@ -448,7 +448,7 @@ springMVC提供多个默认HttpMessageConverter，常用有两个：
 
 2、设置StringHttpMessageConverter的supportedMediaTypes属性为“application/json；charset=UTF-8”
 
-#### Converter:
+#### Converter
 
 ​	springMVC对于HTTP参数，会分为两种，
 
@@ -536,6 +536,13 @@ springMVC提供多个默认HttpMessageConverter，常用有两个：
   	}
   ```
 
+#### WebDataBinder
+
+​	用于将web请求中的parameters数据绑定到javaBean中，并提供数据校验；
+
+springMVC中，所有的请求参数数据都会交给WebDataBinder进行数据绑定和校验，而相对于Converter转换器，它们的作用时间不同：
+
+​	在webDataBinder进行数据绑定前，内部已经获取了所有Converter，从而遍历所有converter，依次对每个参数进行数据转换
 
 #### 映射注解
 
@@ -1068,7 +1075,7 @@ public interface WebMvcConfigurer {
 
 - Handler的执行过程：
 
-  1. 通过Handler参数解析器，完成控制器方法的参数注入（此时回对请求的request对象进行处理）
+  1. 通过Handler参数解析器，完成控制器方法的参数注入（此时会对请求的request对象进行处理）
   2. 反射调用控制器方法
   3. 通过Handler返回值处理器，对控制器方法返回值进行处理（此时会对请求的response对象进行处理）
   4. 最后返回ModelAndView对象
@@ -1186,6 +1193,107 @@ protected void doDispatch(HttpServletRequest request, HttpServletResponse respon
 		}
 	}
 ```
+
+在RequestMappingHandlerAdapter类中，使用Handler进行请求处理,核心方法为invokeHandlerMethod
+
+```java
+@Nullable
+	protected ModelAndView invokeHandlerMethod(HttpServletRequest request,
+			HttpServletResponse response, HandlerMethod handlerMethod) throws Exception {
+		
+		//封装request、response对象
+		ServletWebRequest webRequest = new ServletWebRequest(request, response);
+		try {
+            //获取当前处理器的modelFactory(用于model对象的数据绑定)
+			WebDataBinderFactory binderFactory = getDataBinderFactory(handlerMethod);
+			ModelFactory modelFactory = getModelFactory(handlerMethod, binderFactory);
+
+            //初始化处理器可执行方法对象（HandlerMethod）
+			ServletInvocableHandlerMethod invocableMethod = createInvocableHandlerMethod(handlerMethod);
+            //封装参数解析器（HandlerMethodArgumentResolver）
+			if (this.argumentResolvers != null) {
+			invocableMethod.setHandlerMethodArgumentResolvers(this.argumentResolvers);
+			}
+            //封装返回值处理器（tHandlerMethodReturnValueHandler）
+			if (this.returnValueHandlers != null) {
+		invocableMethod.setHandlerMethodReturnValueHandlers(this.returnValueHandlers);
+			}
+            
+            //封装参数绑定器工厂（BinderFactory）
+			invocableMethod.setDataBinderFactory(binderFactory);
+            //封装参数名发现器，用于解析需要的参数名（ParameterNameDiscoverer）
+			invocableMethod.setParameterNameDiscoverer(this.parameterNameDiscoverer);
+
+           	//创建modelAndView容器对象，获取request请求中的所有属性，进行封装（完成@ModelAttribute、@SessionAttribute的属性填充）
+			ModelAndViewContainer mavContainer = new ModelAndViewContainer();
+			mavContainer.addAllAttributes(RequestContextUtils.getInputFlashMap(request));
+			modelFactory.initModel(webRequest, mavContainer, invocableMethod);
+//如果进行重定向后，不忽略默认model				         mavContainer.setIgnoreDefaultModelOnRedirect(this.ignoreDefaultModelOnRedirect);
+
+            //创建异步web请求,实现异步请求处理
+			AsyncWebRequest asyncWebRequest = WebAsyncUtils.createAsyncWebRequest(request, response);
+			asyncWebRequest.setTimeout(this.asyncRequestTimeout);
+
+			WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);
+			asyncManager.setTaskExecutor(this.taskExecutor);
+			asyncManager.setAsyncWebRequest(asyncWebRequest);
+			asyncManager.registerCallableInterceptors(this.callableInterceptors);
+		asyncManager.registerDeferredResultInterceptors(this.deferredResultInterceptors);
+
+			if (asyncManager.hasConcurrentResult()) {
+				Object result = asyncManager.getConcurrentResult();
+				mavContainer = (ModelAndViewContainer) asyncManager.getConcurrentResultContext()[0];
+				asyncManager.clearConcurrentResult();
+				LogFormatUtils.traceDebug(logger, traceOn -> {
+					String formatted = LogFormatUtils.formatValue(result, !traceOn);
+					return "Resume with async result [" + formatted + "]";
+				});
+				invocableMethod = invocableMethod.wrapConcurrentResult(result);
+			}
+
+            //通过异步请求执行处理器，并使用创建modelAndView容器对象封装结果
+			invocableMethod.invokeAndHandle(webRequest, mavContainer);
+			if (asyncManager.isConcurrentHandlingStarted()) {
+				return null;
+			}
+
+			return getModelAndView(mavContainer, modelFactory, webRequest);
+		}
+		finally {
+			webRequest.requestCompleted();
+		}
+	}
+```
+
+此时在ServletInvocableHandlerMethod类中，进行处理器方法的执行，核心方法为invokeAndHandle
+
+```java
+		//使用处理器方法处理请求
+		Object returnValue = invokeForRequest(webRequest, mavContainer, providedArgs);
+		setResponseStatus(webRequest);
+```
+
+然后在InvocableHandlerMethod#invokeForRequest中，先进行方法参数处理：
+
+```java
+		Object[] args = getMethodArgumentValues(request, mavContainer, providedArgs);
+		if (logger.isTraceEnabled()) {
+			logger.trace("Arguments: " + Arrays.toString(args));
+		}
+		return doInvoke(args);
+```
+
+然后更具不同类型的HandlerMethodArgumentResolver，来实现各种传输类型参数解析：
+
+常用有：
+
+| 解析器                             | 参数接受方式  |
+| ---------------------------------- | ------------- |
+| RequestParamMethodArgumentResolver | @RequestParam |
+| PathVariableMethodArgumentResolver | @PathVariable |
+| RequestResponseBodyMethodProcessor | @RequestBody  |
+
+**具体参考org.springframework.web.servlet.mvc.method.annotation包下的类**
 
 ## REST客户端
 

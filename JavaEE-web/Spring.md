@@ -1000,11 +1000,13 @@ public static void main(String[] args) {
 
 #### 4、@Bean和@Component出现beanName相同时：
 
-由于IOC容器是先处理@ComponentScan注解，来注册使用@Component声明的Bean，因此其优先度高（相同优先度，出现同一BeanName时，会直接初始化报错），因此@Bean出现相同beanName时，会直接忽略不进行注册
+由于IOC容器是先处理@ComponentScan注解，来注册使用@Component声明的Bean，因此其优先度高（相同优先度，出现同一BeanName时，会直接初始化报错），因此在@Bean出现相同beanName时，优先级底，会直接忽略不进行注册
 
 ### IOC容器的常用回调接口（仅spring）：
 
 **IOC容器的所有回调接口在实现时，都需要添加@Component注解，从而被IOC容器管理，spring才能进行其方法的回调**
+
+**所有回调接口的实现，都是基于对于Bean或spring相关对象的AOP增强，进行前置、后置通知**
 
 #### Aware接口
 
