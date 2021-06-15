@@ -192,7 +192,9 @@ RequestContextUtils.findWebApplicationContext(request);
 
 - **配置方式选择：**
 
-**XML配置和springMVC配置的两种方式，三个只能同时存在其一，否则会导致Servelt容器启动报错：web.xml中存在多个web应用程序上下文的加载定义，推荐使用AbstractAnnotationConfigDispatcherServletInitializer，更加简单方便**
+**XML配置和springMVC配置（2种），三个只能同时存在其一，否则会导致Servelt容器启动报错**
+
+​	由于springMVC配置，会自动实现对Servlet容器的初始化配置，因此根据方便（特别是使用AbstractAnnotationConfigDispatcherServletInitializer接口）
 
 #### dispatcherServlet属性：
 
