@@ -289,8 +289,6 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 	}
 ````
 
-
-
 # Apache Shiro
 
 java 安全权限框架：
