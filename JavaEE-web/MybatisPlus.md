@@ -297,7 +297,7 @@ mybatis-plus提供条件构造器，来简化生成sql的where条件，配合Bas
 | having      | HAVING ( SQL语句 )    | 分组后的条件查询sql拼接  |
 | or          | OR拼接/OR嵌套           | 无参则OR拼接前后两个条件，有参则嵌套参数对于条件 |
 | and | AND嵌套 | 嵌套参数中的条件 |
-| apply | sql拼接 | 可以使用{index}，来进行动态参数绑定 |
+| apply | sql拼接 | and开头，可以使用{index}，来进行动态参数绑定 |
 | exists | EXISTS（SQL语句） | exists子查询sql拼接 |
 | notExists | NOT  EXISTS（SQL语句） | not   exists 子查询sql拼接 |
 | nested | 正常嵌套 | 嵌套参数中的条件，但括号外没有关键字 |
@@ -621,6 +621,8 @@ private Integer deleted;
 | value | 定义数据库字段名（默认驼峰模式匹配） |
 | exist | 默认ture，是否作为数据库字段         |
 | fill  | 字段填充策略                         |
+
+**对于entity中非映射成员变量，也需要添加@TableField（exist=false），否则在进行单表CRUD操作时，会默认将其拼接到sql中**
 
 #### 使用和配置：
 
