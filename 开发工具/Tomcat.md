@@ -238,7 +238,7 @@ public InputStream getResourceAsStream(String path);
 
 #### 1、HTTP协议参数
 
-​	Sevlet容器会将RUI和请求体中的参数，以K-V键值对的形式保存到`HttpServletRequest`对象中，并且同一个key可以对应多个value，在`ServletRequest`接口中，提供如下方法，来访问这些参数：
+​	Sevlet容器会将RUI和postBody中的参数，以K-V键值对的形式保存到`HttpServletRequest`对象中，并且同一个key可以对应多个value，在`ServletRequest`接口中，提供如下方法，来访问这些参数：
 
 ```java
 //获取所有参数key
@@ -349,5 +349,55 @@ public String getPathInfo();
 ```
 
 #### 6、非阻塞IO
+
+​	Servelt 容器在进行异步请求和升级处理时，使用非阻塞IO来提高web容器并发量；在进行http请求数据的读取时，ServletInputStream提供一系列方法，来读取http请求数据
+
+```java
+public ServletInputStream getInputStream()    通过request获取http请求输入流
+
+boolean isFinished();//判断是否数据读取完成
+
+boolean isReady();//判断数据是否可以被无阻塞读取
+
+void setReadListener(ReadListener listener)；//设置数据流读取监听器，进行方法回调
+```
+
+通过`ReadListener `来为`ServletInputStream`的数据读取提供一系列回调方法：
+
+```java
+onDataAvailable()；//当数据可以被读取时，进行回调
+
+onAllDataRead()；//当数据读取完时，进行回调
+ 
+onError(Throwable t)；//数据读取发生错误时，进行回调
+```
+
+#### 7、cookie
+
+​	request通过getCookies方法，来获取请求中的cokie数组，它有一个个KV组成，服务器可以进行set并返回给浏览器，其中服务器会通过cokie中的sessionId来判断用户。
+
+​	一般情况下，浏览器会将cookie设置为httpOnly cookie，防止暴露给客户端脚本，减少XSS风险
+
+#### 8、SSL属性
+
+​	对于https请求，会携带SSL属性数据，在Servlet容器中，会以java.security.cert.X509Certificate 类型的对象数 进行封装，交给开发者进行操作，并存放在Request对象的attribute属性中，key为：javax.servlet.request.X509Certificate
+
+#### 9、国际化
+
+​	http可以通过Accept-Language头和HTTP/1.1规范中的相关机制，来表示客户端的首选语言环境，并在Request中，以getLocale方法进行获取
+
+#### 10、请求数据编码
+
+​	对于get请求参数数据，会经过Servlet容器处理，封装到request对象的Parameter中，并且Servlet容器默认使用ISO-8859-1编码，将二进制数据进行编码，因此此时直接调用getParameter会导致中文乱码，只能对字符串进行ISO-8869-1解码，然后再进行UTF-8的编码
+
+​	对于Post请求参数，并不会被Servlet容器预处理，而是在读取请求被处理时，根据content-type头进行选择处理，如果不进行指定，则默认使用ISO-8859-1进行post数据获取；为了避免无法解析，Request对象提供setCharacterEncoding（String enc）方法来指定解析数据的编码格式，**在post数据读取前执行**
+
+#### 11、Request对象生命周期
+
+​	每个Request对象都只能在Servlet的service方法，或过滤器的doFilter方法的作用域内有效；除非通过调用request.startAsync方法，实现请求异步处理；此时，request对象一直有效，直到执行AsyncContext.complete方法
+
+### 7、ServletResponse
+
+​	
 
 # Http协议

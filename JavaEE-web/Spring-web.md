@@ -338,9 +338,14 @@ springMVC配置的过滤器、Servelt会自动开启非懒加载和异步处理�
 对于这几个类，springMVC提供了几个使用的实现类：
 
 - HiddenHttpMethodFilter：可以将form表单的请求转化为DELETE、PUT（form表单只支持put、post）
+
 - ShallowEtagHeaderFilter：实现对HTTP缓存中Etag请求头的处理
+
 - CorsFilter：实现CORS处理
+
 - CharacterEncodingFilter：实现对请求数据参数的编码处理（**非常重要**），注意get传参数据，会被servlet容器处理，并不会被CharacterEncodingFilter处理；但springMVC在进行参数封装时，会自动根据Servlet容器编码来进行转化（tomcat8.0 默认为utf-8）
+
+  该过滤器默认使用的编码格式为utf-8，可以通过server.servlet.encoding.charset设置
 
 ### 4、springMVC拦截器：
 
