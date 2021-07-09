@@ -225,7 +225,7 @@ minIdle:10
 timeBetweenEvictionRunsMillis:60000  
 minEvictableIdleTimeMillis:300000  
 
-#检查sql是否有效，mysql为  SELECT 'x' ；oracle为select 1 from dual
+#检查连接是否有效，mysql为  SELECT 'x' ；oracle为select 1 from dual
 validationQuery:SELECT 'x'
 
 #申请连接时，检查连接是否有效、归还连接时，检查连接是否有效  

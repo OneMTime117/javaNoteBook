@@ -227,10 +227,12 @@ public class Test{
 ```java
 try(BufferedReader br = new BufferedReader(new FileReader("D://xxx.txt"))){
     br.readLine();
-}catch(Exception)
+}catch(Exception){
+    xx
+}
 ```
 
-​	可以发现try-with-resources直接省略了对资源finally中的close方法调用，使代码变得非常简洁。同时，当readLine（）方法和隐藏的close方法都发生异常时，会保留第一个异常信息，静止其他后续的异常。从而保证开发者能够快速找到导致资源使用异常的信息
+​	可以发现try-with-resources直接省略了对资源finally中的close方法调用，使代码变得非常简洁。同时，当readLine（）方法和隐藏的close方法都发生异常时，会保留第一个异常信息，避免被其他后续的异常覆盖。从而保证开发者能够快速找到导致资源使用异常的信息
 
 ## 2、对于所有对象都通用的方法
 
@@ -400,4 +402,6 @@ result为合并的结果值，c为当前需要合并的Hash值
   x.clone().equals(x)			//不强求，但通常是相等的
   ```
 
-  
+- clone（）方法的继承关系：
+
+  ​	当父类
