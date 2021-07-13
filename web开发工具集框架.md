@@ -891,6 +891,25 @@ public class SexConstraintValidator implements ConstraintValidator<Sex,String> {
 
 ​	在spring中，其spring-context模块提供了validation数据校验功能，并且基于Bean Validation规范，对其实（Hibernate Validator）进行整合：
 
+注意：在springBoot2.3之后，validation模块需要单独手动引入，提供两种方式：
+
+```xml
+        <!-- 1、springBoot提供的starter -->
+		<dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        
+        <!-- 2、直接手动引入hibernateValidate -->
+        <dependency>
+            <groupId>org.hibernate.validator</groupId>
+            <artifactId>hibernate-validator</artifactId>
+            <version>6.1.6.Final</version>
+        </dependency>
+```
+
+第二种更加方便，可以手动指定使用的hibernateValidate版本
+
 #### 1、配置spring中的校验器
 
 - spring提供`LocalValidatorFactoryBean`来注册内部所使用的校验器Bean（用于springMVC的controller层中Bean约束校验）

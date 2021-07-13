@@ -141,13 +141,15 @@ Debug常用快捷键：
 
 ​	设置为All Problem，可以提示一些API调用的冗余
 
-3、自动导包、自动去掉无用的包（Editor.General.Auto Import）
+3、自动导包、自动去掉无用的包（Editor.General.Auto Import.Optimize imports）
 
 4、代码编辑区字体设置（Editor.Font）
 
 5、控制台字体设置（Editor->Color scheme ->Console Font）
 
 6、文件编码：全局编码、项目文件编码、properties文件编码（Editor->File Encodings）
+
+7、VCS设置：提交时自动去掉无用包、格式化；add、remove时进行版本控制询问
 
 ## 快捷键
 
@@ -200,6 +202,7 @@ Debug常用快捷键：
   | Ctrl + H         | 查看类的继承关系（Hierarchy窗口）  |
   | ALT + 7          | 查看类结构（Structure窗口）        |
   | Ctrl + O         | 获取当前类可以重写或需要实现的方法 |
+  | Alt + Ins        | 通用代码生成器                     |
 
 ## 常用代码的模板、补全：
 
@@ -327,7 +330,9 @@ Debug常用快捷键：
 
 5、REST tool
 
-6、swagger-helper
+6、Swagger Tools
+
+7、CamelCase
 
 **power_mode_II**：代码特效
 
