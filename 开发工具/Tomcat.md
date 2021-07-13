@@ -398,6 +398,248 @@ onError(Throwable t)；//数据读取发生错误时，进行回调
 
 ### 7、ServletResponse
 
-​	
+​	响应对象，封装服务器返回给客户端的所有信息，在HTTP协议中，包含http头信息和消息体
+
+​	`Response`是响应对象的实现类，其接口继承包括：HttpServletResponse》》ServletResponse
+
+#### 1、缓冲
+
+​	Servlet容器提供缓冲功能，来提供响应数据的传输效率，并提供一系列对ServletResponse缓冲区的操作：
+
+```java
+//设置缓冲器大小
+public void setBufferSize(int size);
+
+//获取缓冲器大小
+public int getBufferSize();
+
+//刷新缓冲器
+public void flushBuffer() throws IOException;
+
+//清空缓冲器
+public void resetBuffer();
+
+//判断响应是否返回给客户端
+public boolean isCommitted();
+
+//清空所有响应数据（缓冲器和响应头）
+public void reset();
+```
+
+​	对于reset、resetBuffer，必须保证响应没哟狯给客户端，否则会抛出IllegalStateException
+
+#### 2、响应头、非阻塞IO
+
+​	`HttpServletResponse`接口提供一系列方法来进行HTTP响应头的操作，整个API和请求头一致
+
+​	`ServletOutputStream` 接口和请求输入流类似，支持非阻塞IO
+
+#### 3、重定向和错误
+
+```java
+public void sendRedirect(String location) throws IOException;
+
+public void sendError(int status, String message) throws IOException 
+```
+
+1、`HttpServletResponse`提供sendRedirect方法，将响应返回给客户端，并在响应头中指定一个url，让客户端再次发起请求
+
+2、`HttpServletResponse`提供sendError方法，根据状态码来告诉客户端重定向到Servelt容器在web.xml中的指定错误页面，并将response响应体中的数据以text/html形式展示
+
+**http重定向实现原理：**
+
+​	1、请求响应状态码设置为302
+
+​	2、添加location响应头
+
+#### 4、国际化和字符编码
+
+和request一样，`HttpServeltResponse`提供setContentType、setLocale来设置http协议中的响应头ContentType和ContentLanguage
+
+#### 5、Response的生命周期
+
+​	每个Request对象都只能在Servlet的service方法，或过滤器的doFilter方法的作用域内有效；除非通过调用request.startAsync方法，实现请求异步处理；此时，request对象一直有效，直到执行AsyncContext.complete方法
+
+​	当Response对象销毁前，容器会flush响应缓冲区的数据，将其返回给客户端
+
+### 8、过滤器Filter
+
+#### 1、过滤器的原理和作用
+
+​	过滤器是一种代码重用技术，全局对所有请求和响应在被Servlet处理前，进行额外处理，如改变Http请求、响应内容、header信息
+
+Serlvet提供`Filter`接口，来定义过滤器：
+
+```java
+public interface Filter {
+    void init(FilterConfig var1) throws ServletException;
+
+    void doFilter(ServletRequest var1, ServletResponse var2, FilterChain var3) throws IOException, ServletException;
+
+    void destroy();
+}
+```
+
+​	过滤器组件示例：
+
+- 权限验证过滤器（Token）
+- 日志记录过滤器
+- 数据处理过滤器（加密、压缩、格式转换）
+- 缓存过滤器
+- MIME-类型链过滤器
+
+#### 2、过滤器生命周期
+
+​	Servlet容器来实例化Servlet前，需要初始化所有Filter，调用它们的init方法，并获取web.xml中filterConfig配置信息（初始化参数）；每个过滤器有且只有一个实例，但其线程安全，可以被每个请求处理的线程调用
+
+​	当指定多个过滤器时，Servlet容器会将它们按顺序组成一个过滤器链，调用第一个过滤器的doFilter方法，传入ServletRequest、ServletResponse和FilterChain对象引用，如果满足条件，则调用FilterChain.doFilter方法，执行下一个过滤器的doFilter，循环往复，直到最后一个过滤器，然后访问目标web资源
+
+​	在容器关闭前，会调用Filter的destroy方法，释放过滤器资源
+
+#### 3、过滤器配置
+
+在web.xml中，提供<filter>标签进行过滤器定义,它有三个子标签，来定义过滤器
+
+- filter-name：过滤器名（保证唯一）
+- filter-class：过滤器对应的类
+- init-params：过滤器初始化参数
+
+在web.xml中，提供<filter-mapping>标签进行过滤器的配置，它有三个子标签：
+
+- filter-name：引入定义好的Filter
+
+- url-pattern：指定映射url，进行拦截处理
+
+- servlet-name：指定拦截的Servlet
+
+  url-pattern、servlet-name可以同时指定多个，并且servlet-name匹配对应的过滤器永远为最后一个（允许一个过滤器被多次匹配，同样也会按照顺序多次处理请求）
+
+**在Servlet3.1中，提供@WebFilter注解简化Filter的配置**
+
+#### 4、过滤器和RequestDispatcher
+
+​	在Servlet2.4后，过滤器配置支持识别请求是否被RequestDispatcher分发，从而进行更加细致化的匹配拦截
+
+在web.xml的filter-mapping标签中，使用dispatcher子标签值进行约束：
+
+1、REQUEST：
+
+​	表示请求直接来自于客户端，也是其默认值
+
+2、FORWARD：
+
+​	表示请求被请求分派器的forward（）方法调用处理
+
+3、INCLUDE：
+
+​	表示请求被请求分派器的include（）方法调用处理
+
+4、ERROR：
+
+​	表示请求被错误页面机制处理
+
+5、ASYNC：
+
+​	表示请求被异步处理
+
+dispatcher可以指定多个， 形成并集
+
+### 9、会话Session
+
+​	由于Http是一种无状态协议，无法将请求与指定客户端绑定，因此在服务器和浏览器之间就创建一种额外的机制，会话；**它是对Http协议的扩展，实现服务器对用户整个会话的追踪和记录**；在Servlet规范中，提供HttpSession接口进行实现
+
+#### 1、会话跟踪机制原理
+
+​	会话机制的实现，通过客户端的Cookie和服务端的Session共同完成
+
+在Http响应头中，通过Set-Cookie来传输服务端传递给客户端的Cookie信息，Servlet容器默认创建一个Cookie：
+
+```java
+Set-Cookie: JSESSIONID=07CA5FA20FB2B28A3AF3A385A2D2693D; Path=/; HttpOnly
+```
+
+- JSEEIONID 为cookie的标准name，用于浏览器回传cookie时，服务端通过sessionId与其对应，进行session绑定
+- path 表示当前域下，哪些请求可以访问传递cookie， /表示任何请求
+- HttpOnly 表示cookie不能在浏览器中，被js脚本获取
+
+在后续客户端的请求发送时，都会自动通过cookie请求头，来传递cookie中的name-value键值对；服务端通过解析name=JSEEIONID的cookie值，来绑定会话，实现会话跟踪
+
+#### 2、Cookie属性和使用
+
+​	除了cookie本身的K-V键值对、HttpOnly、Path外，还提供其他属性，来定义cookie在浏览器中的作用范围：
+
+- int maxAge：告诉浏览器，该cookie的失效时间
+- boolean secure：告诉浏览器，该cookie是否必须使用安全协议传输，如SSL
+
+- String domain：告诉浏览器，允许访问该cookie的域名
+
+​	Cookie可以指定多个，通过其KV来保存客户端信息，除了实现会话追踪外，还能进行不同Servlet之间的数据交换，Cookie包含如下特征：
+
+- 不可跨越
+- 使用Unicode编码传输，支持中文
+
+#### 3、会话的生命周期
+
+- 创建：
+
+  ​	当开发者手动调用getSession（）、getSession（true），就会返回一个session（如果没有，就会创建），并保持在服务端，此时Servlet容器就会自动创建一个name=JSEEIONID的cookie，返回sessionId，从而实现会话追踪
+
+- 销毁：
+
+  ​	在Http协议中，客户端并没有显示的终止信号，来提示服务端关闭会话，因此会话超时时终止会话的唯一机制。Servlet容器定义了一个默认的会话超时时间（30分钟），通过`HttpSession`接口中的相关方法，可以获取和自定义：
+
+  ```java
+  //获取最后一次访问时间
+  public long getLastAccessedTime();
+  //设置会话超时时间
+  public void setMaxInactiveInterval(int interval);
+  //获取会话超时时间
+  public int getMaxInactiveInterval();
+  ```
+
+  当超时时间=-1时，会话永不过期，直到Servlet容器关闭
+
+#### 4、URL重写
+
+​	由于cookie可能会被浏览器禁用，此时就无法实现session的绑定；因此Servlet提供另外一种方式，来完成SessionId的回传。但相对于cookie，需要开发者手动进行传递，并且会暴露会话标识
+
+URL重写的实现方式：在URL后面添加 ;jseeionid=xxxx
+
+```java
+http://www.myserver.com/catalog/index.html;jsessionid=1234
+```
+
+#### 5、Session属性
+
+​	`HttpSession`接口提供一系列方法，实现session会话内的数据交换
+
+```java
+//获取指定属性值
+public Object getAttribute(String name);
+
+//获取所有属性名
+public Enumeration<String> getAttributeNames();
+
+//设置属性
+public void setAttribute(String name, Object value);
+
+//删除属性
+public void removeAttribute(String name);
+```
+
+​	Session本身通过Servlet容器来保证线程安全，因此多个请求线程访问同一个属性时，不需要额外处理；**但是对于属性中的对象，对其进行的操作，并不是线程安全的；因此对于该对象的成员变量修改，必须由开发者添加线程同步机制**
+
+如：
+
+```java
+	UserInfoDTO user = (UserInfoDTO)session.getAttribute("user");
+		synchronized (user){
+			user.setUsername("YH");
+		}	
+```
+
+### 分派请求
 
 # Http协议
+
+转发与重定向
