@@ -348,7 +348,23 @@ location /old/path.html {
   }
   ```
 
-  uri进行location匹配时，会将根目录放在uri前，来访问静态资源，如/images/home.html 将转为/data/images/home.html
+  uri进行location匹配时，会将根目录放在uri前，来访问静态资源，即 root+loaction；如/images/home.html 将转为/data/images/home.html
+
+  **没有强制目录路径以/结尾的要求**
+
+- **alias指令**
+
+  和root指令一样，用于指定静态资源目录
+
+  ```java
+  location /images/ {
+      alias /data/
+  }
+  ```
+
+  区别于root，直接在指定目录下寻找资源，不需要拼接上loaction，如/images/home.html将转化为/data/home.html
+
+  **目录路径必须以/结尾**
 
 - **index指令**
 

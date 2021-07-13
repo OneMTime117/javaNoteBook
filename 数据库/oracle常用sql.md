@@ -12,7 +12,7 @@ WHERE mm =1
 
 - 日期转字符串
 
-```java
+```sql
 to_char(time,'yyyy-mm-dd hh24:mi:ss')
 ```
 
@@ -30,7 +30,7 @@ sysdate
 
 - 截取当前时间的日期，时间使用00:00:00补充
 
-```java
+```sql
 trunc(time)
 ```
 
@@ -42,13 +42,13 @@ last_day(sysdate)
 
 - 获取下个星期的某周日期,1表示周日
 
-```java
+```sql
 next_day(sysdate,1)
 ```
 
 ### 3、null处理
 
-```java
+```sql
 nvl(str,'null')
 nvl(date,sysdate)
 ```
@@ -57,9 +57,15 @@ nvl(date,sysdate)
 
 ### 4、分组，查看组数>1的数据
 
- ```java
+ ```sql
 select * from （
 SELECT t.*,COUNT(t.type) OVER(partition by t.type) mm FROM tableName  t 
 ） where mm>1
  ```
+
+### 5、结果集添加常量，并指定字段名
+
+```sql
+SELECT t.*,1 AS NUM FORM tableName t
+```
 
