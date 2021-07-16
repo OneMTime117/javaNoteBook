@@ -1093,7 +1093,6 @@ private List<Gread> gread;
 
 - 嵌套结果映射
 
-  **注意：对于集合嵌套结果映射，必须指定外层对象的id，否则就无法实现1对多映射**
 
 ```xml
 	<resultMap id="gread" type="com.yh.entity.Gread">
@@ -2214,3 +2213,95 @@ Invocation包含了当前sql执行对象中的：target（处理器对象）、m
   ​	执行增删改查方法，是最为常见的拦截点，能修改的参数也最多,以query为例：**MappedStatement.class、 Object.class、 RowBounds.class、ResultHandler.class、CacheKey.class、 BoundSql.class**
 
   但优先级最低，部分参数能够在其他拦截点覆盖
+
+## 15、mybatis的使用注意：
+
+**1、mybatis在动态sql标签中，并不能直接使用>、<  需要进行额外处理**
+
+- 使用转义字符：
+
+  | 符号   | 转义符  |
+  | ------ | ------- |
+  | <      | &lt ;   |
+  | >      | &gt ;   |
+  | &      | &amp ； |
+  | 单引号 | &apos； |
+  | 双引号 | &quot； |
+
+- 如果在xml文件中编写sql，则使用l<![CDATA[ ]]>标签，使xml解析器忽略器标签内容中的特殊符号
+
+  推荐，可读性更高
+
+  ```java
+  <if test="startTime != null">
+  	AND <![CDATA[ time >= #{startTime}]]>
+  </if>
+  ```
+
+  同理：对于like语句中的 %和#{}参数拼接，可以直接使用sql中的字符串拼接语句或函数：
+
+  ```java
+  #mysql
+  column like CONCAT('%',#{dto.name},'%')
+  
+  #ORACLE
+  column like ('%'||#{dto.name}||'%')   
+  ```
+
+**2、mybaits的sql打印：**
+
+- 使用日志框架进行sql打印：
+
+```properties
+logging:
+  level:
+    com.ltsk.mark.base.mapper: debug 
+#springboot整合jdbc时，会自动记录sql调用执行日志，但输出级别为debug，一般日志框架，控制台打印级别为INFO,因此通过改变某个包下全部类的日志级别（debug级别日志），从而实现该类种所有执行sql的全部打印
+```
+
+- 通过mybatis来进行sql打印：
+
+```properties
+mybatis:
+    configuration:
+      log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+#只会对mybatis框架执行的sql语句进行打印，并且打开后，会默认打印所有mapper执行的sql语句
+```
+
+综上所述，推荐使用第一种来进行sql打印，进行有效的debug操作
+
+**3、mybatis对null的处理：**
+
+​		mybaits默认对javatype=null，映射数据库类型为：jdbcType=OTHER
+
+但对于Oracle驱动，并不支持jdbcType=OTHER，因此我们需要对mybaits进行配置：
+
+将jdbcTypeForNull配置属性设置为NULL，即jdbcType=NULL	
+
+**4、mybatis不支持数组类型字段的一对多映射，应该使用List<String>进行接收**
+
+```xml
+	<resultMap id="listVO" type="com.yh.User" autoMapping="true">
+		<id column="id" property="id" />
+		<collection property="picturePath" ofType="java.lang.String" >
+			<result column="picturePath"/>
+		</collection>
+	</resultMap>
+```
+
+**5、对于增删改的xml编写，可以省略resultType**
+
+**6、mybatis使用Map<String,Object>映射结果集时，key对大小写敏感（原生jdbc不区分大小写）**
+
+- Oracle默认sql语句大写（使用“ ”可以避免）
+- mysql区分大小写
+
+**7、mybatis使用Map<String,Object>映射结果集时，Integer类型需要先使用String接受，再转化为Integer**
+
+​	原因：mybatis内部是使用BigDecimal接受，然后转化为Object类型存储，因此无法直接转化为Integer类型
+
+**8、mybatis一对多映射规则：**
+
+​	1、当一对多对应映射表字段都为null时（关联字段不可能为null）,会返回List<null>
+
+​	原因：关联表的结果集字段都为null时，mybatis则不会创建一个映射对象，直接返回null，放入中list

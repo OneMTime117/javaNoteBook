@@ -69,3 +69,21 @@ SELECT t.*,COUNT(t.type) OVER(partition by t.type) mm FROM tableName  t
 SELECT t.*,1 AS NUM FORM tableName t
 ```
 
+### 6、分页：
+
+oracle12c：
+
+```sql
+select * from tableName   OFFSET ((current-1)*size) ROWS FETCH NEXT (current*size) ROWS ONLY
+```
+
+oracle11g:
+
+```sql
+select * from （
+	select t.*,rownum rn from tableName t where ROWNUM <= (current*size)
+) WHERE rn >((current-1)*size)
+```
+
+
+

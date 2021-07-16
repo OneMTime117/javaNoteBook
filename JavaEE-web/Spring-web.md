@@ -1457,3 +1457,4 @@ xxxx测试失败
 ​		在Tomcat运行环境中，默认提供了对webSocket的支持，因此在springBoot中，我们可以通过内置Tomcat、或者直接使用外部Tomcat，来实现webSocket：
 
 **参考笔记：JAVA利用WebSocker实现实时通信**
+

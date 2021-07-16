@@ -2,7 +2,7 @@
 
 常用工具框架包括：
 
-swagger、HibernateValidation、lombok、Jackson、logfj4/logback
+swagger、HibernateValidation、lombok、Jackson、logfj4/logback、HuTool
 
 ## 1、Swagger
 
@@ -1510,7 +1510,228 @@ objectMapper.setSerializationInclusion(JsonInclude.Include.ALWAYS);
 
 ## 5、junit4	
 
+​		**java单元测试是最小的功能单元测试代码，即针对单个java方法的测试（java的最小单位为方法）**
+
+### main方法进行测试的缺点：
+
+- 只能有一个main（）方法，不能把所有测试代码按一个个方法分开
+- 无法打印出测试结果和预期结果
+
+### 单元测试的优点：
+
+- 可以打印测试报告
+- 可以进行自动测试，进行执行结果的判断
+- 可以在一个类中，书写多个测试方法，并且每个单元测试都可以独立执行
+
+### JUnit4框架，java最常用的测试框架：
+
+1、JUnit4框架有标准规定，测试类必须在src/test/java的目录中；maven项目就满足该目录结果
+
+并且，**测试类不能使用Test命名，否则会出现导入的org.junit.Test类名冲突**
+
+2、编写一个测试方法，只需要使用@Test注解，并且保证方法满足以下条件：
+
+- 无返回值
+- 无参数
+- public
+
+```java
+@Test
+public void Test(){
+    
+}
+```
+
+2、对单元测试进行断言（Assertion），即判定程序的执行结果是否符合预期，从而通过测试
+
+使用assertEquals（obj，obj）、、、等方法来对结果进行断言
+
+3、@Before、@After、@BeforeClass、@AfterClass使用，用于指定单元测试执行前后的代码（如资源初始化和释放）
+
+**测试类执行单元测试的过程：**
+
+- 初始化类的静态变量，执行一次@BeforeClass方法（该方法必须满足：无返回值、无参数、静态方法、public）
+- 初始化类的成员变量，执行测试类的构造方法
+- 执行@Before方法（和@Test方法一致）；然后执行@Test方法；最后执行@After方法
+- 当执行测试类时，会自动从上到下执行所有@Test方法，因此相应也会多次执行初始化类的成员变量，执行测试类的构造方法、@Before和@After方法
+- 最后在执行一次@AfterClass方法
+
+**在执行测试类时，每一次执行@Test方法前，都是重新创建了一个测试类实例，因此测试类中的非静态成员变量，不能在每个@Test中共享，而是每次都为初始值**
+
+**因此在多个@Test方法需要使用某个资源时，为了减少资源初始化和释放时间，一般将其初始化代码和释放代码放在@BeforeClass方法和@AfterClass中**
+
+4、异常测试和超时测试；
+
+@Test注解提供expected属性，用于指定异常类的Class对象，当未抛出该异常类型时，则测试失败；反之测试成功
+
+@Test注解提供timeout属性，用于指定测试方法执行时间，单位为毫秒；当测试方法执行时间超出该值时，测试失败
+
+5、忽略测试：
+
+@Ignore，注解在已被@Test注解的方法上，用于在执行测试类时，忽略被注解的@test方法
+
+6、使用不同运行器进行测试：
+
+@RunWith（Calss），指定该测试类单元测试使用的运行器，如springboot测试类注解为@RunWith(SpringRunner.class)
+
+不同的运行器，单元测试的规则和注解也有所不同，Junit默认运行器为 org.junit.runner.Runner
+
 ## 6、logback
 
+推荐使用Slf4j+Logback,相对于Log4j有更多的优点、特性和性能
 
+### **1、日志级别：**
 
+| 日志级别 | 描述                                               |
+| -------- | -------------------------------------------------- |
+| OFF      | 关闭：最高级别，不输出日志。                       |
+| FATAL    | 致命：输出非常严重的可能会导致应用程序终止的错误。 |
+| ERROR    | 错误：输出错误，但应用还能继续运行。               |
+| WARN     | 警告：输出可能潜在的危险状况。                     |
+| INFO     | 信息：输出应用运行过程的详细信息。                 |
+| DEBUG    | 调试：输出更细致的对调试应用有用的信息。           |
+| TRACE    | 跟踪：输出更细致的程序运行轨迹。                   |
+| ALL      | 所有：输出所有级别信息。                           |
+
+一般情况下，使用 ERROR、WARN、INFO 、DEBUG四种级别
+
+### 2、logback框架配置
+
+1、java -Dlogback.configurationFile= /path/mylogback.xml  ;通过指定java执行命令，来加载自定义的logback配置文件
+
+2、当没有指定logback.configurationFile参数时，默认在calsspath下按顺序查找：
+
+- logback.groovy
+- logback-test.xml
+- logback.xml
+- JDK6.0以上，自动查找com.qos.logback.classic.spi.**Configurator**接口的第一个实现类
+
+ 3、都没有找到时，使用**ch.qos.logback.classic.BasicConfigurator**类默认logback配置，将日志在控制台输出
+
+logback.xml常用配置
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+ <!-- scan 配置文件改变后，是否重新加载
+      scanPeriod 检测配置文件是否发送改变的时间周期，默认为毫秒，可以自定义单位
+      debug 是否打印logback内部日志（一般不需要）
+  -->
+<configuration scan="ture" scanPeriod="60 seconds" debug="false">
+    <!-- 定义参数常量，用于在日志组件中使用，达到全局变量的作用
+         log.level  日志打印最低级别
+         log.maxHistory 日志文件保存时间
+         log.filePath 日志文件保存根目录
+         log.pattern 日志打印格式 :%d时间、{yyyy-MM-dd HH:mm:ss:SSS}时间格式、%thrad线程名、
+         %-5level 5个字符宽度展示日志等级、%logger 打印日志的类限定名、&%msg日志信息 、%n换行符
+          -->
+    <property name="log.level" value="debug"/>
+    <property name="log.maxHistory" value="30"/>
+    <property name="log.filePath" value="${catalina.base}"/> <!-- ${catalina.base}为Tomcat根目录 -->
+    <property name="log.pattern" value="%d{yyyy-MM-dd HH:mm:ss:SSS} [%thead] %-5level %logger{50} - %msg%n"/>
+    
+    <!-- 定义日志在控制台输出的组件 -->
+    <appender name="consoleAppender" class="ch.qos.logback.core.ConsoleAppender">
+    <!-- 日志输出格式 -->
+        <encoder>
+            <pattern>${log.pattern}</pattern>
+        </encoder>
+    </appender>
+
+   <!-- 定义日志在文件中输出的组件
+     使用多个组件来定义不同等级的日志文件输出，一般使用三个等级：DUBUG、INFO、ERROR
+     并且都使用RollingFileAppender作为组件（文件输出日志内容，并可以设置滚动策略，即达到一定条件后，生成新日志文件 
+   FileAppender 一般不使用，会将所有日志输出在一个日志文件中-->
+    <appender name="debugAppender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!-- 文件路径 -->
+        <file>${log.filePath}/debug.log</file>
+        <!-- 滚动策略，TimeBasedRollingPolicy,每天生成一个文件，指定文件名、文件保存时间 -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${log.filePath}/dubug/dubug.%d{yyyy-MM-dd}.log.gz}</fileNamePattern>
+            <MaxHitory>${log.maxHistory}</MaxHitory>
+        </rollingPolicy>
+        <!-- 日志输出格式 -->
+        <encoder>
+            <pattern>${log.pattern}</pattern>
+        </encoder>
+        <!-- 使用组件日志等级过滤器，该组件只作为DUBUG等级日志的输出源 -->
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>DUBUG</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+    </appender>
+     
+    <!-- 定义全局logger、所有类的日志都使用下面的appender进行输出
+                  当LoggerFactory.getLogger(name/class)无法找到对于loggin名时，使用root全局设置输出 -->
+    <root level="info">
+        <appender-ref ref="consoleAppender"/>
+    </root>
+    
+    
+    <!-- 定义logger，指定logger名，用于匹配LoggerFactory.getLogger(name/class)；
+    class则匹配其类对应的包名.
+    logger默认是继承使用root中的Appender组件，因此当root指定控制台输出后，logger中不需要指定;
+        当然也可以通过additivity="false",不继承root中的Appender组件-->
+    <logger name="testLogger" level="${log.level}">
+        <appender-ref ref="debugAppender"/>
+    </logger>
+   
+</configuration>
+```
+
+### 3、logback启动原理
+
+- 使用slf4j接口的好处：基本所有日志框架，都可以作为其实现层，因此我们可以面向该接口进行编程，通过切换slf4j的实现，来简单完整实现底层日志框架的切换
+
+- logback启动过程：
+
+  调用slf4接口的方法：LoggerFactory.getLogger(Test.class)；此时slf4j调用org.slf4j.StaticLoggerBinder进行初始化，就会扫描项目中所有`org.slf4j.StaticLoggerBinder`的具体实现；
+
+  而logback-classic中就定义了StaticLoggerBinder的实现方法，此时就会加载logback.xml
+
+### 4、logback日志使用要点
+
+- 定义logger变量
+
+```java
+private static final Logger logger = LoggerFactory.getLogger(XX.class);
+要确保一个类中，只有一个logger对象（静态成员常量），从而减少对象的内存占用
+```
+
+- 在生产环境中，应该禁止debug级别日志的输出
+
+  由于logger会继承root的输出源，因此一般需要添加additivity="true"，放在日志重复输出
+
+- error日志信息输出时，应该携带异常信息，帮助分析异常原因
+
+```java
+		try {
+			int a= 1/0;
+		} catch (Exception e) {
+			log.error("test发生异常，异常信息："+e.getMessage(),e);
+		}
+```
+
+- 减少日志打印对应用程序性能的损耗
+
+  虽然我们在生产环境下，会提高日志级别的打印，减少不必要的日志打印；但是日志中的字符串拼接还是会执行，这样会白白浪费性能，因此需要以下手段来进行这样情况的发生：
+
+  1、使用条件判断，判断当前logger对象的需要输出的日志级别，再对日志进行打印后者忽略
+
+  ```java
+  	if (log.isErrorEnabled()) {
+  		log.error("test发生异常，异常信息："+e.getMessage(),e);
+  	}
+  ```
+
+  2、使用占位符，来减少字符串拼接时，String对象的创建；使用占位符时，只有需要打印该字符串时，才会进拼接（有些日志框架不支持占位符,logback支持）
+
+  ```java
+  	int id=100;
+  	String user="yh"; 
+  	log.debug("错误，id：{},user:{}",id, user);
+  ```
+
+- 日志文件命名：推荐使用projectName_logName_logType.log
+
+## 7、HuTool
