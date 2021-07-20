@@ -213,7 +213,7 @@ Debug常用快捷键：
   ```java
   //s.sout
   System.out.println(s);
-  //s.souts
+  //s.soutv
   System.out.println("s = " + s);
   //s.serr
   System.err.println(s);
@@ -320,21 +320,21 @@ Debug常用快捷键：
 
 # idea常用插件：
 
-1、MyBatisCodeHelperPro
+1、MyBatisCodeHelperPro	mybaits代码生成器
 
-2、mybatis log
+2、mybatis log			mybatis日志独立打印
 
-3、lombok
+3、lombok				
 
-4、Grep console
+4、Grep console		日志控制台高亮
 
-5、REST tool
+5、REST tool			接口管理
 
-6、Swagger Tools
+6、Swagger Tools	swagger注解生成器
 
-7、CamelCase
+7、CamelCase		驼峰转换
 
-**power_mode_II**：代码特效
+8、Translation		内置翻译
 
-**Alibaba Java Coding Guidelines**：阿里巴巴公司试行的开发设计规范
+9、Alibaba Java Coding Guidelines   阿里巴巴公司试行的开发设计规范
 

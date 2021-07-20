@@ -1456,5 +1456,198 @@ xxxx测试失败
 
 ​		在Tomcat运行环境中，默认提供了对webSocket的支持，因此在springBoot中，我们可以通过内置Tomcat、或者直接使用外部Tomcat，来实现webSocket：
 
-**参考笔记：JAVA利用WebSocker实现实时通信**
+1、编写websocket服务类
+
+```java
+@Slf4j
+@ServerEndpoint("/websocket")//服务端口名（类似于http的url）
+public class WebSocketServer {
+
+	//统计连接推送的客户端数
+	private static AtomicInteger onlineCount = new AtomicInteger(0);
+	//线程安全的set，来保存所有客户端对于的webSocket服务对象
+	private static CopyOnWriteArraySet<WebSocketServer> webSocketSet = new CopyOnWriteArraySet<WebSocketServer>();
+	//客户端与对于webSocketServer的Session对象，webSocketServer通过它来向客户端发送数据
+	private Session session;
+	
+	@OnOpen//websocket连接建立成功，执行的方法
+	public void onOpen(Session session) {
+		//获取webSocket连接建立的session
+		this.session=session;
+		//将该webSocket放入set集合
+		webSocketSet.add(this);
+		//webSocket统计+1
+		onlineCount.incrementAndGet();
+		
+		try {
+			//服务器主动推送消息
+			session.getBasicRemote().sendText("连接成功");
+		} catch (IOException e) {
+			e.printStackTrace();
+			log.debug("webSocket IO异常");
+		}
+	}
+	
+	@OnClose//当websocket连接关闭时，执行的方法
+	public void onClose() {
+		webSocketSet.remove(this);
+		onlineCount.decrementAndGet();
+		log.info("webSocket连接关闭，当前服务连接数为"+onlineCount);
+	}
+	
+	@OnMessage//当webSocket收到客户端消息后，执行的方法（可以作为启动消息推送的入口）
+	public void onMessage(String message, Session session) {
+		log.info(message);
+		ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+		Runnable task = new Runnable() {
+			public void run() {
+				for (WebSocketServer webSocketServer : webSocketSet) {
+					try {                       
+						webSocketServer.session.getBasicRemote().sendText("当前时间："+System.currentTimeMillis());
+					} catch (IOException e) {
+						e.printStackTrace();
+						log.debug("webSocket IO异常");
+					}
+				}
+			}
+		};
+		//每5s所有websocket服务发送一次消息
+		executorService.scheduleAtFixedRate(task, 0, 5, TimeUnit.SECONDS);
+	}
+	
+	@OnError//websocket服务发生错误时，执行方法
+	public void onError(Session session, Throwable error) {
+		log.error("发生错误");
+		error.printStackTrace();
+	}
+}
+```
+
+2、使用内部tomcat时，需要将webscoket服务组件交给spring容器，同时WebScoket服务类必须添加@Component注解，将其交给spring容器
+
+ServerEndpointExporter：服务端口暴露对象，用于将spring容器中所有的websocket对象服务接口交给内置的Tomcat并；当使用外部tomcat时，springboot会默认将交给外置tomcat的该对象处理
+
+```java
+@Configuration
+public class WebSocketConfig {
+	@Bean
+	public ServerEndpointExporter getServerEndpointExporter() {
+		//管理webSocket服务的组件，交给springboot内置Tomcat
+		return new ServerEndpointExporter();
+	}	
+}
+```
+
+**当使用外部tomcat时，该步需要省略**：springBoot默认会将所有@ServerEndpoint注解类交给spring容器额外处理（实现springMVC、springIOC相关功能）
+
+3、和前端联调，实现webSocket机制的连接
+
+```java
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+</head>
+<body>
+Welcome<br/>
+<input id="text" type="text" /><button onclick="send()">Send</button>    <button onclick="closeWebSocket()">Close</button>
+<div id="message">
+</div>
+
+</body>
+<script type="text/javascript">
+    var websocket = null;
+
+    //判断当前浏览器是否支持WebSocket
+    if('WebSocket' in window){
+        websocket = new WebSocket("ws://10.8.96.228:8080/test/websocket");
+    }
+    else{
+        alert('Not support websocket')
+    }
+
+    //连接发生错误的回调方法
+    websocket.onerror = function(){
+        setMessageInnerHTML("error");
+    };
+
+    //连接成功建立的回调方法
+    websocket.onopen = function(event){
+        setMessageInnerHTML("open");
+    }
+
+    //接收到消息的回调方法
+    websocket.onmessage = function(event){
+        setMessageInnerHTML(event.data);
+    }
+
+    //连接关闭的回调方法
+    websocket.onclose = function(){
+        setMessageInnerHTML("close");
+    }
+
+    //监听窗口关闭事件，当窗口关闭时，主动去关闭websocket连接，防止连接还没断开就关闭窗口，server端会抛异常。
+    window.onbeforeunload = function(){
+        websocket.close();
+    }
+
+    //将消息显示在网页上
+    function setMessageInnerHTML(innerHTML){
+        document.getElementById('message').innerHTML += innerHTML + '<br/>';
+    }
+
+    //关闭连接
+    function closeWebSocket(){
+        websocket.close();
+    }
+
+    //发送消息
+    function send(){
+        var message = document.getElementById('text').value;
+        websocket.send(message);
+    }
+</script>
+</html>
+```
+
+##### 注意问题：
+
+1、在Websocket服务类中，无法进行spring的自动注入
+
+- 原因：
+
+  ​		websocket对象在spring容器中是多实例的，每一个webscoket连接都会创建一个webscoket服务对象；而自动注入发生在spring启动时，而websocket对象只会在有客户端连接时被创建
+
+- 解决方法：
+
+  ​		使用spring手动注入
+
+2、进行websocket服务类编写时，除了webscoket-api提供的注解外，开发者还可以使用springMVC相关注解，获取websocket连接请求中的参数
+
+3、在配置ServerEndpointExporter后，会导致spring-test模块无法启动
+
+- 原因：
+
+  ​		spring-test在启动时，默认只会提供tomcat的运行环境，但不会启动Tomcat,因此导致springboot在初始化ServerEndpointExporter对象时报错
+
+- 解决方法：
+
+  ​		避免这种方式的产生，在创建test类时，需要显式声明启动Tomcat：
+
+  ```java
+  @RunWith(SpringRunner.class)
+  @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+  public class MarkTest {
+  }
+  ```
+
+  ​		其中，webEnvironment提供四种web模拟环境：
+
+  ```java
+  MOCK		//只是模拟tomcat环境，并不会启动Tomcat（默认值）,减少开销的同时，实现接口模拟测试，
+  RANDOM_PORT		//启动Tomcat，使用随机端口,可以通过TestRestTemplate，来模拟客户端操作
+  DEFINED_PORT   	//启动Tomcat，使用默认端口
+  NONE	//不提供web环境
+  ```
 

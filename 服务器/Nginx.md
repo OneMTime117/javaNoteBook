@@ -66,7 +66,7 @@
   make install
   ```
 
-- 启动nginx,cd /usr/local/ginx/sbin,执行niginx shell脚本
+- 启动nginx,cd /usr/local/nginx/sbin,执行niginx shell脚本
 
   ```jav a
   ./nginx
@@ -677,7 +677,7 @@ yum	install keepalived	-y
 
 **省略。。。**
 
-## 4、nginx原理
+## 5、nginx原理
 
 ### 1、master-worker进程机制
 
