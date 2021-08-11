@@ -85,5 +85,45 @@ select * from （
 ) WHERE rn >((current-1)*size)
 ```
 
+**不直接使用rn between  1 and 10的原因:**
 
+rownum是一个伪列，会根据当前临时表的条数，进行动态排序；从而表记录1开始，判断如果rownum>1,则第一条数据不满足，则被提出临时表，而此时动态的第二条记录的rownum会变为1，这样往复，最后得到一个空的临时表
+
+因此需要先在临时表中，判断最大范围，然后再子查询中，rownum不在是伪列，在判断最小范围
+
+**当然也可以直接在子查询中完成（推荐）：**
+
+```sql
+select * from (
+	select t.*,rownum rn from tableName 
+) where rn between 1 and 10
+```
+
+**rownum分页排序注意：**
+
+在使用在使用rownum进行分页时，不能把order by语句和rownum的条件判断写在一个查询中，必须通过子查询分开，因为判断条件优先于排序，因此后排序会打乱rownum值
+
+### 7、Date类型比较：
+
+- 获取两个Date类型的相差天数，如果两个Date的时分秒不同时，则为小数
+
+  ```java
+  to_number(date1-date2) days
+  ```
+
+  基于天数，就可以推出两个Date类型相差的小时数（* 24）、分钟数（ * 24 *60）、秒数（ * 24 * 60 *60）
+
+- 获取两个Date类型的相差月数，默认会忽略时分秒的影响；当日期不同，且不会月份的最后一天时，则为小数
+
+   ```java
+  months_between(date1,date2) months
+  ```
+
+  基于月份，可以推出两个Date类型相差的年数（/12）
+
+### 8、将数据insert到相同结构的另外表中：
+
+```sql
+insert into tableName1 select * from tableName2
+```
 
