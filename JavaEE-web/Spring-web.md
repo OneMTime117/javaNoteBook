@@ -905,11 +905,11 @@ public class TestController {
 public class MvcConfig implements WebMvcConfigurer {	
 	@Override
 	public void addCorsMappings(CorsRegistry registry) {
-		registry.addMapping("/*")//拦截url-pattern 
+		registry.addMapping("/**")//拦截url-pattern 
 			.allowedOrigins("*")	//允许的跨域请求，* 为允许所有(浏览器对于跨域请求，会自动添加origin请求头，value为当前项目的ip+端口)
 			.allowedHeaders("*") //允许的请求头
 			.allowedMethods("*")  //允许的HTTP请求方法
-			.allowCredentials(false) //允许请求发送cookie等安全证书（当allowedOrigins为*时，就不能设置allCrendentials为true）
+			.allowCredentials(true) //允许请求发送cookie等安全证书
 			.maxAge(3600);//预检请求有效期 单位s
 	}
 ```

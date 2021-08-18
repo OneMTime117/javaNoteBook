@@ -10,6 +10,12 @@ WHERE mm =1
 
 ### 2、时间DATE类型处理
 
+- DATE类型用于表示 日期+时间，当只有日期时，则默认使用00:00:00补充，因此当进行日期区间比较时，应该手动补全时间，否则最后一天将会被忽略：
+
+```
+time between to_date('2021-01-01 00:00:00','yyyy-mm-dd hh24:mi:ss') and to_date('2021-01-31 23:59:59','yyyy-mm-dd hh24:mi:ss')
+```
+
 - 日期转字符串
 
 ```sql
@@ -127,3 +133,24 @@ select * from (
 insert into tableName1 select * from tableName2
 ```
 
+### 9、交集、并集、差集
+
+**必须保证两组数据的字段数、类型相同，一 一对应**
+
+- intersect
+
+  获取两组数据的交集
+
+  ```sql
+  SELECT id FROM tab1   
+  INTERSECT    
+  SELECT id FROM tab2; 
+  ```
+
+- minus
+
+  获取第一个查询结果与第二个查询结果的不同部分，即差集
+
+- union/union all
+
+  获取两组数据的并集，union会将重复内容取一个，union all则允许有重复内容

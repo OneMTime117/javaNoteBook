@@ -597,29 +597,31 @@ if(obj instanceof List){
 
 ### 2、消除非受检警告
 
-​		在使用泛型编程中，由于开发人员使用不规范，编译器常常会出现非受检警告，比如，在创建泛型变量时，
+​		1、在使用泛型编程中，由于开发人员使用不规范，编译器常常会出现非受检警告，比如，在创建泛型变量时，
 
 必须指定实例化时的泛型，如果使用原生态类型，会出现非受检转化警告
 
 ```java
+//此时会抛出非受检警告
+@SuppressWarnings("unchecked")
+List<String> list = new ArrayList();
+
 List<String> list = new ArrayList<String>();
 ```
 
 在JDK7开始，引入了菱形操作符，这样编译器会自动根据变量的泛型，来推测出菱形操作符中的参数类型，从而不会提出非受检警告
 
-​		在使用泛型方法时，我们需要将一个类型的数组转化为指定泛型参数类型，此时编译器就会提出非受检转化警告，但是为方法的通用性，这种转化是无法避免，因此就可以使用@SuppressWarnings("unchecked")来消除非受检警告，并提示其他开发者理解该代码这样设计的原因
+​		2、在泛型方法中，我们需要将**一个数组转化为泛型参数类型数组**时，编译器就会提出非受检转化警告，但是为方法的通用性，这种转化是无法避免，因此就可以使用@SuppressWarnings("unchecked")来消除非受检警告，并提示其他开发者理解该代码这样设计的原因
 
 ```java
-	public static <T,U> T[] copyOf(U[] original, int newLength, Class<? extends T[]> newType) {
+	public <T> T[] copy(String [] strings) {
 		@SuppressWarnings("unchecked")
-		T[] copy = ((Object)newType == (Object)Object[].class)
-				? (T[]) new Object[newLength]
-				: (T[]) Array.newInstance(newType.getComponentType(), newLength);
-		System.arraycopy(original, 0, copy, 0,
-				Math.min(original.length, newLength));
-		return copy;
+		T[] objects1 = (T[]) strings;
+		return objects1;
 	}
 ```
+
+**注意：**
 
 @SuppressWarnings("unchecked")注解可以放在某个语句上、方法上、类上，一般情况下，我们要尽可能降低它的作用范围
 
@@ -639,5 +641,192 @@ List<String> list = new ArrayList<String>();
 
 ### 4、优先考虑泛型
 
-​		在进行类的设计时，优先考虑泛型，使类对象在进行类型转换时，更加安全和更加容易
+​		在进行类的设计时，优先考虑泛型，使类可以操作不同类型元素，更加安全和更加容易
+
+```java
+public class Stack<E> {
+	private E[] elements;
+	private int size = 0;
+	public static final int DEFAULT_INITIAL_CAPACITY = 16;
+
+	public Stack() {
+		elements = (E[]) new Object[DEFAULT_INITIAL_CAPACITY];
+	}
+
+	public void push(E e) {
+		elements[size++] = e;
+	}
+}
+```
+
+​		对于element成员变量，通过在构造方法中使用Object创建数组后，在强制转换，原因是：
+
+数组类型是具体的，不能使用泛型标识符代替，即这样是错误的：
+
+```java
+E [] element = new E[10];
+```
+
+- 泛型标识符本身没有实际意义，但JDK使用规范中，有明确规定：
+
+| 泛型标识符 | 含义                                      |
+| ---------- | ----------------------------------------- |
+| E          | element集合元素                           |
+| T          | type   java类型                           |
+| K          | key                                       |
+| V          | value                                     |
+| N          | number    java数值类型                    |
+| ？         | 不确定java类型                            |
+| S、U、V    | 2nd、3rd、4th（用于指定区分多个Java类型） |
+
+- 泛型类中，元素容器为什么使用数组：
+
+  java本身是不支持List的，比如ArrayList就是通过数组实现，因此如果在不能够使用List的情况下，我们可以选择数组来实现，并且可以提供效率
+
+### 5、优先使用泛型方法
+
+​		和泛型类一样，泛型方法能很好的支持对多种类型的相同处理，提高代码的可复用性，同时提供类型安全性，消除非受检警告
+
+```java
+public static <E> Set<E> union(Set<E> s1,Set<E> s2){
+    Set<E> result = new HashSet<>(s1);
+    result.addAll(s2);
+    return result;
+}
+```
+
+### 6、利用有限通配符来提升API的灵活性
+
+​		泛型虽然提供了类、方法对多种类型的支持，但由于泛型是不可便的，因此无法使用类的多态特性，从而降低了API的灵活性；
+
+​		对于以上问题，JDK提供了有限通配符来解决，通过**对输入参数进行有限通配符处理**，从而实现将**子类容器（生产者）中元素**向上转型放入内部泛型E容器中；或者将内部泛型E容器中的元素向上转型放入一个**超类容器（消费者）**中
+
+```java
+public class Stack<E> {
+	private E[] elements;
+	private int size = 0;
+	public static final int DEFAULT_INITIAL_CAPACITY = 16;
+
+	public Stack() {
+		elements = (E[]) new Object[DEFAULT_INITIAL_CAPACITY];
+	}
+
+	public void push(E e) {
+		elements[size++] = e;
+	}
+    
+    public void pushAll(Collection<? extends E> src){
+        //参数容器元素向上转型，放入elements
+        for (E e :src){
+            push(e);
+        }
+    }
+    
+  	public void popAll(Collection<? super E> dst){
+        //element容器元素向上转型,放入dst
+		for (E element : elements) {
+			dst.add(element);
+		}
+	}
+    
+}
+```
+
+​		**对于泛型方法的返回值，不应该使用有限通配符来进行处理，因为返回值的向上转型应该交给调用者决定**
+
+- **使用有限通配符修饰泛型参数**
+
+  ```JAVA
+  <T extends Comparable<? super T>>
+  ```
+
+  该泛型参数表示，类型必须继承Comparable<? super T>>接口，实现对泛型参数本身的限制
+
+  **推荐使用Comparable<? super T>>代替Comparable< T >：**
+
+  Comparable是消费者，其接口实现方法，对于泛型T的父类参数，依然可以向上转型进行处理，因此使用<? super T>通配符，提高API灵活性
+
+### 7、谨慎同时使用泛型和可变参数
+
+​		两者都是在JDK5中提供，但并不能很好的搭配使用：
+
+1、可变参数的作用和实质：
+
+**可变参数的作用是实现方法同类型参数个数的动态接受，并可以直接使用数组进行入参，其底层的实现细节就是使用一个数组**
+
+2、两者同时使用，带来的问题：
+
+- 对于泛型可变参数，其内部也是通过泛型数组来实现，虽然java不支持创建泛型数组，但是泛型可变参数的声明却是合法的。因此java语言设计者认为，泛型可变参数在实践中有存在的必要，如JDK中的Array.asList(T... a)、Collections.addAll(Collection<? super T> C,T... elements)等方法
+
+- 由于方法使用泛型数组作为入参，编译器就发出heap pollution警告：
+
+  **当使用原生态类型参数变量指向泛型类型对象时，就有可能产生堆污染（heap pollution），即指定泛型集合中，引入不同类型数据**
+
+​		当泛型数组向上转型为Object数组时，此时泛型的安全性就会被破坏，存在发生堆污染的可能：
+
+```java
+	public  void add(List<String>... lists) {
+		Object[] objects=lists;
+		ArrayList<Integer> integers = new ArrayList<>();
+		integers.add(1);
+        //此时，lists产生堆污染，存储了非List<String>类型数据
+		objects[0]=integers;
+        //此时隐式进行了Integer->String的转化，抛出ClassCastException异常
+		String s = lists[0].get(0);
+	}
+```
+
+如果将List<String>... 泛型可变参数，替换为List<List<String>>时，泛型在编译期就可以抛出转化异常，避免的向上转型
+
+3、@SafeVarargs注解
+
+​		在JDK7中，增加了@SafeVarargs注解，来消除泛型可变参数方法的堆污染警告；在这之前，则需要在每个带方法调用处添加@SuppressWarnings("unchecked")注解
+
+​		@SafeVarargs是让方法设计者自己承诺，方法不会存在堆污染操作；如果需要方法绝对安全，则要满足两个条件：
+
+- 方法没有在可变参数数组中保存其他值
+- 方法没有将可变参数数组交给不被信任代码处理
+
+**注意：**
+
+运行一个方法访问一个泛型可变参数数组是不安全的：
+
+```java
+	public static <T> T[] toArray(T... args){
+		return args;
+	}
+
+	public static <T> T[] pickTwo(T a,T b){
+		return toArray(a,b);
+	}
+```
+
+在编译器处理pickTwo方法时，由于a，b为非参数化泛型，为了内部实现toArray的泛型可变参数，编译器将会使用Object数组来保存a，b，从而确保支持任意具体实例的数据，因此toArray方法返回时，内部会进行一次Object[ ]->T[ ]的转化，导致抛出ClassCastException异常
+
+**综上所述，由于泛型和可变参数结合时，存在一些问题，因此推荐使用List代替数组（4.4）**
+
+### 8、优先考虑类型安全的异构容器
+
+​		泛型保证了容器类型转化的安全性，但是也约束了容器的灵活性，无法同时存储多种类型；但是我们基于当前JDK所提供了容器，可以实现一个类型安全的异构容器：
+
+- 类型安全，容器中的元素类型是安全的，能被编译器检验的
+- 异构，基于map，但是key为不同类型
+
+```java
+public class Favorites{
+    private Map<Class<?>,Object> favorites=new HashMap<>();
+    
+    public <T> void putFavorites(Class<T> type,T instance){
+        favorites.put(type,instance);
+    }
+    
+    public <T> void getFavorites(Class<T> type){
+        return type.cast(favorites.get(type));
+    }
+}
+```
+
+## 5、枚举和注解
+
+### 1、使用enum枚举代替常量集
 
