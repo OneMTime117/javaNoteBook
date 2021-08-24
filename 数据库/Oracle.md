@@ -1,156 +1,14 @@
 # Oracle数据库：
 
-## 1、mysql和oracle的区别
+## mysql和oracle的区别
 
-#### 一、并发性
+1、在select子句中，聚合函数不能和其他非分组字段同时存在
 
-并发性是oltp数据库最重要的特性，但并发涉及到资源的获取、共享与锁定。
+2、oracle需要使用序列，来实现字段自动增长
 
-mysql:
-mysql以表级锁为主，对资源锁定的粒度很大，如果一个session对一个表加锁时间过长，会让其他session无法更新此表中的数据。
-虽然InnoDB引擎的表可以用行级锁，但这个行级锁的机制依赖于表的索引，如果表没有索引，或者sql语句没有使用索引，那么仍然使用表级锁。
+3、oracle分页处理更加繁琐（oracle 12c得到改善）
 
-oracle:
-oracle使用行级锁，对资源锁定的粒度要小很多，只是锁定sql需要的资源，并且加锁是在数据库中的数据行上，不依赖与索引。所以oracle对并发性的支持要好很多。
-
-#### 二、一致性
-
-oracle:
-oracle支持serializable的隔离级别，可以实现最高级别的读一致性。每个session提交后其他session才能看到提交的更改。oracle通过在undo表空间中构造多版本数据块来实现读一致性，
-每个session查询时，如果对应的数据块发生变化，oracle会在undo表空间中为这个session构造它查询时的旧的数据块。
-
-mysql:
-mysql没有类似oracle的构造多版本数据块的机制，只支持read commited的隔离级别。一个session读取数据时，其他session不能更改数据，但可以在表最后插入数据。
-session更新数据时，要加上排它锁，其他session无法访问数据。
-
-#### 三、事务
-
-oracle很早就完全支持事务。
-
-mysql在innodb存储引擎的行级锁的情况下才支持事务。
-
-#### 四、数据持久性
-
-oracle
-保证提交的数据均可恢复，因为oracle把提交的sql操作线写入了在线联机日志文件中，保持到了磁盘上，
-如果出现数据库或主机异常重启，重启后oracle可以考联机在线日志恢复客户提交的数据。
-mysql:
-默认提交sql语句，但如果更新过程中出现db或主机重启的问题，也许会丢失数据。
-
-#### 五、提交方式
-
-oracle默认不自动提交，需要用户手动提交。
-mysql默认是自动提交。
-
-#### 六、逻辑备份
-
-oracle逻辑备份时不锁定数据，且备份的数据是一致的。
-
-mysql逻辑备份时要锁定数据，才能保证备份的数据是一致的，影响业务正常的dml使用。
-
-#### 七、热备份
-
-oracle有成熟的热备工具rman，热备时，不影响用户使用数据库。即使备份的数据库不一致，也可以在恢复时通过归档日志和联机重做日志进行一致的回复。
-mysql:
-myisam的引擎，用mysql自带的mysqlhostcopy热备时，需要给表加读锁，影响dml操作。
-innodb的引擎，它会备份innodb的表和索引，但是不会备份.frm文件。用ibbackup备份时，会有一个日志文件记录备份期间的数据变化，因此可以不用锁表，不影响其他用户使用数据库。但此工具是收费的。
-innobackup是结合ibbackup使用的一个脚本，他会协助对.frm文件的备份。
-
-#### 八、sql语句的扩展和灵活性
-
-mysql对sql语句有很多非常实用而方便的扩展，比如limit功能，insert可以一次插入多行数据，select某些管理数据可以不加from。
-oracle在这方面感觉更加稳重传统一些。
-
-#### 九、复制
-
-oracle:既有推或拉式的传统数据复制，也有dataguard的双机或多机容灾机制，主库出现问题是，可以自动切换备库到主库，但配置管理较复杂。
-mysql:复制服务器配置简单，但主库出问题时，丛库有可能丢失一定的数据。且需要手工切换丛库到主库。
-
-#### 十、性能诊断
-
-oracle有各种成熟的性能诊断调优工具，能实现很多自动分析、诊断功能。比如awr、addm、sqltrace、tkproof等
-mysql的诊断调优方法较少，主要有慢查询日志。
-
-#### 十一、权限与安全
-
-mysql的用户与主机有关，感觉没有什么意义，另外更容易被仿冒主机及ip有[可乘之机](https://www.baidu.com/s?wd=%E5%8F%AF%E4%B9%98%E4%B9%8B%E6%9C%BA&tn=24004469_oem_dg&rsv_dl=gh_pl_sl_csd)。
-oracle的权限与安全概念比较传统，[中规中矩](https://www.baidu.com/s?wd=%E4%B8%AD%E8%A7%84%E4%B8%AD%E7%9F%A9&tn=24004469_oem_dg&rsv_dl=gh_pl_sl_csd)。
-
-#### 十二、分区表和分区索引
-
-oracle的分区表和分区索引功能很成熟，可以提高用户访问db的体验。
-mysql的分区表还不太成熟稳定。
-
-#### 十三、管理工具
-
-oracle有多种成熟的命令行、图形界面、web管理工具，还有很多第三方的管理工具，管理极其方便高效。
-mysql管理工具较少，在linux下的管理工具的安装有时要安装额外的包（phpmyadmin， etc)，有一定复杂性。
-
-#### 十四、技术支持
-
-oracle出问题可以找客服
-
-mysq出问题自己解决
-
-#### 十五、授权
-
-#### 
-
-oracle收费
-
-mysq开源-免费
-
-#### 十六、选择
-
-有钱用建议用oracle
-
-没钱且能满足需求建议用mysq。（[阿里巴巴](https://www.baidu.com/s?wd=%E9%98%BF%E9%87%8C%E5%B7%B4%E5%B7%B4&tn=24004469_oem_dg&rsv_dl=gh_pl_sl_csd)，wiki百科等大型项目也用了mysql，人家主要用了分布式存储、缓存、分表分库等技术）
-
-## Oracle数据库与MySQL数据库的区别：
-
-1.组函数用法规则
-
-~~mysql中组函数在select语句中可以随意使用~~，但在oracle中如果查询语句中有组函数，那其他列名必须是组函数处理过的，或者是group by子句中的列否则报错
-
-```
-eg：
-
-select name,count(money) from user；这个放在mysql中没有问题在oracle中就有问题了。
-而select name,count(money) from user group by name或者select max(name),count(money) from user；
-在oracle就不会报错，同样这两种情况在mysql也不会报错
-```
-
-2.自动增长的数据类型处理
-
-MYSQL有自动增长的数据类型，插入记录时不用操作此字段，会自动获得数据值。ORACLE没有自动增长的数据类型，需要建立一个自动增长的序列号，插入记录时要把序列号的下一个值赋于此字段。
-
-CREATE SEQUENCE序列号的名称(最好是表名+序列号标记)INCREMENT BY 1 START WITH 1 MAXVALUE 99999 CYCLE NOCACHE;
-
-其中最大的值按字段的长度来定，如果定义的自动增长的序列号NUMBER(6)，最大值为999999
-
-INSERT语句插入这个字段值为：序列号的名称.NEXTVAL
-
-3.单引号的处理
-
-MYSQL里可以用双引号包起字符串，ORACLE里只可以用单引号包起字符串。在插入和修改字符串前必须做单引号的替换：把所有出现的一个单引号替换成两个单引号。
-
-4.翻页的SQL语句的处理
-
-MYSQL 处理翻页的SQL语句比较简单，用LIMIT开始位置，记录个数；PHP里还可以用SEEK定位到结果集的位置。ORACLE处理翻页的 SQL语句就比较繁琐了。每个结果集只有一个ROWNUM字段标明它的位置，并且只能用ROWNUM<100，不能用ROWNUM>80。
-
-以下是经过分析后较好的两种ORACLE翻页SQL语句(ID是唯一关键字的字段名)：
-
-语句一：
-
-SELECT ID, [FIELD_NAME,...] FROM TABLE_NAME WHERE ID IN ( SELECT ID FROM (SELECT ROWNUM AS NUMROW, ID FROM TABLE_NAME WHERE 条件1 ORDER BY 条件2) WHERE NUMROW > 80 AND NUMROW < 100 ) ORDER BY 条件3;
-
-语句二：
-
-SELECT * FROM (( SELECT ROWNUM AS NUMROW, c.* from (select [FIELD_NAME,...] FROM TABLE_NAME WHERE 条件1 ORDER BY 条件2) c) WHERE NUMROW > 80 AND NUMROW < 100 ) ORDER BY 条件3;
-
-5.长字符串的处理
-
-长 字符串的处理ORACLE也有它特殊的地方。INSERT和UPDATE时最大可操作的字符串长度小于等于4000个单字节，如果要插入更长的字 符串，请考虑字段用CLOB类型，方法借用ORACLE里自带的DBMS_LOB程序包。插入修改记录前一定要做进行非空和长度判断，不能为空的字段值和 超出长度字段值都应该提出警告，返回上次操作。
+4、
 
 6.日期字段的处理
 
@@ -172,88 +30,9 @@ MYSQL里用字段名like%‘字符串%’，ORACLE里也可以用字段名like%�
 
 9.程序和函数里，操作数据库的工作完成后请注意结果集和指针的释放。
 
-## 数据库原理：
+## Oracle12c和Oracle11g
 
-### 1、数据库出现原因
-
-对数据的存储需求一直存在。保存数据的方式，经历了手工管理、文件管理等阶段，直至数据库管理阶段。
-
-文件存储方式保存数据的弊端：
-
-- 缺乏对数据的整体管理,数据不便修改；
-- 不利于数据分析和共享;
-- 数据量急剧增长,大量数据不可能长期保存在文件中。
-
-数据库[应运而生](https://www.baidu.com/s?wd=%E5%BA%94%E8%BF%90%E8%80%8C%E7%94%9F&tn=24004469_oem_dg&rsv_dl=gh_pl_sl_csd)，是人们存放数据、访问数据、操作数据的存储仓库。
-
-### 2、数据库
-
-- 数据库（Database,简称DB）是按照数据结构来组织、存储和管理数据的仓库。
-
-- 数据库管理系统(Database Management System,简称DBMS)：管理数据库的软件。
-
-- 数据库的典型特征包括：数据的结构化，数据间的共享，减少数据的冗余度，以及数据的独立性。
-
-### 3、关系数据库简介
-
-​       关系是一个数学概念，描述两个元素间的关联或对应关系。所以关系型数据库，即是使用关系模型把数据组织到数据表(Table)中
-
-主流数据库产品：
-
-- Oracle（Oracle）
-- DB2（IBM）
-- SQL Server（MS）
-- MySQL（Oracle）
-
-#### 3.1、关系数据库表
-
-- 在关系数据库中，数据被存放于二维数据表(Table)中。
-
-- 一个关系数据库由多个数据表组成，数据表是关系数据库的基本存储结构，由行和列组成，行（Row）也就是横排数据，也经常被称作记录(Record)，列（Column）就是纵列数据，也被称作字段(Field)。表和表之间是存在关联关系的。
-
-####      3.2、主流关系数据库简介
-
-#####            3.2.1. Oracle数据库概述
-
-Oracle是当今著名的Oracle(甲骨文)公司的数据库产品，它是世界上第一个商品化的关系型数据库管理系统，也是第一个推出和数据库结合的第四代语言开发工具的数据库产品。
-
-Oracle采用标准的SQL结构化查询语言，支持多种数据类型，提供面向对象的数据支持，具有第四代语言开发工具，支持UNIX、WINDOWS、OS/2等多种平台。Oracle公司的软件产品丰富，包括Oracle服务器产品，Oracle开发工具和Oracle应用软件。其中最著名的就是Oracle数据库，目前最新的版本是Oracle 12c。
-
-##### 3.2.2. DB2数据库概述
-
-DB2是IBM的关系型数据库管理系统，DB2有很多不同的版本，可以运行在从掌上产品到大型机不同的终端机器上。DB2 Universal Database Personal Edition和DB2 Universal Database Workgroup Edition分别是为OS/2和Windows系统的单用户和多用户提供的数据库管理系统。
-
-DB2在高端数据库的主要竞争对手是Oracle。
-
-##### 3.2.3. Sybase数据库
-
-Sybase是美国Sybase公司研制的一种关系型数据库系统，是较早采用C/S技术的数据库厂商，是一种典型的UNIX或Windows NT平台上客户机/服务器环境下的大型数据库系统。 Sybase通常与Sybase SQL Anywhere用于客户机/服务器环境，前者作为服务器数据库，后者为客户机数据库，采用该公司研制的PowerBuilder为开发工具，在国内大中型系统中具有广泛的应用。
-
-SYBASE主要有三种版本，一是UNIX操作系统下运行的版本，二是Novell Netware环境下运行的版本，三是Windows NT环境下运行的版本。对UNIX操作系统目前广泛应用的为SYBASE 10 及SYABSE 11 for SCO UNIX。
-
-2010年Sybase被SAP收购。
-
-##### 3.2.4. SQL Server数据库概述
-
-Microsoft SQL Server是运行在Windows NT服务器上，支持C/S结构的数据库管理系统。它采用标准SQL语言，微软公司对它进行了部分扩充而成为事务SQL（Transact-SQL）。
-
-SQL Server最早是微软为了要和IBM竞争时，与Sybase合作所产生的，其最早的发展者是Sybase，和Sybase数据库完全兼容。在与Sybase终止合作关系后，微软自主开发出SQL Server 6.0版，往后的SQL Server即均由微软自行研发。最新的版本是SQL Server 2012，上一版本是2008。
-
-Microsoft SQL Server几个初始版本适用于中小企业的数据库管理，但是后来它的应用范围有所扩展，已经触及到大型、跨国企
-
-##### 3.2.5.MySQL数据库概述
-
-MySQL是一个开放源码的小型关系型数据库管理系统，开发者为瑞典MySQL AB公司。目前MySQL被广泛地应用在Internet上的中小型网站中。
-
-与其它的大型数据库例如Oracle、IBM DB2等相比，MySQL自有它的不足之处，如规模小、功能有限等，但对于一般个人使用者和中小型企业来说，MySQL提供的功能已经绰绰有余，而且由于MySQL是开放源码软件，因此可以大大降低总体拥有成本，许多中小型网站为了降低网站总体拥有成本而选择了MySQL作为网站数据库。
-
-2008年1月16日，Sun正式收购MySQL。2009年4月20日，SUN被Oracle公司收购。目前的最新版本是MySQL5.6.
-
-
-
-### 4、 SQL概述
-
-#### 4.1、结构化查询语言sql
+## sql语句分类
 
 SQL(Structured Query Language) 是结构化查询语言的缩写。
 
@@ -267,8 +46,6 @@ SQL可分为:
 数据查询语言（DQL）：Data Query Language
 数据控制语言（DCL） : Data Control Language
 执行SQL语句时，用户只需要知道其逻辑含义，而不需要知道SQL语句的具体执行步骤
-
-#### 4.2、sql分类
 
 ##### 4.2.1. 数据定义语言（DDL）
 
@@ -289,8 +66,6 @@ SQL可分为:
 ##### 4.2.5. 数据控制语言（DCL）
 
 用于执行权限的授予和收回操作、创建用户等，包括授予(GRANT)语句，收回(REVOKE)语句，CREATE USER语句，其中GRANT用于给用户或角色授予权限， REVOKE用于收回用户或角色已有的权限。DCL语句也不需要事务的参与，是自动提交的。
-
-
 
 ## Oracle启动服务：
 
@@ -333,8 +108,6 @@ Oracle卷映射拷贝写入服务，它可以在多卷或者单个卷上创建�
 **7、OraclJobSchedulerORCL:**
 Oracle作业调度（定时器）服务，ORCL是Oracle实例标识。（非必须启动）
 
-********cmd启动服务方式：**      sc start  服务名
-
 
 
 ## Oracle数据库体系结构：
@@ -353,8 +126,6 @@ Oracle作业调度（定时器）服务，ORCL是Oracle实例标识。（非必�
 
 一个实例在生命周期中只能装置打开一个数据库
 
-
-
 #### orcale数据储存结构：
 
 从逻辑上：一个数据库（database）下面可以分为多个表空间（tablespace）；一个表空间下面又分为多个段（segment）；一个段又分为多个区间（extent）；一个区间又有一组连续的数据块（data block）组成
@@ -365,19 +136,17 @@ Oracle作业调度（定时器）服务，ORCL是Oracle实例标识。（非必�
 
 从物理上：一个表空间由多个数据文件构成，数据文件是实实在在存在的磁盘上的文件，这些数据文件由系统磁盘的块组成
 
-
-
 #### 表空间对区间的管理：
 
 **词典管理表空间**(Dictionary-managed tablespaces)
 
-​    在表空间里，有的区间被占用了，有的没被占用，这些数据是放在数据字典里的。当你对这个表空间进行分配或释放的时候，数据文件里相关的表就会做修改。
+​    在表空间里，有的区间被占用了，有的没被占用，这些数据是放在数据字典里的。当你对这个表空间进行分配或释放的时候，数据文件里相关的表就会做修改
 
  
 
 **本地管理表空间**（locally managed tablespace）
 
-​      本地管理表空间不是在数据词典里存储表空间的，由自由区管理的表空间。用位图来自由的管理区间。一个区间对一个位，如果这个位是1表示已经被占用，0表示未被占用。
+​      本地管理表空间不是在数据词典里存储表空间的，由自由区管理的表空间。用位图来自由的管理区间。一个区间对一个位，如果这个位是1表示已经被占用，0表示未被占用
 
 　　词典管理空间表示“中央集权治”，本地管理表空间表示“省市自治区”，一个databases表示中国，tablespaces表示一个省或直辖市。词典管理统一由中央调配。而本地管理表示有高度的自治权利，自已各种资源的分配不用上报中央。
 
@@ -511,248 +280,9 @@ create table mypart(
 
 
 
-## Oracle数据库特征：
+## Oracle-DBA常用操作
 
-### 1、维护数据的完整性
-
-**数据的完整性用于确保数据库数据遵从一定的商业和逻辑规则，在oracle中，数据完整性可以使用约束、触发器、应用程序（过程、函数）三种方法来实现，在这三种方法中，因为约束易于维护，并且具有最好的性能，所以作为维护数据完整性的首选**
-
-### 1、1约束：
-
-约束用于确保数据库数据满足特定的商业规则。在oracle中，约束包括：not null、 unique， primary key， foreign key和check 五种。
-1)、not null(非空)
-如果在列上定义了not null，那么当插入数据时，必须为列提供数据。
-2)、unique(唯一)
-当定义了唯一约束后，该列值是不能重复的，但是可以为null。
-3)、primary key(主键)
-用于唯一的标示表行的数据，当定义主键约束后，该列不但不能重复而且不能为null。
-需要说明的是：一张表最多只能有一个主键，但是可以有多个unqiue约束。
-4)、foreign key(外键)
-用于定义主表和从表之间的关系。外键约束要定义在从表上，主表则必须具有主键约束或是unique 约束，当定义外键约束后，要求外键列数据必须在主表的主键列存在或是为null。
-5)、check
-用于强制行数据必须满足的条件，假定在sal列上定义了check约束，并要求sal列值在1000-2000之间如果不在1000-2000之间就会提示出错。
-
-#### 添加约束方式：
-
-1、在建表时对列添加约束
-
-```
-   customerId char(8) primary key, --主键
-   name varchar2(50) not null, --不为空
-   address varchar2(50), foreign key  --外键
-   email varchar2(50) unique, --唯一
-   sex char(2) default '男' check(sex in ('男','女')), -- 一个char能存半个汉字，两位char能存一个汉字
-   cardId char(18)
-```
-
-2、在建表后添加约束
-
-1)、增加商品名也不能为空
-SQL> alter table goods modify goodsName not null;
-2)、增加身份证也不能重复
-SQL> alter table customer add constraint xxxxxx unique(cardId);
-
-**增加not null约束时，需要使用modify选项，而增加其它四种约束使用add选项。**
-
-#### 删除或显示表约束：
-
-当不再需要某个约束时，可以删除：
-alter table 表名 drop constraint 约束名称；
-
-*****在删除主键约束的时候，可能有错误，比如：alter table 表名 drop primary key；这是因为如果在两张表存在主从关系，那么在删除主表的主键约束时，必须带上cascade选项 如像：alter table 表名 drop primary key cascade;
-
-显示表约束信息
-
-select constraint_name, constraint_type, status, validated from user_constraints where table_name = '表名';
-
-#### 约束定义分类：
-
-1、列级定义：（在列定义时添加约束）
-
-```
-create table department4(
-   dept_id number(12) constraint pk_department（约束名） primary key,
-   name varchar2(12), 
-   loc varchar2(12)
-);
-```
-
-2、表级定义：（在列定义好后，添加约束）
-
-```
-create table employee2(
-   emp_id number(4), 
-   name varchar2(15),
-   dept_id number(2), 
-   constraint pk_employee（约束名）  primary key (emp_id),
-   constraint fk_department（约束名） foreign key (dept_id) references（参照；对应） department4(dept_id)    定义该列为外键（对应对于epartment4的主键dept_id）
-);
-```
-
-### 1、2 触发器
-
-  触发器的定义就是说某个条件成立的时候，触发器里面所定义的语句就会被自动的执行。因此触发器不需要人为的去调用，也不能调用。然后，触发器的触发条件其实在你定义的时候就已经设定好了。
-
-触发器可以分为语句级触发器和行级触发器。简单的说就是**语句级的触发器可以在某些语句执行前或执行后被触发**。**而行级触发器则是在定义的了触发的表中的行数据改变时就会被触发一次**。
-
-#### 触发器语句：
-
-create or replace  tigger 触发器名 触发时间 触发事件
-on 表名
-[for each row]
-begin
-  pl/sql语句
-end
-
-触发器名：触发器对象的名称。由于触发器是数据库自动执行的，因此该名称只是一个名称，没有实质的用途。
-触发时间：指明触发器何时执行，该值可取：
-before：表示在数据库动作之前触发器执行;
-after：表示在数据库动作之后触发器执行。
-触发事件：指明哪些数据库动作会触发此触发器：
-insert：数据库插入会触发此触发器;
-update：数据库修改会触发此触发器;
-delete：数据库删除会触发此触发器。
-表 名：数据库触发器所在的表。
-for each row：对表的每一行触发器执行一次。如果没有这一选项，则只对整个表执行一次。
-
-触发器能实现如下功能：
-
-功能：
-1、 允许/限制对表的修改
-2、 自动生成派生列，比如自增字段
-3、 强制数据一致性
-4、 提供审计和日志记录
-5、 防止无效的事务处理
-6、 启用复杂的业务逻辑
-
-### 1、3 存储过程和存储函数
-
-**存储在数据库中，供所有用户程序调用的子程序，叫做存储过程和存储函数**
-
-#### 存储过程：
-
-create  [or replace] (当过程名可能存在时添加)  procedure  过程名 （参数列表 ： 参数名    in/out/in out  数据类型（不能定义大小））
-
-AS/IS
-
-变量列表：变量名    变量类型
-
-begin
-
-存储过程sql语句
-
-end
-
-
-
-执行存储过程
-
-call  过程名（参数列表）；
-
-execute   过程名 （参数列表）；  没有参数时 （）可以省略
-
-
-
-*****参数未指明时，默认为IN
-
-IN 定义输入参数变量，用于传递参数给存储过程
-
-OUT 定义输出参数变量，用于从存储过程中获取数据
-
-IN  OUT  即为输入参数，又为输出参数
-
-
-
-存储过程在java中的调用：
-
-无返回值：
-
-```
-            // 3.创建CallableStatement（用于执行存储过程）
-            CallableStatement cs = ct.prepareCall("{call sp_update(?,?)}");
-            // 4.给?赋值
-            cs.setString(1, "SMITH");
-            cs.setInt(2, 4444);
-            // 5.执行
-            cs.execute();
-```
-
-有返回值
-
-            // 3.创建CallableStatement（用于执行存储过程）
-            CallableStatement cs = ct.prepareCall("{call sp_update(?,?)}");
-            // 4.给?赋值
-            cs.setString(1, "SMITH");
-            cs.registerOutParameter(2,Types.VARCHAR)
-            // 5.执行
-                cs.execute();
-            // 6.获取返回值
-                String time=cs.getString(2);
-#### 存储函数：
-
-```
-CREATE FUNCTION annual_incomec（函数名） (参数列表： uname VARCHAR2)
-RETURN NUMBER IS （返回值：）
-annual_salazy NUMBER(7,2);
-BEGIN 
-   SELECT a.sal*13 INTO annual_salazy FROM emp a WHERE a.ename=uname;
-   RETURN annual_salazy;
-END;
-```
-
-
-
-**存储函数直接在sql语句中进行调用**
-
-
-
-*****使用存储过程和使用存储函数的一条简单非必要原则：如果只有一个返回值，使用存储函数的return子句返回；如果有多个返回值，则使用存储过程通过out参数返回。
-
-### 2、 包
-
-**包用于在逻辑上组合过程和函数，它由包规范和包体两部分组成。**
-
-相当于java中的类，包包括数据类型、游标、变量、常量、函数、过程
-
-创建一个包：
-
-1、声明该包有一个过程和函数（可以有多个）
-
-```
-create package sp_package is
-   procedure update_sal(name varchar2, newsal number);
-   function annual_income(name varchar2) return number;
-end;
-```
-
-2、创建包体
-
-```
-CREATE OR REPLACE PACKAGE BODY SP_PACKAGE IS
-  --存储过程
-  PROCEDURE UPDATE_SAL(NAME VARCHAR2, NEWSAL NUMBER) IS
-  BEGIN
-     UPDATE EMP SET SAL = NEWSAL WHERE ENAME = NAME;
-     COMMIT;
-  END;
-  
-  --函数
-  FUNCTION ANNUAL_INCOME(NAME VARCHAR2) RETURN NUMBER IS
-     ANNUAL_SALARY NUMBER;
-  BEGIN
-     SELECT SAL * 12 + NVL(COMM, 0) INTO ANNUAL_SALARY FROM EMP WHERE ENAME = NAME;
-     RETURN ANNUAL_SALARY;
-  END;
-END;
-```
-
-3、调用包中的函数或过程
-
-call   包名.函数（过程）表达式
-
-
-
-### 3、视图：
+### 1、视图：
 
 视图是一张虚拟表，其内容由查询定义，同真实的表一样，视图包含一系列带有名称的列和行数据。但是，视图并不在数据库中以存储的数据值集形式存在。行和列数据来自由定义视图的查询所引用的表，并且在引用视图时动态生成。(视图不是真实存在磁盘上的)
 
@@ -771,52 +301,7 @@ create or replace view 视图名 as select 语句 [with read only]
 3、删除视图
 drop view 视图名
 
-### 4、索引
 
-一、管理索引-原理介绍
-索引是用于加速数据存取的数据对象。合理的使用索引可以大大降低i/o次数，从而提高数据访问性能。索引有很种
-1)、单列索引
-单列索引是基于单个列所建立的索引
-语法：create index 索引名 on 表名(列名);
-eg、create index nameIndex on custor(name);
-2)、复合索引
-复合索引是基于两列或是多列的索引。在同一张表上可以有多个索引，但是要求列的组合必须不同，比如：
-create index emp_idx1 on emp(ename, job);
-create index emp_idx1 on emp(job, ename);
-以上这两个索引是两个不同的索引。
-
-三、使用原则
-1)、在大表上建立索引才有意义
-2)、在where子句或是连接条件上经常引用的列上建立索引
-3)、索引的层次不要超过4层
-
-四、索引的缺点
-索引有一些先天不足：
-1)、建立索引，系统要占用大约为表1.2倍的硬盘和内存空间来保存索引。
-2)、更新数据的时候，系统必须要有额外的时间来同时对索引进行更新，以维持数据和索引的一致性。
-实践表明，不恰当的索引不但于事无补，反而会降低系统性能。因为大量的索引在进行插入、修改和删除操作时比没有索引花费更多的系统时间。
-比如在如下字段建立索引应该是不恰当的：
-
-1. 很少或从不引用的字段；
-2. 逻辑型的字段，如男或女(是或否)等。
-综上所述，提高查询效率是以消耗一定的系统资源为代价的，索引不能盲目的建立，这是考验一个DBA是否优秀的很重要的指标
-
-五、其它索引
-按照数据存储方式，可以分为B*树、反向索引、位图索引；
-按照索引列的个数分类，可以分为单列索引、复合索引；
-按照索引列值的唯一性，可以分为唯一索引和非唯一索引。
-此外还有函数索引，全局索引，分区索引...
-
-对于索引我还要说：
-在不同的情况，我们会在不同的列上建立索引，甚至建立不同种类的索引，请记住，技术是死的，人是活的。
-比如：B*树索引建立在重复值很少的列上，而位图索引则建立在重复值很多、不同值相对固定的列上。
-
-六、显示索引信息
-1)、在同一张表上可以有多个索引，通过查询数据字典视图dba_indexs和user_indexs，可以显示索引信息。其中dba_indexs用于显示数据库所有的索引信息，而user_indexs用于显示当前用户的索引信息：select index_name, index_type from user_indexes where table_name = '表名';
-2)、显示索引列
-通过查询数据字典视图user_ind_columns,可以显示索引对应的列的信息
-select table_name, column_name from user_ind_columns where index_name ='IND_ENAME';
-你也可以通过pl/sql developer工具查看索引信息
 
 ### 5、权限角色
 
@@ -902,16 +387,6 @@ SQL> grant select on emp to blake with grant option;
 SQL> conn black/shunping
 SQL> grant select on scott.emp to jones;
 
-4)、回收对象权限
-在oracle9i 中，收回对象的权限可以由对象的所有者来完成，也可以用dba用户(sys，system)来完成。
-这里要说明的是：收回对象权限后，用户就不能执行相应的sql命令，但是要注意的是对象的权限是否会被级联收回？【级联回收】
-如：scott------------->blake-------------->jones
-select on emp select on emp select on emp
-SQL> conn [scott/tiger@accp](mailto:scott/tiger@accp)
-SQL> revoke select on emp from blake
-请大家思考，jones能否查询scott.emp表数据。
-答案：查不了了(级联回收，和系统权限不一样，刚好1相反)
-
 #### 3、角色
 
 **角色。角色是一组权限的集合，将角色赋给一个用户，这个用户就拥有了这个角色中的所有权限。不同的角色有不同的权限，分为预定义角色和自定义角色**
@@ -995,7 +470,7 @@ SQL> select granted_role, default_role from dba_role_privs where grantee = ‘�
 
 
 
-## 数据库基本使用：
+### 数据库基本使用：
 
 1、Oracle安装默认自动生成sys用户和system用户
 
@@ -1053,459 +528,79 @@ spool   off
 
 
 
-# Oralce数据库命名规则和数据类型：
-
-一、表名和列名的命名规则
-1)、必须以字母开头
-2)、长度不能超过30个字符
-3)、不能使用oracle的保留字
-4)、只能使用如下字符 a-z，a-z，0-9，$,#等
-
-二、数据类型
-1)、字符类
-char 长度固定，最多容纳2000个字符。
-例子：char(10) ‘小韩’前四个字符放‘小韩’，后添6个空格补全，如‘小韩      ’
-varchar2(20) 长度可变，最多容纳4000个字符。
-例子：varchar2（10） ‘小韩’ oracle分配四个字符。这样可以节省空间。
-clob(character large object) 字符型大对象，最多容纳4g
-char 查询的速度极快浪费空间，适合查询比较频繁的数据字段。
-varchar 节省空间
-
-Nvarchar 根据字符集格式来处理数据长度，utf-8汉字按一个算
-
-2)、数字型
-number范围-10的38次方到10的38次方，可以表示整数，也可以表示小数
-number(5,2)表示一位小数有5位有效数，2位小数；范围：-999.99 到999.99
-number(5)表示一个5位整数；范围99999到-99999
-3)、日期类型
-date 包含年月日和时分秒 oracle默认格式1-1月-1999
-timestamp 这是oracle9i对date数据类型的扩展。可以精确到毫秒。
-4)、图片
-blob 二进制数据，可以存放图片/声音4g；一般来讲，在真实项目中是不会把图片和声音真的往数据库里存放，一般存放图片、视频的路径，如果安全需要比较高的话，则放入数据库。
-
-
-
-# Oracle数据库基本语句：
-
-1、创建表
---学生表
-create table student (
-   xh number(4), --学号
-   xm varchar2(20), --姓名
-   sex char(2), --性别
-   birthday date, --出生日期
-   sal number(7,2) --奖学金
-);
-
-2、修改表
---添加一个字段
-sql>alter table student add (classid number(2));
---修改一个字段的长度
-sql>alter table student modify (xm varchar2(30));
---修改字段的类型或是名字（不能有数据） 不建议做
-sql>alter table student modify (xm char(30));
---删除一个字段 不建议做(删了之后，顺序就变了。加就没问题，应该是加在后面)
-sql>alter table student drop column sal;
---修改表的名字 很少有这种需求
-sql>rename student to stu;
-
-3、删除表
-sql>drop table student;
-
-基本Oracle数据对表数据的处理：
-
-1、添加数据
---所有字段都插入数据
-insert into student values ('a001', '张三', '男', '01-5 月-05', 10);
---oracle中默认的日期格式‘dd-mon-yy’ dd 天 mon 月份 yy 2位的年 ‘09-6 月-99’ 1999年6月9日
---修改日期的默认格式（临时修改，数据库重启后仍为默认；如要修改需要修改注册表）
-alter session set nls_date_format ='yyyy-mm-dd';
---修改后，可以用我们熟悉的格式添加日期类型：
-insert into student values ('a002', 'mike', '男', '1905-05-06', 10);
---插入部分字段
-insert into student(xh, xm, sex) values ('a003', 'john', '女');
---插入空值
-insert into student(xh, xm, sex, birthday) values ('a004', 'martin', '男', null);
---问题来了，如果你要查询student表里birthday为null的记录，怎么写sql呢？
---错误写法：select * from student where birthday = null;
---正确写法：select * from student where birthday is null;
---如果要查询birthday不为null,则应该这样写：
-select * from student where birthday is not null;
+## Oralce数据类型：
 
-2、修改数据
---修改一个字段
-update student set sex = '女' where xh = 'a001';
---修改多个字段
-update student set sex = '男', birthday = '1984-04-01' where xh = 'a001';
---修改含有null值的数据
-不要用 = null 而是用 is null；
-select * from student where birthday is null;
+### 1、字符类型
 
-3、删除数据
-delete from student; --删除所有记录，表结构还在，写日志，可以恢复的，速度慢。
---delete的数据可以恢复。
-savepoint a; --创建保存点
-delete from student;
-rollback to a; --恢复到保存点
-一个有经验的dba，在确保完成无误的情况下要定期创建还原点。
+- char
 
-drop table student; --删除表的结构和数据；
-delete from student where xh = 'a001'; --删除一条记录；
-truncate table student; --删除表中的所有记录，表结构还在，不写日志，无法找回删除的记录，速度快。
+  固定长度，不足向右补足空格，存储效率更高；对于数据长度不定的字段，浪费空间
 
-3、查询数据
+  **最大长度**：2000字节
 
-和mysql基本相同
+  **默认长度**：1字节
 
-4、聚合函数使用：
+- nchar
 
-1、当聚合函数作为条件语句时：
+  和char相同，区别是通过unicode字符集存储，长度单位为字符
 
-```
-错误写法：select ename, sal from emp where sal=max(sal);
+  **最大长度**：2000字符
 
-正确写法：select ename, sal from emp where sal=(select max(sal) from emp);
-```
+  **默认长度**：1字符
 
-2、当聚合函数在查询字段中时：
+- VARCHAR、VARCHAR2
 
-```
-	注意：select ename, max(sal) from emp;这语句执行的时候会报错，说ora-00937：非单组分组函数。因为max是分组函数，而ename不是分组函数.......
+  可变长度，节省空间
 
-	但是select min(sal), max(sal) from emp;这句是可以执行的。因为min和max都是分组函数，就是说：如果列里面有一个分组函数，其它的都必须是分组函数，否则就出错。这是语法规定的
-```
+  **VARCHAR最大长度为2000字节，VARCHAR2最大长度为4000字节**
 
+- NVARCHAR2
 
+  和VARCHAR2相同，区别是通过unicode字符集存储，长度单位为字符
 
-常见查询：
-1、查询工资高于500或者是岗位为manager的雇员，同时还要满足他们的姓名首字母为大写的J？
+  **最大长度：2000字符**
 
-```
-select * from emp where (sal > 500 or job = 'MANAGER') and ename like 'J%';
-```
+### 2、数值型
 
-2、使用order by字句 默认asc 
+- NUMBER
 
-```
-select * from emp order by sal;
-```
+  NUMBER范围-10的38次方到10的38次方，可以表示整数，也可以表示小数
 
-3、如何显示所有员工的平均工资和工资总和？
+  NUMBER（P,S），P表示有效位数，S表示小数有效位数，比如NUMBER（5,2）其范围为：-999.99 ~ 999.99；NUMBER(5)其范围为：99999 ~ -99999
 
-```
-	select sum(e.sal), avg(e.sal)  from emp e;
-```
+  **默认P为38，S在0-38中取值**
 
-4、显示工资高于平均工资的员工信息
+  **P的取值范围为1-38,S为38-P**
 
-```
-select * from emp e where sal > (select avg(sal) from emp);
-```
+### 3、日期、时间类型
 
-5、group by 和 having 子句 group by 用于对查询的结果分组统计， having 子句用于限制分组显示结果
+- DATE
 
-```
-select avg(sal), max(sal), deptno from emp group by deptno;
-```
+  年月日、时分秒
 
-如果你要分组查询的话，分组的字段deptno一定要出现在查询的列表里面
+  当不指定时分秒时，默认为00:00:00
 
-显示每个部门的每种岗位的平均工资和最低工资？(多字段分组）
+  **长度固定为7**
 
-```
-select min(sal), avg(sal), deptno, job from emp group by deptno, job;
-```
+- TIMESTAMP
 
-显示平均工资低于2000的部门号和它的平均工资？（分组添加条件）
+  是对DATE类型的扩展，支持小数秒
 
-```
-select avg(sal), max(sal), deptno from emp group by deptno having avg(sal)< 2000;
-```
+  其长度就是所支持小数秒的小数位，默认为6
 
-6、多表查询
+### 4、大对象类型
 
-显示部门号为10的部门名、员工名和工资？
+| 大对象类型 | 描述            |
+| ---------- | --------------- |
+| BLOB       | 二进制数据      |
+| CLOB       | 字符数据        |
+| NCLOB      | Unicode字符数据 |
 
-```
-SELECT d.dname, e.ename, e.sal FROM emp e, dept d WHERE e.deptno = d.deptno and e.deptno = 10;
-```
+**这些大对象，支持最大10G，单位为KB**
 
-7、子查询
+## Oracle日常问题集合
 
-*****使用聚合函数的效率更高（比使用all，any）
-
-SELECT * FROM emp WHERE deptno = (select deptno from emp WHERE ename = 'SMITH');
-
-如何显示高于自己部门平均工资的员工的信息 (进行分组操作时，查询字段可以有聚合函数和其他字段)
-
-```
-SELECT e.ename, e.deptno, e.sal, ds.mysal 
-
-	FROM emp e, (SELECT deptno, AVG(sal)mysal FROM emp GROUP by deptno) ds 
-
-	WHERE e.deptno = ds.deptno AND e.sal > ds.mysal;
-```
-
-查询所有部门的平均工资，部门；通过与员工信息表连接查询，条件是员工所在部门，和其工资大于对于部门的平均工资，得出对应条件的员工信息
-
-**当在from 子句中使用子查询时，必须给子查询指定别名，但表别名不能使用as  ，列名可以使用**
-
-8、用查询结果创建新表，这个命令是一种快捷的建表方式
-
-```
-CREATE TABLE mytable (id, name, sal, job, deptno) as SELECT empno, ename, sal, job, deptno FROM emp;
-```
-
-合并查询 有时在实际应用中，为了合并多个select语句的结果，可以使用集合操作符号union，union all，intersect，minus。 多用于数据量比较大的数据局库，运行速度快。 1). union 该操作符用于取得两个结果集的并集。当使用该操作符时，会自动去掉结果集中重复行。
-
-```
-SELECT ename, sal, job FROM emp WHERE sal >2500
-
-	UNION
-
-	SELECT ename, sal, job FROM emp WHERE job = 'MANAGER';
-```
-
- 
-
-2).union all 该操作符与union相似，但是它不会取消重复行，而且不会排序。
-
-```
-SELECT ename, sal, job FROM emp WHERE sal >2500
-
-	UNION ALL
-
-	SELECT ename, sal, job FROM emp WHERE job = 'MANAGER';
-
-	该操作符用于取得两个结果集的并集。当使用该操作符时，不会自动去掉结果集中重复行。
-```
-
-3). intersect 使用该操作符用于取得两个结果集的交集。
-
-```
-SELECT ename, sal, job FROM emp WHERE sal >2500
-
-	INTERSECT
-
-	SELECT ename, sal, job FROM emp WHERE job = 'MANAGER';
-```
-
-4). minus 使用该操作符用于取得两个结果集的差集，他只会显示存在第一个集合中，而不存在第二个集合中的数据。
-
-```
-SELECT ename, sal, job FROM emp WHERE sal >2500
-
-	MINUS
-
-	SELECT ename, sal, job FROM emp WHERE job = 'MANAGER';
-
-	（MINUS就是减法的意思）
-```
-
-
-
-5）、查询前10条数据
-
-SELECT  *  from table WHERE ROWNUM<=10
-
-
-
-## Oracle数据库分页方法：
-
-oracle的分页一共有三种方式
-
-方法一 根据rowid来分
-
-```
-SELECT *
-  FROM EMP
- WHERE ROWID IN
-       (SELECT RID
-          FROM (SELECT ROWNUM RN, RID
-                  FROM (SELECT ROWID RID, EMPNO FROM EMP ORDER BY EMPNO DESC)
-                 WHERE ROWNUM <= ( (currentPage-1) * pageSize + pageSize )) --每页显示几条
-         WHERE RN > ((currentPage-1) * pageSize) ) --当前页数
- ORDER BY EMPNO DESC;
- 
-eg、
--- 5 = (currentPage-1) * pageSize + pageSize   每页显示几条
--- 0 = (currentPage-1) * pageSize              当前页数
-SELECT *
-  FROM EMP
- WHERE ROWID IN
-       (SELECT RID
-          FROM (SELECT ROWNUM RN, RID
-                  FROM (SELECT ROWID RID, EMPNO FROM EMP ORDER BY EMPNO DESC)
-                 WHERE ROWNUM <= ( (1-1) * 5 + 5 )) --每页显示几条
-         WHERE RN > ((1-1) * 5) ) --当前页数
- ORDER BY EMPNO DESC;
-```
-
-方法二 按分析函数来分
-
-```
-SELECT *
-FROM (SELECT T.*, ROW_NUMBER() OVER(ORDER BY empno DESC) RK FROM emp T)
-WHERE RK <= ( (currentPage-1) * pageSize + pageSize ) --每页显示几条
-AND RK > ( (currentPage-1) * pageSize ); --当前页数
-eg、
--- 5 = (currentPage-1) * pageSize + pageSize   每页显示几条
--- 0 = (currentPage-1) * pageSize              当前页数
-SELECT *
-FROM (SELECT T.*, ROW_NUMBER() OVER(ORDER BY empno DESC) RK FROM emp T)
-WHERE RK <= 5
-AND RK > 0;
-```
-
-方法三 按rownum 来分
-
-```
-SELECT *
-  FROM (SELECT T.*, ROWNUM RN
-          FROM (SELECT * FROM EMP ORDER BY EMPNO DESC) T
-         WHERE ROWNUM <= ( (currentPage-1) * pageSize + pageSize )) --每页显示几条
- WHERE RN > ( (currentPage-1) * pageSize ); --当前页数
-           
-eg、
--- 5 = (currentPage-1) * pageSize + pageSize   每页显示几条
--- 0 = (currentPage-1) * pageSize              当前页数
-SELECT *
-  FROM (SELECT T.*, ROWNUM RN
-          FROM (SELECT * FROM EMP ORDER BY EMPNO DESC) T
-         WHERE ROWNUM <= 5)
- WHERE RN > 0;
-```
-
-其中emp为表名称，empno 为表的主键id，获取按empno降序排序后的第1-5条记录，emp表有70000 多条记录。
-个人感觉方法一的效率最好，方法三 次之，方法二 最差。
-
-下面通过方法三来分析oracle怎么通过rownum分页的
-
-```
-1、
-SELECT * FROM emp;
-2、显示rownum，由oracle分配的
-SELECT e.*, ROWNUM rn FROM (SELECT * FROM emp) e; --rn相当于Oracle分配的行的ID号 
-3、先查出1-10条记录
-正确的: SELECT e.*, ROWNUM rn FROM (SELECT * FROM emp) e WHERE ROWNUM<=10;
-错误的：SELECT e.*, ROWNUM rn FROM (SELECT * FROM emp) e WHERE rn<=10;
-4、然后查出6-10条记录
-SELECT * FROM (SELECT e.*, ROWNUM rn FROM (SELECT * FROM emp) e WHERE ROWNUM<=10) WHERE rn>=6;
-```
-
-**rownum和rowid都是伪列，但是两者的根本是不同的，rownum是根据sql查询出的结果给每行分配一个逻辑编号，所以你的sql不同也就会导致最终rownum不同，但是rowid是物理结构上的，在每条记录insert到数据库中时，都会有一个唯一的物理记录 ，这个记录是不会随着sql的改变而改变。**
-**因此，这就导致了他们的使用场景不同了，通常在sql分页时或是查找某一范围内的记录时，我们会使用rownum。**
-
-*****直接用rownum查询的数据，要包含rownum=1，因为rownum要从1开始查询记录
-
-因此到查询如3到5行时，需要放在一个虚表中进行子查询（先在虚表中查询5行以内的，rownum从1-5，之后在查询该虚表中的rownum中的3-5，此时的rownum还是原来从1开始的记录的）
-
-*****rowid可以用来作为处理其他数据相同的判断条件（如删除表中的重复数据，在子查询表数据中作为条件查询对应主表的数据）
-
-
-
-## Oracle数据库的常用函数：
-
-1、字符函数：
-
-lower(char)：将字符串转化为小写的格式。
-upper(char)：将字符串转化为大写的格式。
-length(char)：返回字符串的长度。
-substr(char, m, n)：截取字符串的子串，n代表取n个字符的意思，不是代表取到第n个
-replace(char1, search_string, replace_string)  在char1字段中，进行字符串替换
-instr(C1,C2,I,J) -->判断某字符或字符串是否存在，存在返回出现的位置的索引，否则返回小于1;在一个字符串中搜索指定的字符,返回发现指定的字符的位置;
-C1 被搜索的字符串
-C2 希望搜索的字符串
-I 搜索的开始位置,默认为1
-J 出现的位置,默认为1
-
-```
-问题：将所有员工的名字按小写的方式显示
-
-	SQL> select lower(ename) from emp;
-
-	问题：将所有员工的名字按大写的方式显示。
-
-	SQL> select upper(ename) from emp;
-
-	问题：显示正好为5个字符的员工的姓名。
-
-	SQL> select * from emp where length(ename)=5;
-
-	问题：显示所有员工姓名的前三个字符。
-
-	SQL> select substr(ename, 1, 3) from emp;
-
-	问题：以首字母大写,后面小写的方式显示所有员工的姓名。
-
-	SQL> select upper(substr(ename,1,1)) || lower(substr(ename,2,length(ename)-1)) from emp;
-
-	问题：以首字母小写,后面大写的方式显示所有员工的姓名。
-
-	SQL> select lower(substr(ename,1,1)) || upper(substr(ename,2,length(ename)-1)) from emp;
-
-	问题：显示所有员工的姓名，用“我是老虎”替换所有“A”
-
-	SQL> select replace(ename,'A', '我是老虎') from emp;
-
-	问题：instr(char1,char2,[,n[,m]])用法
-
-	SQL> select instr('azhangsanbcd', 'zhangsan') from dual; --返回2
-
-	SQL> select instr('oracle traning', 'ra', 1, 1) instring from dual; --返回2
-
-	SQL> select instr('oracle traning', 'ra', 1, 2) instring from dual; --返回9
-
-	SQL> select instr('oracle traning', 'ra', 1, 3) instring from dual; --返回0
-```
-
-
-
-2、数学函数
-
-数学函数的输入参数和返回值的数据类型都是数字类型的，包含常用数学函数
-
-3、日期函数 
-
-日期函数用于处理date类型的数据。默认情况下日期格式是dd-mon-yy 即“12-7 -19”
-
-（根据数据库系统的字符集格式变更，可以手动修改默认值）
-
-sysdate  返回当前系统时间（格式为默认值）
-
-sysdate+1  返回当前系统时间加一天的时间
-
-last_day(date) 返回指定时间的当月最后一天的此时时间
-
-NEXT_DAY(SYSDATE,1) 返回下个星期时间，1代表星期日
-
-ADD_MONTHS（sysdate，1）返回当前时间加一个月的时间
-
-**不止sysdate，对于数据库中的时间字段，也可以直接进行+ 、-操作**
-
-**常使用sysdate来作为数据插入时间字键的默认值**
-
-4、转化函数
-
-to_char()  将时间类型、数字类型转化为字符串
-
-````java
-to_char(sysdate,'yy-mm-dd hh24:mi:ss')
-````
-
-to_date()   把字符串转化为date类型
-
-trunc（datetime） 将获取当前时间的0点时间
-
-to_number(VALUE, '999999.999') 将字符串转为数值类型
-
-```
- to_date('2012-02-18 09:25:30','yyyy-mm-dd hh24:mi:ss')//将字符串转化为date
-```
-
-# Oracle日常问题集合
-
-## 1、pl/sql工具对表的属性设置：
+### 1、pl/sql工具对表的属性设置：
 
 **一般情况下，都是用默认值**
 
@@ -1519,7 +614,7 @@ minextents 1 --最小区段数
 maxextents unlimited --最大区段无限制 
 ```
 
-## 2、Oracle客户端连接注意事项：
+### 2、Oracle客户端连接注意事项：
 
 查询当前oracle服务端的字符集编码：
 
@@ -1549,7 +644,7 @@ NLS_LANG： oracle服务器对应的字符集编码
 
 2. Navicat Premium 12，自带一个精简版instantclient_10_2，但该版本不支持GBK编码，只支持Unicode（AL32UTF8属于unicode编码）、ASCII以及西欧字符集；因此需要下载一个完整版的instantclient客户端
 
-## 3、Oracle创建自增字段：
+### 3、Oracle创建自增字段：
 
 1、创建oracle序列
 
@@ -1576,7 +671,7 @@ CREATE TRIGGER ContestDB_trigger
 
 2、通过执行自增来调整当前序列值（操作比较麻烦）
 
-## 4、Oracle分析函数，以及常用场景：
+### 4、Oracle分析函数，以及常用场景：
 
 在Oracle8.16后，提供一种分析函数语法，用于计算基于一组数据为结果的聚合函数（计算参数为字段）：
 
@@ -1694,69 +789,17 @@ from test t
 
 **lag(value ,1)与t.* 结合展示时，相当于是将value本来的排序数据，往下一行开始进行展示，并缺少最后一条数据**
 
-## 4、oracle进行单条sql批量insert操作：
-
-INSERT ALL
-   INTO MY_TABLE (ID, CREATE_TIME, MODIFY_TIME, NAME) VALUES ('1', SYSDATE, SYSDATE, '我的表 1')
-   INTO MY_TABLE (ID, CREATE_TIME, MODIFY_TIME, NAME) VALUES ('2', SYSDATE, SYSDATE, '我的表 2')
-   INTO YOUR_TABLE (ID, CREATE_TIME, MODIFY_TIME, NAME) VALUES ('1', SYSDATE, SYSDATE, '你的表 1')
- SELECT * FROM dual
-
-**dual为一个空表**，oracle中经常使用 SELECT * FROM dual该语句，作为一些特殊sql的补充；防止oracle报缺失关键字select的错误
-
-**1、INSERT ALL必须搭配一个子查询使用，无论是否需要该子查询的表数据**
-
-**2、既可以插入同一个表，又可以插入不同表**
-
-## 5、oracle按时间每小时分组：
-
-````sql
-select to_char(DATAUPDATETIME-4, 'yyyymmddhh24'),max(value) from zyz where DATAUPDATETIME>trunc(sysdate-4) and DATAUPDATETIME<trunc(sysdate-3)
-group by to_char(DATAUPDATETIME-4, 'yyyymmddhh24') order by to_char(DATAUPDATETIME-4, 'yyyymmddhh24') 
-````
-
-## 6、Oracle DBlink
+### 5、Oracle DBlink
 
 **用于在本地数据库，远程访问另外一个数据库中的数据，并进行增删改操作**
 
 在实际开发过程中，会直接创建两个数据库的连接，然后进行操作访问；但有了DBlink后，就可以把两个不同数据库的表数据，交给oracl进行sql处理（数据库处理效率和便利性，远大于JAVA）
 
-## 7、通过过程函数，来筛选varchar字段中，无法转换为number的数据
+### 6、Oracle索引：
 
-```sql
-CREATE OR REPLACE
-FUNCTION isnumeric (str IN VARCHAR2)  RETURN NUMBER IS
- v_str  FLOAT; --定义临时变量
-BEGIN
- IF str IS NULL --如果输入的字符串是空
-   THEN
-      RETURN 0;--返回0，结束方法
-   ELSE
-     BEGIN
-       SELECT TO_NUMBER (str) INTO v_str  FROM DUAL; --将字符串转number格式
-       EXCEPTION --异常
-       WHEN INVALID_NUMBER  --出现异常【INVALID_NUMBER：Oracle定义的异常类型】
-       THEN
-         RETURN 0; --返回0，结束方法
-       END;
-```
+**索引分类：**
 
-## 8、sql控制流函数/语句
-
-```
-select decode(numberA，0,1,-1) from table   //字段A为0，则返回1，反之返回-1
-
-select decode（SIGN（numberA-300），1，好，0，差，-1，差）//判断A字段大于、等于、小于300；依次返回好、中、差
-
-nvl（column，10） 字段colum为null是，自动替换为10
-
-CASE   WHEN 布尔表达式（条件，一般与表字段相关） THEN 结果  {WHEN（条件，一般与表字段相关） THEN 结果}.....
-ELSE 结果  END   //多条件中可以为任意字段
-```
-
-## 9、Oracle索引：
-
-- 索引分类：B树索引（普通索引）、位图索引、唯一索引、函数索引
+B树索引（普通索引）、位图索引、唯一索引、函数索引
 
 - B数索引结构：
 
@@ -1773,8 +816,4 @@ ELSE 结果  END   //多条件中可以为任意字段
   优点：存储空间小，执行速度快
 
   缺点：在插入、更新时需要计算位图值，因此不适合频繁更新的字段；列的特征值过多，导致位图向量太多，从而bit值种类太多，索引太多得不偿失
-
-## 10、Oracle优化：
-
-**使用客户端工具中的解释，能够清楚知道sql执行过程**
 

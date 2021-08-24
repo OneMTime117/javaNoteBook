@@ -190,6 +190,7 @@ Debug常用快捷键：
   | Ctrl + Alt + O    | 优化导包（无法确认的，需要使用Alt + Enter进行代码修复）      |
   | Ctrl + Shift + J  | 自动将下一行合并到当前行末尾（可以用于去掉空白行，全选后执行，然后格式化） |
   | Ctrl + Alt + T    | 对选择内容进行环绕处理（try-catch、if、while。。。）         |
+  | Shift + Tab       | 多行缩进（向后）                                             |
 
 - 窗口操作
 

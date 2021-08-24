@@ -419,9 +419,9 @@ spring.datasource.test1.maxOpenPreparedStatements=20
     }
 ````
 
-## 7、JDBC使用prepatedStatement进行高效批量插入、更新    
+## 7、Batch批量插入、更新    
 
-1、JDBC原生
+### 1、JDBC原生
 
 ````java
 			String sql = "INSERT INTO user(id,name,password) values (?,?,?)";
@@ -443,9 +443,10 @@ spring.datasource.test1.maxOpenPreparedStatements=20
 			}
 ````
 
-2、springboot集成mybatis注解版
+### 2、mybatis
 
-mapper层
+- mapper层
+
 
 ````java
 @Insert("<script> "+
@@ -458,7 +459,8 @@ mapper层
 void addListAccount(@Param("accountList")List<Account> accountList);
 ````
 
-serviceImpl层
+- serviceImpl层
+
 
 ````java
 List<Account> list = new  ArrayList<Account>();
@@ -472,32 +474,31 @@ List<Account> list = new  ArrayList<Account>();
 		as.addListAccount(list);
 ````
 
-## 8、JDBC操作blob（二进制）数据
+## 8、大对象类型（blob、clob、text）处理
 
-1、JDBC原生
+### 1、JDBC原生
 
-由于Blob数据可能很大，因此需要配置数据库插入的最大数据量（mysql默认为1M）
+由于大对象类型数据可能很大，因此需要配置数据库插入的最大数据量（mysql默认为1M）
+
+- 插入大对象类型
+
+```java
+		String sql="insert into phtot(id,`blob`,`clob`) values(1,?,?)";
+		pre = conn.prepareStatement(sql);
+//		将文件转化为字节流
+		FileInputStream fileInputStream = new FileInputStream(new File("C:\\Users\\OneMTime\\Desktop\\Typora图片\\1566201801526.png"));
+//		将文件转化为字符流
+		FileReader fileReader = new FileReader(new File("C:\\Users\\OneMTime\\Desktop\\Mysql1.txt"));
+		
+		pre.setBlob(1, fileInputStream);
+		pre.setClob(2, fileReader);//Oracl 大文本为clob类型
+		pre.setCharacterStream(2, fileReader); //mysql 大文本为text类型
+		pre.executeUpdate();
+```
+
+- 读取大对象类型
 
 ````java
-		Connection conn=null;
-		PreparedStatement pre =null;
-		conn = DruidConnetionUtil.getConnection();
-		
-插入blob、clob（text）数据
-//		String sql="insert into phtot(id,`blob`,`clob`) values(1,?,?)";
-//		pre = conn.prepareStatement(sql);
-////		将文件转化为字节流
-//		FileInputStream fileInputStream = new FileInputStream(new File("C:\\Users\\OneMTime\\Desktop\\Typora图片\\1566201801526.png"));
-////		将文件转化为字符流
-//		FileReader fileReader = new FileReader(new File("C:\\Users\\OneMTime\\Desktop\\Mysql1.txt"));
-//		
-//		pre.setBlob(1, fileInputStream);
-////		pre.setClob(2, fileReader);//Oracl 大文本为clob类型
-//		pre.setCharacterStream(2, fileReader); //mysql 大文本为text类型
-//		pre.executeUpdate();
-		
-	
-读取blob、clob（text）数据
 		String sql = "select * from phtot where id =1";
 		pre=conn.prepareStatement(sql);
 		ResultSet executeQuery = pre.executeQuery();
@@ -523,7 +524,7 @@ List<Account> list = new  ArrayList<Account>();
 		}
 ````
 
-2、springboot集成mybatis注解版
+### 2、mybatis
 
 **对于clob、text字段，可以直接通过String来进行字段数据接收和存放**
 
@@ -536,6 +537,7 @@ List<Account> list = new  ArrayList<Account>();
 	Phtot getPhtot(String id);//必须使用实体类接收，byte[]（java常用数据类型）无法触发类型转化处理器
 ````
 
+- Service
 
 
 ````java
@@ -564,9 +566,9 @@ List<Account> list = new  ArrayList<Account>();
 		}
 ````
 
-## 9、mybatis自定义类型转化处理器（用于处理数据库数据与java数据的类型转化）
+## 9、mybatis自定义类型转化处理器
 
-​	1、自定义typeHandle类
+1、自定义typeHandle类
 
 ````java
 @MappedJdbcTypes(value=JdbcType.BLOB)  //定义该类型处理器 数据库数据类型	
