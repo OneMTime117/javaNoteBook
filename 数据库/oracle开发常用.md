@@ -18,10 +18,12 @@ WHERE mm =1
 time between to_date('2021-01-01 00:00:00','yyyy-mm-dd hh24:mi:ss') and to_date('2021-01-31 23:59:59','yyyy-mm-dd hh24:mi:ss')
 ```
 
-- 日期转字符串
+- 日期转字符串,获取指定参数值
 
 ```sql
-to_char(time,'yyyy-mm-dd hh24:mi:ss')
+to_char(time,'yyyy-mm-dd hh24:mi:ss') 2019-08-03 10:58:44
+
+to_char(time,"mm")  08
 ```
 
 - 字符串转日期
@@ -36,10 +38,12 @@ to_date('2021-01-01','yyyy-mm-dd hh24:mi:ss')
 sysdate
 ```
 
-- 截取当前时间的日期，时间使用00:00:00补充
+- 截取当前时间某个值,默认为yyyy-mm-dd
 
 ```sql
-trunc(time)
+trunc(time,"yyyy-mm-dd") 2019-08-03 00:00:00
+
+trunc(time,"yyyy")    2019-01-01 00:00:00
 ```
 
 - 获取当月最后一天

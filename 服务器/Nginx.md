@@ -450,6 +450,10 @@ location /old/path.html {
 
   则会将请求/some/path/page.html代理到http://www.example.com/link/page.html上
 
+  **注意:**
+
+  ​		**proxy_pass中,不能使用localhost代替本地ip**
+
 - **proxy_set_header指令**
 
    proxy_set_header      【请求头】	【值】

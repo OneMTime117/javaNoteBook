@@ -407,6 +407,10 @@ mybatis-plus提供条件构造器，来简化生成sql的where条件，配合Bas
 
 ​	通过对实体类Id属性配置@IdFiled注解，来定义主键在insert时的生成策略：
 
+注意：
+
+​		**mybatisPlus不支持复合组件，可以使用@TableFiled代替**
+
 @IdFiled属性：
 
 | 属性  | 作用                               |
