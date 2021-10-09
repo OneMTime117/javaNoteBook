@@ -896,6 +896,8 @@ public class TestController {
 
 ​	springMVC的handlerMapping实现了对CORS内置支持，当请求被映射到相应处理器后，HandlerMapping会对请求进行CORS拦截处理，并且开发者可以为url-pattren或每个映射的url设置单独的CORS配置：
 
+**注意:**CORS拦截在开发者自定义拦截器后面,因此对于跨域预检请求并不会带有token,因此会被拦截器拦截,导致预检请求失败
+
 **全局配置：**
 
 在**WebMvcConfigurer** 接口中，提供**addCorsMappings**回调方法，来设置指定映射url模板的CORS配置

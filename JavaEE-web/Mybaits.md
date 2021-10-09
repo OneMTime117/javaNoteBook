@@ -1186,7 +1186,7 @@ if标签的test属性，就是使用了OGNL表达式，来获取一个boolean值
 
 **只能进行条件判断，没有else语句**
 
-### 2、chooes、when、otherwise标签：
+### 2、choose、when、otherwise标签：
 
 通过这三个标签的组合使用，可以实现java中的if-else、switch语句
 
