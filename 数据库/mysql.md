@@ -357,7 +357,7 @@ mysql5.5版本后，默认使用 InnoDB：
 - 修改用户密码
 
   ```sql
-  mysqladmin -u用户名 -p旧密码 password新密码
+  alter user 'root'@'localhost' identified by '123456'
   ```
 
 ### 2、sql基本语法

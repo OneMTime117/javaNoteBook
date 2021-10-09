@@ -365,7 +365,7 @@ docker build  -t  system   .
 4、运行镜像，创建容器
 
 ```shell
-docker run --name system -d -p 8001:8001
+docker run --name system -d -p 8001:8001  system
 ```
 
 ## 8 、docker各种常用开发软件镜像启动规范：
@@ -428,8 +428,6 @@ docker run --name system -d -p 8001:8001
 ```shell
 docker pull jenkins/jenkins
 ```
-
-
 
 
 

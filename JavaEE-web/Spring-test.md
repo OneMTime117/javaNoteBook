@@ -42,9 +42,10 @@ public class SpringTest {
 
 ### springTest事务管理：
 
-springTest支持使用@Transactional注解，来进行事务管理。但默认情况下，事务在测试完成后会自动回滚，即不会影响数据库中的数据，我们可以通过@Commit或@Rollback（false），但它们都会导致**事务无法进行异常回滚**
+​		springTest支持使用@Transactional注解，来进行事务管理。但默认情况下，事务在测试完成后会自动回滚，即不会影响数据库中的数据，我们可以通过@Commit或@Rollback（false），但它们都会导致**事务无法进行异常回滚**
 
-当service层方法进行事务管理，然后在测试方法中调用时，**根据spring事务的传播行为，测试方法的事务和service层方法的事务不会相互影响**，从而可以通过编写service类的方式，来实现在单元测试中，事务的异常回滚
+- 当Service层方法进行是否管理时,在Test类中,并不会受到事务默认自动回滚的限制(测试方法没有事务时,service方法会自动创建事务,正常提交)
+- 当service层方法进行事务管理，并且test类中也开启事务管理时,事务会默认自动回滚(service方法会使用测试方法中的事务执行,默认自动回滚)
 
 ### springTest测试监听：
 

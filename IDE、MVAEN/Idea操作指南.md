@@ -80,7 +80,7 @@ Live Template编写：
 
 ​	以java为例，常用地方包含如下：
 
-- declaration	成员变量（方法）定义区，即类里面，方法外面，**可以用于成员变量、方法和相关注解的定义**
+- declaration	成员变量（方法）定义区，即类里面，方法外面，**可以用于成员变量、方法、类和相关注解的定义**
 - statement          方法内部的声明区，即在方法里面，可以用于**方法内部的代码生成**
 - expression        表达式区，**在方法里面自动生成对某个变量后的赋值代码**
 
@@ -296,7 +296,6 @@ Debug常用快捷键：
   Arrays.stream(s);
   ```
 
-- xml文件中，生成
 - javaDoc
 
 ​	**使用实时模板生成：**
@@ -338,4 +337,32 @@ Debug常用快捷键：
 8、Translation		内置翻译
 
 9、Alibaba Java Coding Guidelines   阿里巴巴公司试行的开发设计规范
+
+# idea自定义代码模板：
+
+常用内置函数：
+
+complete（）   自动开始补全
+
+date（）日期
+
+time（）时间
+
+1、controller层：
+
+- controllerapi
+- listapi
+- getapi
+- updateapi
+- deleteapi
+- deletebatchapi
+
+2、var变量创建
+
+- varmap
+- varlist
+
+3、异常
+
+- throwb
 

@@ -906,7 +906,7 @@ CREATE TRIGGER ContestDB_trigger
 
 **窗口子句语法为：rows between xxx  and xxx**
 
-常用属性有：
+常用属性有： 
 
 第一行是 unbounded preceding，
 

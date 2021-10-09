@@ -225,8 +225,8 @@ minIdle:10
 timeBetweenEvictionRunsMillis:60000  
 minEvictableIdleTimeMillis:300000  
 
-#检查连接是否有效，mysql为  SELECT 'x' ；oracle为select 1 from dual
-validationQuery:SELECT 'x'
+#检查连接是否有效，mysql为  SELECT 1 ；oracle为select 1 from dual
+validationQuery:SELECT 1
 
 #申请连接时，检查连接是否有效、归还连接时，检查连接是否有效  
 testOnBorrow:false 
@@ -275,8 +275,6 @@ maxOpenPreparedStatements:20
 		}
 		return conn;
 ````
-
-
 
 ## 5、spring事务注解
 
@@ -362,6 +360,7 @@ spring.datasource.test1.password=123456
 spring.datasource.test1.driver-class-name=com.mysql.cj.jdbc.Driver
 spring.datasource.test1.type=com.alibaba.druid.pool.DruidDataSource
 
+#stat表示sql监控,wall表示开启sql防火墙监控  logback(日志框架名)表示开启慢sql日志记录(但还需要在对应日志配置文件中,进行名为statFilter日志对象的输出器配置)
 spring.datasource.test1.filters=stat,wall
 spring.datasource.test1.maxActive=20
 spring.datasource.test1.initialSize=1
@@ -418,6 +417,10 @@ spring.datasource.test1.maxOpenPreparedStatements=20
         return filterRegistrationBean;
     }
 ````
+
+**注意:**
+
+**druid配置在单数据源时,也需要手动装配DruidDataSource,当然也可以使用druid-spring-boot-starter来进行自动装配(并且可以提供自动补全)**
 
 ## 7、Batch批量插入、更新    
 
