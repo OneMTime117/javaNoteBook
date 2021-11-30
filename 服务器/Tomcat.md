@@ -75,9 +75,9 @@
 
 Servlet容器会将请求封装为ServletApi中的HttpServletRequest对象，然后基于Servlet实例，调用器init（）、service（）方法对请求进行处理，输出HttpServletResponse对象，最后交给Servlet容器保证为http响应返回给客户端
 
-### 3、xml.web文件
+### 3、web.xml文件
 
-​	xml.web文件为web应用的部署描述文件（Deployment Descriptor），用于交给Servlet容器进行相关配置和部署，常用包括：
+​	web.xml文件为web应用的部署描述文件（Deployment Descriptor），用于交给Servlet容器进行相关配置和部署，常用包括：
 
 - ServletContext初始化参数
 - session配置
@@ -398,6 +398,146 @@ onError(Throwable t)；//数据读取发生错误时，进行回调
 
 ### 7、ServletResponse
 
-​	
+​		响应对象,封装了服务器返回客户端的所有信息,在HTTP协议中,`将请求转为了 `HttpServletRequest`对象`，封装响应头和响应的消息体
+
+​		Response是响应对象的实现类，其接口继承包括：HttpServletResponse》》ServletResponse
+
+#### 1、缓冲
+
+​		Servlet容器提供服务器缓冲功能，通过Response对象api实现
+
+```java
+//获取缓冲区大小
+public int getBufferSize()  
+//设置缓冲区大小    
+public void setBufferSize(int size)
+//刷新提交缓冲区数据    
+public void flushBuffer()
+//响应数据是否提交
+public boolean isCommitted()
+//清除缓冲区所有数据
+public void reset()
+//清除缓冲区所有数据,但不包括响应头
+public void resetBuffer()
+```
+
+缓冲区大小设置,必须在ServletOutputStream/Writer写入数据前,否则会抛出IllegalStateException异常
+
+如果缓冲区数据达到最大值,则会将数据输出到客户端,并认为响应已被提交;此时如果调用reset\resetBuffer方法,则会抛出IllegalStateException异常
+
+#### 2、响应头
+
+​		HttpServletResponse提供api进行HTTP响应头操作
+
+```java
+//设置响应头(如果响应头存在，则覆盖)
+public void setHeader(String name, String value)
+//添加响应头（如果响应头存在，则添加额外一个同名响应头）
+public void addHeader(String name, String value)
+```
+
+​		相同响应头数据，会通过set保存value值，最后通过逗号分割展示
+
+除了默认的String类型的value值外，还提供date、int类型数据的header值设置
+
+#### 3、非阻塞IO
+
+​	Servelt 容器在进行异步请求和升级处理时，支持非阻塞写；在进行http响应数据的写入时，ServletOutputStream提供一系列方法，来写入http响应数据
+
+```java
+boolean isReady();//判断数据是否可以被无阻塞写入
+
+void setWriteListener(WriteListener listener)；//设置数据流写入监听器，进行方法回调
+```
+
+通过WriteListener `来为`ServletOutputStream`的数据读取提供一系列回调方法：
+
+```java
+onWritePossible()；//当数据可以被写入时，进行回调
+ 
+onError(Throwable t)；//数据写入发生错误时，进行回调
+```
+
+#### 4、重定向和错误
+
+​		HttpServletResponse提供api，实现重定向和错误响应
+
+- sendRedirect
+
+  ​		将设置了header和内容体的响应重定向到另外一个url
+
+  url支持相对路径(在当前url的基础上拼接),但是必须要保证该url路径有效
+
+- sendError
+
+  ​		将设置了header和内容体以响应错误的方式返回客户端
+
+#### 5、国际化
+
+​		HttpServletResponse提供api，设置local和字符集
+
+```java
+//设置响应头-ContentType，告诉浏览器响应内容的类型（MEMI类型）和编码格式
+//同时设置Servlet容器保存数据的编码格式 
+public void setContentType(String type) 
+//设置Servlet容器保存数据的编码格式 
+public void setCharacterEncoding(String charset)
+//设置locale
+public void setLocale(Locale locale)
+```
+
+在没有调用setContentType、setCharacterEncoding方法时，设置locale可以改变字符集
+
+#### 6、结束响应对象
+
+​		在响应关闭时，缓冲区数据会立即将数据提交给客户端，如下情况时，响应会关闭：
+
+- servlet的service方法执行完成（完成正常响应流程）
+- 调用sendError、sendRedirect方法，执行完成
+- AsyncContext.complete方法调用（完成异步处理）
+
+#### 7、Response对象生命周期
+
+​	每个Response对象都只能在Servlet的service方法，或过滤器的doFilter方法的作用域内有效；除非通过调用request.startAsync方法，实现请求异步处理；此时，Response对象一直有效，直到执行AsyncContext.complete方法
+
+### 8、Filter
+
+​		过滤器Filter为Java组件，允许在资源请求和响应过程中，修改header和负载；是一种代码重用技术，常用场景包括：
+
+- 验证过滤器
+- 日志记录
+- 数据预处理（图像转化、数据压缩、加密、转化）
+- 缓存过滤器
+
+#### 1、生命周期
+
+​		Servlet提供Filter接口，来定义创建过滤器，并在web.xml部署描述符中进行配置，过滤指定映射的Servlet
+
+```java
+//初始化方法
+public default void init(FilterConfig filterConfig) throws ServletException {}
+
+//过滤处理方法
+public void doFilter(ServletRequest request, ServletResponse response,
+            FilterChain chain) throws IOException, ServletException;
+
+//销毁方法
+public default void destroy() {}
+```
+
+​		Filter整个生命周期为：
+
+- Servlet容器初始化后，创建Filter实例，调用init初始化方法
+
+- 请求传入Servlet容器后，交给过滤器链处理
+- 调用第一个Filter的doFilter方法，将请求、响应对象包装为ServletRequest、ServletResponse，对其进行相应处理
+- 当执行FilterChain.doFilter()方法后，将请求交给下一个Filter，直到最后一个后，目标为最终的Web资源
+- 然后按之前相反顺序向上跳出doFilter（）方法，最后返回给客户端响应
+
+- Servlet容器关闭时，调用destroy销毁方法
+
+**处理请求的serivce方法和过滤器链都允许在同一个线程中**
+
+
 
 # Http协议

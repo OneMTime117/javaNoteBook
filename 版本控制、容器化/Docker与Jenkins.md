@@ -128,7 +128,7 @@
 
    --name	指定容器名（没有则随机分配） 
 
-  -p	主机端口与容器端口之间的端口映射，如8888:8080  访问宿主机端口8888，则会映射到docker的8080端口 
+  -p	主机端口与容器端口之间的端口映射，如8888:8080  访问宿主机端口8888，则会映射到docker的8080端口 **(不指定时,则进行随机端口映射/或者不映射)**
 
    --restart always	该容器伴随docker一起自启动
 
@@ -375,6 +375,8 @@ docker run --name system -d -p 8001:8001  system
 指定root用户登入的密码（否则mysql启动失败）、指定端口映射（用于访问mysql）
 
 - redis :     docker run --name redis01    -p 6379:6379 -d   --restart always  redis
+
+  reids还需要搭配 -v 来映射配置文件和data
 
 - zookeeper:  docker run --name zookeeper01 -p 2181:2181   -d  --restart always zookeeper
 

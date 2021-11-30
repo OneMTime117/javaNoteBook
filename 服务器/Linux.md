@@ -515,7 +515,7 @@ ls  -al展示当前目录下所有文件、目录,包括隐藏文件，并且以
 
   rmdir	/home/yh		删除空目录（**remove directory**）
 
-- **rm指令**
+- **rm指令**vi
 
   rm	[选项]	/home/yh		删除一个文件或目录（**remove**），默认是无法删除目录的
 
