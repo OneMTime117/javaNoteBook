@@ -358,7 +358,7 @@ location /old/path.html {
 
   ```java
   location /images/ {
-      alias /data/
+      alias /data/;
   }
   ```
 
@@ -395,7 +395,7 @@ location /old/path.html {
 
   ```java
   location / {
-      try_files $uri	/images/default.gif
+      try_files $uri	/images/default.gif;
   }
   ```
 

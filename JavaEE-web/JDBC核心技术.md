@@ -166,9 +166,27 @@ conn.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
 
 **并不会改变数据库默认的隔离级别，只是修改当前连接操作的隔离级别**
 
+### 5、只读事务：
+
+​		在多条查询语句执行中，如果不使用事务，则会导致前后读取数据不一致，就比如分页操作；为了保证数据一致性，就需要使用只读事务		
+
+- 优点：
+
+  ​		在开启数据库事务的同时，告诉数据库当前连接会话只进行读操作，数据库从而提供一些优化手段
+
+- 不同数据库，实现只读事务的方式也不同：
+  - mysql：不能进行增删改操作，否则数据库会报错；在事务开始到结束时间内，对其他事务操作不可见，并不记录事务id和回滚log
+  - oracel：不支持
+
+**JDBC只读事务设置：**
+
+```java
+conn.setReadOnly=true;
+```
+
 ## 4、数据库连接池：
 
-### **1、普通JDBC数据库连接缺点：**
+### 1、普通JDBC数据库连接缺点：
 
 1、JDBC使用DriverManager来进行来Connection连接对象创建，每次连接数据库都需要将 conn 加载到内存中，然后验证用户名密码，执行完sql后断开连接。每次使用数据库都需要这个过程，导致高并发时，占用大量系统资源，导致服务器崩溃
 
@@ -176,7 +194,7 @@ conn.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
 
 3、开发过程中不能控制连接Conn对象创建数据，这样会导致系统资源毫无顾虑的分配。当连接过多时，导致内存溢出，服务器崩溃
 
-### **2、数据库连接池技术原理：**
+### 2、数据库连接池技术原理：
 
 1、为解决传统开发中数据库连接问题，可以采用数据库连接池技术
 
@@ -186,7 +204,7 @@ conn.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
 
 4、数据库连接池可以设置最小连接数数和最大连接数。
 
-### **3、数据库连接池技术优点：**
+### 3、数据库连接池技术优点：
 
 1、数据库连接资源重用
 
@@ -198,233 +216,13 @@ conn.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
 
 ### 4、连接池对于资源的关闭：
 
-当使用连接池后，还是需要对于JDBC三对象进行关闭，减少资源占用。
+当使用连接池后，还是需要对于JDBC三对象进行关闭，减少资源占用
 
-对于conn对象的close，连接池对于该方法进行了重写，close并不会释放数据库连接，而是改变该连接在连接池中的状态，有占用（活跃）转变为队列（休眠）状态，从而让连接池去判断是否释放不必要的连接。
+对于conn对象的close，连接池对于该方法进行了重写，close并不会释放数据库连接，而是改变该连接在连接池中的状态，有占用（活跃）转变为队列（休眠）状态，从而让连接池去判断是否释放不必要的连接
 
-### **5、Druid数据库连接池的实现：**
+## 5、batch批量操作和大对象处理
 
-JDBC的数据库连接池统一使用了JDK javax.sql.DataSource接口包。根据不同的开源组件来实现，目前一般使用Druid（德鲁伊）连接池。
-
-#### JDBC 对于Druid连接池配置
-
-````java
-username=root
-password=123456
-url=jdbc:mysql://localhost:3306/test?serverTimezone=GMT&Unicode=true&characterEncoding=utf8
-driver=com.mysql.cj.jdbc.Driver
-
-#数据库连接池常用配置属性
-#最大连接数、初始化连接数、获取连接最大等待时间、最小连接数
-maxActive:20  
-initialSize:1  
-maxWait:60000  
-minIdle:10  
- 
-#检查连接活动状态线程执行间隔时间、连接最小休眠时间（当检查连接活动线程启动，查询该连接休眠时间大于该值时，释放连接（保证连接数大于最小值））  
-timeBetweenEvictionRunsMillis:60000  
-minEvictableIdleTimeMillis:300000  
-
-#检查连接是否有效，mysql为  SELECT 1 ；oracle为select 1 from dual
-validationQuery:SELECT 1
-
-#申请连接时，检查连接是否有效、归还连接时，检查连接是否有效  
-testOnBorrow:false 
-testOnReturn:false
-
-#周期性检查连接是否有效（休眠时间大于timeBetweenEvictionRunsMillis的连接）
-testWhileIdle:true   
-
-#对PreparedStatements对象进行对象池缓存、PreparedStatements缓冲池最大数
-poolPreparedStatements:true  
-maxOpenPreparedStatements:20  
-````
-
-#### **JDBC 对于Druid连接池使用**
-
-````java
-//		String url= PropertiesUtil.getPropertiesValue("DBConnection.properties", "url");
-//		String username= PropertiesUtil.getPropertiesValue("DBConnection.properties", "username");
-//		String password= PropertiesUtil.getPropertiesValue("DBConnection.properties", "password");
-//		String driver= PropertiesUtil.getPropertiesValue("DBConnection.properties", "driver");
-//		
-//		//创建对应连接池的数据源对象
-//		DruidDataSource druidDataSource = new DruidDataSource();
-//		druidDataSource.setUrl(url);
-//		druidDataSource.setUsername(username);
-//		druidDataSource.setPassword(password);
-//		druidDataSource.setDriverClassName(driver);
-		
-//		//配置连接池数据源其他属性
-//		druidDataSource.setInitialSize(initialSize);//初始化连接数,默认0
-//		druidDataSource.setMaxActive(maxActive);//最大连接数，默认8
-//		druidDataSource.setMinIdle(value);//最小连接数，默认0
-//		druidDataSource.setMaxWait(maxWaitMillis);//获取连接最大等待时间
-		
-		//也可以直接通过配置文件来创建Druid数据源
-		InputStream resourceAsStream = DruidConnetionUtil.class.getClassLoader().getResourceAsStream("DruidDataSource.properties");
-		Properties properties = new Properties();
-		Connection conn = null;
-		try {
-			properties.load(resourceAsStream);
-			DataSource dataSource = DruidDataSourceFactory.createDataSource(properties);
-			conn = dataSource.getConnection();
-			
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return conn;
-````
-
-## 5、spring事务注解
-
-### 1、spring事务注解常见问题
-
-1、当使用spring事务注解时，一般放在serviceImpl层，其工作方式是：当该层方法发生异常时，就进行事务回滚。因此对于该方法的异常不能进行捕捉，应向上抛出，在controller层进行try-catch，否则会导致事务回滚无法进行
-
-2、spring @Transactional事务注解默认只对运行时异常进行处理，当需要该方法产生非运行异常时，进行回滚。则应进行属性配置：**@Transactional(rollbackFor = Exception.class)//发送任何异常都进行回滚操作**
-
-3、在多数据源环境下，@Transactional应指定value值，否则会使用主键数据库事务管理器，导致事务没有使用对应的管理器，事务无法正常执行
-
-4、@Transactional 只能被应用到public方法上, 对于其它非public的方法,如果标记了@Transactional也不会报错,但方法没有事务功能
-
-### **2、spring事务注解基本属性：**
-
-1、value   事务管理器
-
-2、Propagation  事务传播行为
-
-3、timeout 事务超时时间
-
-4、isolation 事务隔离级别
-
-5、rollbackFor 能触发事务回滚的异常
-
-## 6、springboot Druid连接池使用
-
-1、导入Druid连接池依赖
-
-````java
-		<dependency>
-			<groupId>com.alibaba</groupId>
-			<artifactId>druid</artifactId>
-			<version>1.1.20</version>
-		</dependency>
-````
-
-2、配置被Druid连接池管理的数据源及其它组件
-
-````java
-@EnableTransactionManagement//该注解放在主配置类或者自定义配置类中，都能全局生效(是针对于所有数据源的事务注解启动)
-@Configuration
-//指定mapper接口注入容器，并指定这些mapper接口操作sql的sqlSessionTemplate对象(mapperScan也可以放在其他配置类定义，全局生效)
-@MapperScan(basePackages="com.example.demo.test1.mapper" ,sqlSessionTemplateRef="test1SqlSessionTemplate")
-public class DataSourceConfig {
-
-	@Bean("test1DataSource")
-	@Primary//默认数据源，当匹配不到相应数据源组件时，使用该数据源
-	@ConfigurationProperties(prefix="spring.datasource.test1")
-	public DataSource dataSource(){
-		return new DruidDataSource();    //使用Druid线程池
-//		return DataSourceBuilder.create().build();  //该为使用spring boot默认线程池（1.5为tomcat-jdbc、2.x为HikariCP）
-	}
-	
-	@Bean("test1SqlSessionFactory")
-	public SqlSessionFactory sqlSessionFactory(@Qualifier("test1DataSource") DataSource dataSource) throws Exception{
-		SqlSessionFactoryBean sSFB = new SqlSessionFactoryBean();
-		sSFB.setDataSource(dataSource);
-		return sSFB.getObject();
-	}
-	
-	@Bean("test1SqlSessionTemplate")
-	public SqlSessionTemplate sqlSessionTemplate(@Qualifier("test1SqlSessionFactory") SqlSessionFactory sqlSessionFactory){
-		return new SqlSessionTemplate(sqlSessionFactory);
-	}
-	
-	@Bean("test1TransactionManager")
-	public DataSourceTransactionManager dataSourceTransactionManager(@Qualifier("test1DataSource") DataSource dataSource){
-		return new DataSourceTransactionManager(dataSource);
-	}
-}
-````
-
-
-
-3、配置Druid数据源属性
-
-````java
-#Druid线程池使用 url
-spring.datasource.test1.url=jdbc:mysql://localhost:3306/test?serverTimezone=GMT&Unicode=true&characterEncoding=utf8
-spring.datasource.test1.username=root
-spring.datasource.test1.password=123456
-spring.datasource.test1.driver-class-name=com.mysql.cj.jdbc.Driver
-spring.datasource.test1.type=com.alibaba.druid.pool.DruidDataSource
-
-#stat表示sql监控,wall表示开启sql防火墙监控  logback(日志框架名)表示开启慢sql日志记录(但还需要在对应日志配置文件中,进行名为statFilter日志对象的输出器配置)
-spring.datasource.test1.filters=stat,wall
-spring.datasource.test1.maxActive=20
-spring.datasource.test1.initialSize=1
-spring.datasource.test1.maxWait=60000
-spring.datasource.test1.minIdle=10
-spring.datasource.test1.timeBetweenEvictionRunsMillis=60000
-spring.datasource.test1.minEvictableIdleTimeMillis=300000
-spring.datasource.test1.validationQuery=SELECT 'X'
-spring.datasource.test1.testOnBorrow=false
-spring.datasource.test1.testOnReturn=false
-spring.datasource.test1.testWhileIdle=true
-spring.datasource.test1.poolPreparedStatements=true
-spring.datasource.test1.maxOpenPreparedStatements=20
-````
-
-
-
-4、配置Druid对应用和sql的监控配置
-
-````JAVA
-/**
-     * 配置监控服务器
-     * @return 返回监控注册的servlet对象
-     * @author SimpleWu
-     */
-	//druid监控网站地址： ip：端口/项目名/druid
-    @Bean
-    public ServletRegistrationBean statViewServlet() {
-        ServletRegistrationBean servletRegistrationBean = new ServletRegistrationBean(new StatViewServlet(), "/druid/*");
-        // 添加IP白名单
-        servletRegistrationBean.addInitParameter("allow", "127.0.0.1");
-        // 添加IP黑名单，当白名单和黑名单重复时，黑名单优先级更高
-        servletRegistrationBean.addInitParameter("deny", "127.0.0.1");
-        // 添加控制台管理用户
-        servletRegistrationBean.addInitParameter("loginUsername", "yh");
-        servletRegistrationBean.addInitParameter("loginPassword", "123456");
-        // 是否能够重置数据
-        servletRegistrationBean.addInitParameter("resetEnable", "false");
-        return servletRegistrationBean;
-    }
-
-    /**
-     * 配置服务过滤器(不需要监控的接口)
-     *
-     * @return 返回过滤器配置对象
-     */
-    @Bean
-    public FilterRegistrationBean statFilter() {
-        FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(new WebStatFilter());
-        // 添加过滤规则
-        filterRegistrationBean.addUrlPatterns("/*");
-        // 忽略过滤格式
-        filterRegistrationBean.addInitParameter("exclusions", "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*,");
-        return filterRegistrationBean;
-    }
-````
-
-**注意:**
-
-**druid配置在单数据源时,也需要手动装配DruidDataSource,当然也可以使用druid-spring-boot-starter来进行自动装配(并且可以提供自动补全)**
-
-## 7、Batch批量插入、更新    
-
-### 1、JDBC原生
+1、Batch批量插入、更新    
 
 ````java
 			String sql = "INSERT INTO user(id,name,password) values (?,?,?)";
@@ -446,40 +244,7 @@ spring.datasource.test1.maxOpenPreparedStatements=20
 			}
 ````
 
-### 2、mybatis
-
-- mapper层
-
-
-````java
-@Insert("<script> "+
-	"INSERT INTO user(id,name,password) VALUES " +
-     //传入的集合参数、迭代时的数据变量、迭代时的集合下标变量、迭代时的分割符
-	"<foreach collection='accountList' item='item' index='index' separator=','>"+ 
-	" (#{item.id},#{item.name},#{item.password}) "+
-	"</foreach> "+
-	"</script>")
-void addListAccount(@Param("accountList")List<Account> accountList);
-````
-
-- serviceImpl层
-
-
-````java
-List<Account> list = new  ArrayList<Account>();
-		for (int i = 0; i <10000; i++) {
-			Account account = new Account();
-			account.setId(i);
-			account.setName("yh"+i);
-			account.setPassword("123456"+i);
-			list.add(account);
-		}
-		as.addListAccount(list);
-````
-
-## 8、大对象类型（blob、clob、text）处理
-
-### 1、JDBC原生
+2、大对象类型（blob、clob、text）处理
 
 由于大对象类型数据可能很大，因此需要配置数据库插入的最大数据量（mysql默认为1M）
 
@@ -526,110 +291,3 @@ List<Account> list = new  ArrayList<Account>();
 
 		}
 ````
-
-### 2、mybatis
-
-**对于clob、text字段，可以直接通过String来进行字段数据接收和存放**
-
-对于blob字段，存放可以直接通过#{}占位符注入byte[ ]来实现
-
-而接收必须建立相应表的实体类，进行byte[ ]类型属性与字段名的数据映射
-
-````java
-	@Select("select * from phtot where id=#{id} ")
-	Phtot getPhtot(String id);//必须使用实体类接收，byte[]（java常用数据类型）无法触发类型转化处理器
-````
-
-- Service
-
-
-````java
-		FileOutputStream fileOutputStream = null;
-		try {
-//			FileInputStream fileInputStream = new FileInputStream(new File("C:\\Users\\OneMTime\\Desktop\\11.txt"));
-////			字节输入流转二进制数组
-//			byte[] copyToByteArray = FileCopyUtils.copyToByteArray(fileInputStream);
-//			as.addPhoto(copyToByteArray);
-//			BlobTypeHandler
-			
-			
-			Phtot phtot = aM.getPhtot("18");
-			fileOutputStream = new FileOutputStream(new File("C:\\Users\\OneMTime\\Desktop\\hh.PNG"));
-			fileOutputStream.write(phtot.getBlob1());			
-		} catch (Exception e) {
-			e.printStackTrace();
-		}finally {
-			try {
-				if (fileOutputStream!=null) {
-					fileOutputStream.close();
-				}
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-````
-
-## 9、mybatis自定义类型转化处理器
-
-1、自定义typeHandle类
-
-````java
-@MappedJdbcTypes(value=JdbcType.BLOB)  //定义该类型处理器 数据库数据类型	
-@MappedTypes(String.class) //定义该类型处理器  java数据类型
-public class BlobTypeHandler extends BaseTypeHandler<String> {
-	    public void setNonNullParameter(PreparedStatement ps, int i,  
-	            String parameter, JdbcType jdbcType) throws SQLException {  
-	    	System.out.println("使用处理器1");
-	        //声明一个输入流对象
-	        ByteArrayInputStream bis;  
-	        try {  
-	            //把字符串转为字节流
-	            bis = new ByteArrayInputStream(parameter.getBytes("utf-8"));  
-	        } catch (UnsupportedEncodingException e) {  
-	            throw new RuntimeException("Blob Encoding Error!");  
-	        }     
-	        ps.setBinaryStream(i, bis, parameter.length());  
-	    }  
-
-	    @Override  
-	    public String getNullableResult(ResultSet rs, String columnName)  
-	            throws SQLException {  
-	        Blob blob = (Blob) rs.getBlob(columnName);  
-	        byte[] returnValue = null;  
-	        if (null != blob) {  
-	            returnValue = blob.getBytes(1, (int) blob.length());  
-	        }  
-	        try {  
-	            //将取出的流对象转为utf-8的字符串对象
-	        	System.out.println("使用处理器2");
-	            return new String(returnValue, "utf-8");  
-	        } catch (UnsupportedEncodingException e) {  
-	            throw new RuntimeException("Blob Encoding Error!");  
-	        }  
-	    }
-
-		@Override
-		public String getNullableResult(ResultSet rs, int columnIndex) throws SQLException {
-			System.out.println("使用处理器3");
-			return null;
-		}
-
-		@Override
-		public String getNullableResult(CallableStatement cs, int columnIndex) throws SQLException {
-			System.out.println("使用处理器4");
-			return null;
-		}  
-	    }
-````
-
-2、指定mapper映射字段中，数据转化的类型处理器
-
-````java
-	@Select("select * from phtot where id=#{id} ")
-	@Results({			         		
-              @Result(column="blob1",property="blob1",
-              typeHandler=com.example.demo.typehandler.BlobTypeHandler.class)   
-	})//通过@Results、@Result来设置pojo中部分字段映射规则（字段名、pojo属性名、数据类型处理器）
-	Phtot getPhtot(String id);
-````
-

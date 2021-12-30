@@ -117,6 +117,7 @@ Zset(有序不重复集合)：Zset相对于Set，会将所有元素关联一个d
 | exists key  | 该key是否存在                          |
 | move key db | 将该key转移到另一个库                  |
 | expire key  | 设置该key的过期时间                    |
+| persist key | 移除该key的过期时间,变为永不过期       |
 | ttl key     | 查看还有多久过期；-1永不过期、-2已过期 |
 | type key    | key指定value的类型                     |
 

@@ -2300,8 +2300,7 @@ mybatis:
 
 ​	原因：mybatis内部是使用BigDecimal接受，然后转化为Object类型存储，因此无法直接转化为Integer类型
 
-**8、mybatis一对多映射规则：**
+**8、mybatis实体类映射规则：**
 
-​	1、当一对多对应映射表字段都为null时（关联字段不可能为null）,会返回List<null>
+​	1、当查询结果集中,某条数据所有字段都为null时,mybatis则不会创建一个映射对象，直接返回null，放入中list
 
-​	原因：关联表的结果集字段都为null时，mybatis则不会创建一个映射对象，直接返回null，放入中list

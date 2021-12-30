@@ -337,9 +337,9 @@ public class DemoController {
 
 ### 1、基本概念
 
-​	Bean Validation 是一个运行时的数据校验框架，如果验证失败，则直接返回错误信息。在JAVAEE6中，发布了Bean Validation的规范**validation-api**，即**JSR303**;
+​	Bean Validation 是一个运行时的数据校验框架，如果验证失败，则直接返回错误信息。在JAVAEE6中，发布了Bean Validation的规范**validation-api**，即**JSR-303**;
 
-​	由于版权问题，JAVAEE8改为Jakarta EE 8，其对应的jar为：**jakarta.validation-api**，并且升级为**Bean Validation2**（即**JSR380**），支持更加灵活的验证
+​	由于版权问题，JAVAEE8改为Jakarta EE 8，其对应的jar为：**jakarta.validation-api**，并且升级为**Bean Validation2**（即**JSR-380**），支持更加灵活的验证
 
 ​	JAVAEE中只是定义了BeanValidation的规范，提供了相应的元数据模型和接口API，其**唯一实现是Hibernate Validator**
 
@@ -1848,6 +1848,306 @@ springboot默认配置和开发者自定义配置可以同时存在，但自定�
 
 ​		一般情况下，我们只修改springboot默认配置中的logging.level.*，用于创建新的logger，来进行局部的日志打印；而新的logger会继承自定义的全局root日志组件，进行相同方式的日志输出
 
-## 7、HuTool
+## 7、Druid
+
+​		Druid是java数据库连接池技术，提供强大的监控和扩展功能：
+
+- 连接池稳定
+- JDBC执行、慢查询、异常监控
+- 防sql注入
+
+依赖引入：
+
+```xml
+	<dependency>
+		<groupId>com.alibaba</groupId>
+		<artifactId>druid</artifactId>
+		<version>${druid-version}</version>
+	</dependency>
+```
+
+### 1、连接池配置
+
+​		Druid连接池大部分配置属性都参考了DBCP连接池
+
+```properties
+#数据库连接池常用配置属性
+#最大连接数、初始化连接数、获取连接最大等待时间、最小连接数
+maxActive:20  
+initialSize:1  
+maxWait:6000  
+minIdle:10  
+ 
+#检查连接活动状态线程执行间隔时间、连接最小休眠时间（当检查连接活动线程启动，查询该连接休眠时间大于该值时，释放连接（保证连接数大于最小值））  
+timeBetweenEvictionRunsMillis:60000  
+minEvictableIdleTimeMillis:300000  
+
+#检查连接是否有效，mysql为  SELECT 1 ；oracle为select 1 from dual
+validationQuery:SELECT 1
+    
+#周期性检查连接是否有效（休眠时间大于timeBetweenEvictionRunsMillis的连接）
+testWhileIdle:true  
+    
+#申请连接时，检查连接是否有效、归还连接时，检查连接是否有效  
+testOnBorrow:false 
+testOnReturn:false
+
+
+#对PreparedStatements对象进行对象池缓存、PreparedStatements缓冲池最大数
+poolPreparedStatements:true  
+maxOpenPreparedStatements:20  
+
+#在连接数小于当前最小连接空闲数(minIdle)时,保持keepAlive不进行关闭，如果连接处理次数大于phyMaxUseCount时，则强制关闭
+keepAlive：true       
+phyMaxUseCount：1000
+```
+
+除此之外，druid连接池还提供了过滤器链设置,默认按顺序开启所有过滤器
+
+**如果设置则为用户指定的过滤器链,stat和wall先后顺序,决定了sql防火墙在监控页面是否可见(一般情况下,为stat,wall,保证拦截的sql在监控页面显示)**
+
+```properties
+#基于servletFilter实现，包含stat（监控）、wall（sql防火墙）、log4j（日志记录），使用逗号分割同时开启
+filters：stat
+```
+
+### 2、基于springboot进行配置
+
+​		druid官方提供springBoot-starter，在springboot中快速整合druid
+
+依赖引入：
+
+```xml
+<dependency>
+   <groupId>com.alibaba</groupId>
+   <artifactId>druid-spring-boot-starter</artifactId>  
+	<version>${druid-version}</version>
+</dependency>
+```
+
+启动器对druid提供了自动配置，和druid自定义属性配置入口：
+
+- jdbc配置
+
+```properties
+spring.datasource.druid.url= # 或spring.datasource.url= 
+spring.datasource.druid.username= # 或spring.datasource.username=
+spring.datasource.druid.password= # 或spring.datasource.password=
+spring.datasource.druid.driver-class-name= #或 spring.datasource.driver-class-name=
+```
+
+- 连接池配置
+
+```properties
+spring.datasource.druid.initial-size=
+spring.datasource.druid.max-active=
+spring.datasource.druid.min-idle=
+spring.datasource.druid.max-wait=
+spring.datasource.druid.pool-prepared-statements=
+spring.datasource.druid.max-pool-prepared-statement-per-connection-size= 
+spring.datasource.druid.max-open-prepared-statements= #和上面的等价
+spring.datasource.druid.validation-query=
+spring.datasource.druid.validation-query-timeout=
+spring.datasource.druid.test-on-borrow=
+spring.datasource.druid.test-on-return=
+spring.datasource.druid.test-while-idle=
+spring.datasource.druid.time-between-eviction-runs-millis=
+spring.datasource.druid.min-evictable-idle-time-millis=
+spring.datasource.druid.max-evictable-idle-time-millis=
+spring.datasource.druid.filters= #配置多个英文逗号分隔
+....//more
+```
+
+**注意：**
+
+​		在多数据源情况下，springboot2.X版本不支持配置继承，即每个数据源都需要进行手动配置，并不能提供一个主配置用于继承，即如下方式失效：
+
+```properties
+# Druid 数据源主配置
+...
+spring.datasource.druid.initial-size=5
+spring.datasource.druid.max-active=5
+
+#Druid 数据源 1 配置，继承spring.datasource.druid.* 配置，相同则覆盖
+spring.datasource.druid.one.max-active=10
+spring.datasource.druid.one.max-wait=10000
+```
+
+- 自定义配置：
+
+  durid提供DruidDataSourceBuilder对象进行数据源创建，绑定druid线程池使用：
+
+  ```java
+  @ConfigurationProperties("spring.datasource.druid")
+  public DataSource dataSourceOne(){
+      return DruidDataSourceBuilder.create().build();
+  }
+  ```
+
+### 3、监控相关功能
+
+**监控器地址： ${ip}:${port}/${applicationName}/druid**
+
+- 监控配置:
+
+  springboot提供监控相关功能自动配置,但必须由开发者手动开启,并设置相关属性:
+
+  ```properties
+  # WebStatFilter配置：采集web-jdbc关联监控的数据
+  spring.datasource.druid.web-stat-filter.enabled= #是否启用StatFilter默认值false
+  spring.datasource.druid.web-stat-filter.url-pattern=
+  spring.datasource.druid.web-stat-filter.exclusions=
+  spring.datasource.druid.web-stat-filter.session-stat-enable=
+  spring.datasource.druid.web-stat-filter.session-stat-max-count=
+  spring.datasource.druid.web-stat-filter.principal-session-name=
+  spring.datasource.druid.web-stat-filter.principal-cookie-name=
+  spring.datasource.druid.web-stat-filter.profile-enable=
+  
+  # StatViewServlet配置：展示Druid的统计信息
+  spring.datasource.druid.stat-view-servlet.enabled= #是否启用StatViewServlet（监控页面）默认值为false（考虑到安全问题默认并未启动，如需启用建议设置密码或白名单以保障安全）
+  spring.datasource.druid.stat-view-servlet.url-pattern=
+  spring.datasource.druid.stat-view-servlet.reset-enable=
+  spring.datasource.druid.stat-view-servlet.login-username=
+  spring.datasource.druid.stat-view-servlet.login-password=
+  spring.datasource.druid.stat-view-servlet.allow=
+  spring.datasource.druid.stat-view-servlet.deny=
+  
+  # Spring监控配置
+  spring.datasource.druid.aop-patterns= # Spring监控AOP切入点，如x.y.z.service.*,配置多个英文逗号分隔
+  ```
+
+  当然也可以手动创建ServletRegistrationBean、FilterRegistrationBean来开启和配置监控功能：
+
+  ```java
+      @Bean
+      public ServletRegistrationBean statViewServlet() {
+          StatViewServlet statViewServlet = new StatViewServlet();
+          ServletRegistrationBean servletRegistrationBean = new ServletRegistrationBean(statViewServlet, "/druid/*");
+          servletRegistrationBean.addInitParameter("allow", "127.0.0.1");
+          servletRegistrationBean.addInitParameter("loginUsername", "admin");
+          servletRegistrationBean.addInitParameter("loginPassword", "123456");
+          servletRegistrationBean.addInitParameter("resetEnable", "false");
+          return servletRegistrationBean;
+      }
+  
+      @Bean
+      public FilterRegistrationBean webStatFilter(){
+          WebStatFilter webStatFilter = new WebStatFilter();
+          FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(webStatFilter);
+          filterRegistrationBean.addUrlPatterns("/*");
+          filterRegistrationBean.addInitParameter("exclusions","*.js,*.gif,*.png,*.css,*.ico,/druid/*");
+          return filterRegistrationBean;
+      }
+  ```
+
+- 过滤器配置:
+
+  druid提供如下过滤器：
+
+  | 过滤器                                                      | 作用                          | 别名                                |
+  | ----------------------------------------------------------- | ----------------------------- | ----------------------------------- |
+  | StatFilter                                                  | 统计监控信息(sql监控)         | stat                                |
+  | WallFilter                                                  | 拦截指定类型sql(sql防火墙)    | wall                                |
+  | Slf4jLogFilter、Log4jFilter、Log4j2Filter、CommonsLogFilter | jdbc执行日志输出              | slf4j、log4j、log4j2、commonlogging |
+  | ConfigFilter                                                | 配置加密                      | config                              |
+  | EncodingConvertFilter                                       | 用于手动配置客户端\服务端编码 | encoding                            |
+
+  springboot提供两种配置方式：
+
+  - filters别名配置
+
+    开启druid提供的过滤器
+
+    在进行数据源初始化时,按顺序创建指定过滤器实例,并进行添加到过滤器链中
+
+    **缺点:无法手动修改过滤器属性**
+
+    ```properteis
+    spring.datasource.druid.filters= stat,wall,log4j
+    ```
+
+  - proxyFilters配置
+
+    开启springboot默认提供的过滤器,可以自定义相关属性,并按照默认顺序添加在过滤器链中
+
+    ```properties
+    
+    ```
+
+  **注意:**
+
+  - 两种配置方式为组合关系,如果出现重复类型的过滤器,则proxyFilters会替换filters别名配置
+
+  - proxyFilters配置会干扰filters别名配置顺序,从而使用默认顺序
+
+  综上所述,推荐使用proxyFilters来进行过滤器配置
+
+- statFilter
+
+  ​		statFilter在进行sql监控时,提供如下功能;
+
+  - 合并sql
+
+    通过设置属性mergeSql=ture开启,从而使sql语句结构相同,参数不同的,同一统计为一条sql
+
+  - 慢sql记录
+
+    通过设置属性logSlowSql=ture开启,slowSqlMillis慢sql限制时间为3000(3s),如果超过则进行日志输出
+
+  - 多数据源监控数据合并
+
+    通过设置属性useGlobalDataSourceStat=ture开启,从而将多个数据源sql一起统计
+
+- logFilter
+
+  ​		logFilter在进行JBDC日志输出时,默认提供4种日志记录器,name分别为:
+
+  - druid.sql.dataSource
+
+  - druid.sql.connection
+
+  - druid.sql.statemnet
+
+  - druid.sql.resultSet
+
+    在开启logFilter后,需要在对应日志配置文件中,声明指定日志记录器的输出组件:
+
+    logback日志配置:
+
+    ```xml
+    <logger name="druid.sql.Statement" level="debug" additivity="false">
+           <appender-ref ref="consoleAppender"/>
+    </logger>
+    ```
+
+- 开启配置加密
+
+  ```properties
+  # 加密后的密码（原密码 123456）
+  spring.datasource.password=WVMjPhfXQrIsWRo0/RCqAVvYtTU9WNVToKJohb8AlUmHwnV6vwFL+FM2CNFDMJwGHW1iCmyaUlF+sgvFdogqEA==
+  # 公钥
+  publickey=MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAIiwHpFrDijV+GzwRTzWJk8D3j3jFfhsMFJ/7k1NTvBuLgL+TdIHgaMNOIEjHpXzuvX38J3FtOK8hLrySncVGOMCAwEAAQ==
+  # 启动ConfigFilter
+  spring.datasource.druid.filter.config.enabled=true
+  # 配置 connection-properties，启用加密，配置公钥。
+  spring.datasource.druid.connection-properties=config.decrypt=true;config.decrypt.key=${publickey}
+  ```
+
+- 获取Druid监控数据
+
+  在开启StatFilter后，开发者可以手动创建http接口，来暴露监控数据
+
+  ```java
+  @RestController
+  public class DruidStatController {
+      @GetMapping("/druid/stat")
+      public Object druidStat(){
+          //DruidStatManagerFacade#getDataSourceStatDataList 该方法可以获取所有数据源的监控数据
+          return DruidStatManagerFacade.getInstance().getDataSourceStatDataList();
+      }
+  }
+  ```
+
+## 8、HuTool
 
 见官方文档

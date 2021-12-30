@@ -1032,6 +1032,130 @@ B树索引（普通索引）、位图索引、唯一索引、函数索引
 
   缺点：在插入、更新时需要计算位图值，因此不适合频繁更新的字段；列的特征值过多，导致位图向量太多，从而bit值种类太多，索引太多得不偿失 
 
+### 7、表删除后，数据恢复：
+
+- flashback恢复
+
+  flashback基于undo表空间，对用户逻辑操作进行镜像备份，比如：
+
+  - 删除多行数据，会将被删除的数据记录到undo表空间中，
+  - 修改数据，将修改前的数据记录到undo表空间中
+
+  优点：
+
+  ​		快速、在线恢复无需关闭数据库、操作简单（不依赖于日志文件）
+
+  缺点：
+
+  ​		只能对用户操作进行回滚，无法恢复损坏的数据文件
+
+  ​		undo表空间容量有限，只能恢复较少、时间较近数据，因为时间过长，会被旧数据会被覆盖
+
+- flashback的级别：
+
+  | 级别        | 作用                                                 |
+  | ----------- | ---------------------------------------------------- |
+  | Database    | 数据库级别，用于恢复已删除用户、被truncate的表       |
+  | Table       | 表级别，用于将表回滚到某个时间节点，或者回滚到Drop前 |
+  | Transaction | 事务级别，用于回滚某个DML操作                        |
+
+- flashback的成员：
+
+  1、flashback version query：
+
+  ​		数据库每次数据提交发生变化时，都会创建一个版本，通过versions between关键字查询指定时间或版本号区间内的所有修改版本：
+
+  ​		oracle对于每个事务的提交后，允许进行回滚有个时间限制，避免undo表空间过分扩容，难以回收;通过undo_retention参数配置，默认为900s(15min)
+
+  ```sql
+  alter system set undo_retention=7200
+  ```
+
+  ​		flashback版本查发现提供一系列伪列，来描述当前表所有数据的版本信息，如果版本信息为null，则说明当前数据没有在版本区间内变动（增删改）
+
+  ```sql
+  select id, name, --表相关数据
+  versions_xid, --事务id
+  versions_startscn, --开始版本号
+  versions_endscn,  --结束版本号
+  to_char(versions_starttime,'YY/MM/DD HH24:MI:SS') as startime,   --开始时间
+  to_char(versions_endtime,'YY/MM/DD HH24:MI:SS') as endtime,    --结束时间
+  versions_operation  --操作类型
+  from Test3 versions between timestamp/SCN ? and ?
+  where version_xid is not null;  
+  ```
+
+  2、flashback transaction query
+
+  通过flashback_transaction_query可以实现对指定事务的undo_sql（即回滚sql，如果为删除sql对于的undo_sql）,需要搭配flashback version query一起使用
+
+  注意：oracle11g默认禁用了supplemental logging（补充日志），因此undo_sql为空
+
+  ```java
+  select operation, undo_sql from flashback_transaction_query   
+  where xid in (select versions_xid from Test3 versions between scn minvalue and maxvalue where id > 3)
+  ```
+
+  3、flashback query
+
+  flashback query用于查询表在某个时间点/版本号的镜像数据
+
+  ```sql
+  select * from table_name 
+  as of timestamp/scn ?
+  ```
+
+  4、flashback table
+
+  flashback table 用于将指定表还原为某个时间点/版本号的镜像数据
+
+  ```sql
+  #需要保证表开启行移动
+  alter table table_name enable row movement
+  Flashback table table_name to Timestamp/scn ?
+  ```
+
+  5、
+
+  需要保证，数据库开启了回收站功能，从而时flashback drop生效
+
+```sql
+#查看回收站功能是否开启
+show parameter recyclebin  
+#从回收站中查询被删除对象记录(索引、表)
+select * from recyclebin
+#使用table_name将数据恢复到drop之前(索引、约束会一起恢复)
+flashback TABLE "TABLE_NAME" to before drop
+```
+
+- 使用flashback恢复被删除/修改的表数据
+
+  只能在没有使用truncate语句下，进行恢复
+
+```sql
+
+```
+
+
+
+8、查询指定表名，在哪个模式中：
+
+```sql
+SELECT * FROM DBA_TABLES WHERE TABLE_NAME LIEK '%XXX%'
+```
+
+9、创建临时表
+
+```sql
+CREATE GLOBAL TEMPORARY TABLE tmptable
+ON COMMIT PRESERVE ROWS 
+AS
+SELECT *
+FROM tablename
+```
+
+
+
 
 
   

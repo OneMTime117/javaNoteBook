@@ -1308,7 +1308,7 @@ protected void doDispatch(HttpServletRequest request, HttpServletResponse respon
 
 springMVC提供两种REST客户端API调用：
 
-#### RestTemplate：
+### RestTemplate：
 
 **以同步请求方式执行REST客户端服务通信，默认是对JDK中java.net包的封装，提供更加方便、高效的API**
 
@@ -1396,7 +1396,7 @@ String result = restTemplate.getForObject(
   String result = restTemplate.postForObject(url, httpEntity, String.class);
   ```
 
-#### WebClient：
+### WebClient：
 
 ​		spring5.0提供的WebClient，来支持HTTP请求的反应式编程、非阻塞的客户端，并有效支持同步、异步和流方案，相对于RestTemplate，支持如下内容：
 
@@ -1411,7 +1411,7 @@ String result = restTemplate.getForObject(
 
 ​		spring框架提供WebSocket API，用于编写webSocket消息的客户端和服务器端应用程序，通过导入spring-websocket包来实现：
 
-#### spring-webSocket：
+### spring-webSocket：
 
 ​		通过WebSocketHandler和HandshakeInterceptor，来完成整个WebSocket服务器编写：
 
@@ -1454,7 +1454,7 @@ public class MyWebSocketHandler extends TextWebSocketHandler{
 
 xxxx测试失败
 
-#### webSocket-api：
+### webSocket-api：
 
 ​		在Tomcat运行环境中，默认提供了对webSocket的支持，因此在springBoot中，我们可以通过内置Tomcat、或者直接使用外部Tomcat，来实现webSocket：
 
@@ -1613,7 +1613,7 @@ Welcome<br/>
 </html>
 ```
 
-##### 注意问题：
+#### 注意问题：
 
 1、在Websocket服务类中，无法进行spring的自动注入
 
