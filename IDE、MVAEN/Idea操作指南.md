@@ -80,7 +80,7 @@ Live Template编写：
 
 ​	以java为例，常用地方包含如下：
 
-- declaration	成员变量（方法）定义区，即类里面，方法外面，**可以用于成员变量、方法和相关注解的定义**
+- declaration	成员变量（方法）定义区，即类里面，方法外面，**可以用于成员变量、方法、类和相关注解的定义**
 - statement          方法内部的声明区，即在方法里面，可以用于**方法内部的代码生成**
 - expression        表达式区，**在方法里面自动生成对某个变量后的赋值代码**
 
@@ -161,7 +161,7 @@ Debug常用快捷键：
   | Ctrl + X                    | 剪切当前行                                 |
   | Ctrl + C                    | 复制当前行                                 |
   | Ctrl + D                    | 复制并在下方粘贴当前行                     |
-  | Ctrl + Q（长按Ctrl）        | 显示当前光标所在变量 / 类名 / 方法名的文档 |
+  | Ctrl + Q                    | 显示当前光标所在变量 / 类名 / 方法名的文档 |
   | Ctrl + W                    | 选中光标所在的单词/或整行                  |
   | Ctrl + Shift + W            | 取消选中的单词/或整行                      |
   | Ctrl + 左右方向键           | 移动光标到下/上个单词                      |
@@ -190,6 +190,7 @@ Debug常用快捷键：
   | Ctrl + Alt + O    | 优化导包（无法确认的，需要使用Alt + Enter进行代码修复）      |
   | Ctrl + Shift + J  | 自动将下一行合并到当前行末尾（可以用于去掉空白行，全选后执行，然后格式化） |
   | Ctrl + Alt + T    | 对选择内容进行环绕处理（try-catch、if、while。。。）         |
+  | Shift + Tab       | 多行缩进（向后）                                             |
 
 - 窗口操作
 
@@ -213,7 +214,7 @@ Debug常用快捷键：
   ```java
   //s.sout
   System.out.println(s);
-  //s.souts
+  //s.soutv
   System.out.println("s = " + s);
   //s.serr
   System.err.println(s);
@@ -295,7 +296,6 @@ Debug常用快捷键：
   Arrays.stream(s);
   ```
 
-- xml文件中，生成
 - javaDoc
 
 ​	**使用实时模板生成：**
@@ -320,21 +320,49 @@ Debug常用快捷键：
 
 # idea常用插件：
 
-1、MyBatisCodeHelperPro
+1、MyBatisCodeHelperPro	mybaits代码生成器
 
-2、mybatis log
+2、mybatis log			mybatis日志独立打印
 
-3、lombok
+3、lombok				
 
-4、Grep console
+4、Grep console		日志控制台高亮
 
-5、REST tool
+5、REST tool			接口管理
 
-6、Swagger Tools
+6、Swagger Tools	swagger注解生成器
 
-7、CamelCase
+7、CamelCase		驼峰转换
 
-**power_mode_II**：代码特效
+8、Translation		内置翻译
 
-**Alibaba Java Coding Guidelines**：阿里巴巴公司试行的开发设计规范
+9、Alibaba Java Coding Guidelines   阿里巴巴公司试行的开发设计规范
+
+# idea自定义代码模板：
+
+常用内置函数：
+
+complete（）   自动开始补全
+
+date（）日期
+
+time（）时间
+
+1、controller层：
+
+- controllerapi
+- listapi
+- getapi
+- updateapi
+- deleteapi
+- deletebatchapi
+
+2、var变量创建
+
+- varmap
+- varlist
+
+3、异常
+
+- throwb
 

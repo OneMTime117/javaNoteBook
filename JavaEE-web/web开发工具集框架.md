@@ -2,7 +2,7 @@
 
 常用工具框架包括：
 
-swagger、HibernateValidation、lombok、Jackson、logfj4/logback
+swagger、HibernateValidation、lombok、Jackson、logfj4/logback、HuTool
 
 ## 1、Swagger
 
@@ -337,9 +337,9 @@ public class DemoController {
 
 ### 1、基本概念
 
-​	Bean Validation 是一个运行时的数据校验框架，如果验证失败，则直接返回错误信息。在JAVAEE6中，发布了Bean Validation的规范**validation-api**，即**JSR303**;
+​	Bean Validation 是一个运行时的数据校验框架，如果验证失败，则直接返回错误信息。在JAVAEE6中，发布了Bean Validation的规范**validation-api**，即**JSR-303**;
 
-​	由于版权问题，JAVAEE8改为Jakarta EE 8，其对应的jar为：**jakarta.validation-api**，并且升级为**Bean Validation2**（即**JSR380**），支持更加灵活的验证
+​	由于版权问题，JAVAEE8改为Jakarta EE 8，其对应的jar为：**jakarta.validation-api**，并且升级为**Bean Validation2**（即**JSR-380**），支持更加灵活的验证
 
 ​	JAVAEE中只是定义了BeanValidation的规范，提供了相应的元数据模型和接口API，其**唯一实现是Hibernate Validator**
 
@@ -1510,7 +1510,644 @@ objectMapper.setSerializationInclusion(JsonInclude.Include.ALWAYS);
 
 ## 5、junit4	
 
+​		**java单元测试是最小的功能单元测试代码，即针对单个java方法的测试（java的最小单位为方法）**
+
+### main方法进行测试的缺点：
+
+- 只能有一个main（）方法，不能把所有测试代码按一个个方法分开
+- 无法打印出测试结果和预期结果
+
+### 单元测试的优点：
+
+- 可以打印测试报告
+- 可以进行自动测试，进行执行结果的判断
+- 可以在一个类中，书写多个测试方法，并且每个单元测试都可以独立执行
+
+### JUnit4框架，java最常用的测试框架：
+
+1、JUnit4框架有标准规定，测试类必须在src/test/java的目录中；maven项目就满足该目录结果
+
+并且，**测试类不能使用Test命名，否则会出现导入的org.junit.Test类名冲突**
+
+2、编写一个测试方法，只需要使用@Test注解，并且保证方法满足以下条件：
+
+- 无返回值
+- 无参数
+- public
+
+```java
+@Test
+public void Test(){
+    
+}
+```
+
+2、对单元测试进行断言（Assertion），即判定程序的执行结果是否符合预期，从而通过测试
+
+使用assertEquals（obj，obj）、、、等方法来对结果进行断言
+
+3、@Before、@After、@BeforeClass、@AfterClass使用，用于指定单元测试执行前后的代码（如资源初始化和释放）
+
+**测试类执行单元测试的过程：**
+
+- 初始化类的静态变量，执行一次@BeforeClass方法（该方法必须满足：无返回值、无参数、静态方法、public）
+- 初始化类的成员变量，执行测试类的构造方法
+- 执行@Before方法（和@Test方法一致）；然后执行@Test方法；最后执行@After方法
+- 当执行测试类时，会自动从上到下执行所有@Test方法，因此相应也会多次执行初始化类的成员变量，执行测试类的构造方法、@Before和@After方法
+- 最后在执行一次@AfterClass方法
+
+**在执行测试类时，每一次执行@Test方法前，都是重新创建了一个测试类实例，因此测试类中的非静态成员变量，不能在每个@Test中共享，而是每次都为初始值**
+
+**因此在多个@Test方法需要使用某个资源时，为了减少资源初始化和释放时间，一般将其初始化代码和释放代码放在@BeforeClass方法和@AfterClass中**
+
+4、异常测试和超时测试；
+
+@Test注解提供expected属性，用于指定异常类的Class对象，当未抛出该异常类型时，则测试失败；反之测试成功
+
+@Test注解提供timeout属性，用于指定测试方法执行时间，单位为毫秒；当测试方法执行时间超出该值时，测试失败
+
+5、忽略测试：
+
+@Ignore，注解在已被@Test注解的方法上，用于在执行测试类时，忽略被注解的@test方法
+
+6、使用不同运行器进行测试：
+
+@RunWith（Calss），指定该测试类单元测试使用的运行器，如springboot测试类注解为@RunWith(SpringRunner.class)
+
+不同的运行器，单元测试的规则和注解也有所不同，Junit默认运行器为 org.junit.runner.Runner
+
 ## 6、logback
 
+推荐使用Slf4j+Logback,相对于Log4j有更多的优点、特性和性能
+
+### **1、日志级别：**
+
+| 日志级别 | 描述                                               |
+| -------- | -------------------------------------------------- |
+| OFF      | 关闭：最高级别，不输出日志。                       |
+| FATAL    | 致命：输出非常严重的可能会导致应用程序终止的错误。 |
+| ERROR    | 错误：输出错误，但应用还能继续运行。               |
+| WARN     | 警告：输出可能潜在的危险状况。                     |
+| INFO     | 信息：输出应用运行过程的详细信息。                 |
+| DEBUG    | 调试：输出更细致的对调试应用有用的信息。           |
+| TRACE    | 跟踪：输出更细致的程序运行轨迹。                   |
+| ALL      | 所有：输出所有级别信息。                           |
+
+一般情况下，使用 ERROR、WARN、INFO 、DEBUG四种级别
+
+### 2、logback框架配置
+
+1、java -Dlogback.configurationFile= /path/mylogback.xml  ;通过指定java执行命令，来加载自定义的logback配置文件
+
+2、当没有指定logback.configurationFile参数时，默认在calsspath下按顺序查找：
+
+- logback.groovy
+- logback-test.xml
+- logback.xml
+- JDK6.0以上，自动查找com.qos.logback.classic.spi.**Configurator**接口的第一个实现类
+
+ 3、都没有找到时，使用**ch.qos.logback.classic.BasicConfigurator**类默认logback配置，将日志在控制台输出
+
+logback.xml常用配置：
+
+- configuration  配置
+
+```xml
+ <!-- scan 配置文件改变后，是否重新加载
+      scanPeriod 检测配置文件是否发送改变的时间周期，默认为毫秒，可以自定义单位
+      debug 是否打印logback内部日志（一般不需要）
+  -->
+<configuration scan="ture" scanPeriod="60 seconds" debug="false">
+</configuration>
+```
+
+- property  全局变量
+
+```xml
+<!-- 定义参数常量，用于在日志组件中使用，达到全局变量的作用-->
+<property name="LOG_FILE_PATTERN"  value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level ${PID:- } --- [%15thread]  %-50logger{49} : %msg%n"/>
+```
+
+- appender  日志输出器
+
+```xml
+<!-- 定义日志在文件中输出的组件
+使用多个组件来定义不同等级的日志文件输出，一般使用四个等级：DUBUG、INFO、warn、ERROR-->
+
+<!--输出控制台-->
+<appender name="consoleAppender" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+         <pattern>${LOG_CONSOLE_PATTERN}</pattern>
+    </encoder>
+</appender>
+
+ <!--输出到文件,info-->
+<appender name="infoFileAppender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <!-- 滚动策略,每天生成一个文件，指定文件名、文件保存时间(一般情况下，不推荐直接使用file标签，将日志输出到一个文件中，达到指定大小后再切分) -->
+	<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+		<fileNamePattern>
+        	${LOG_FILE_PATH}/{PROJECT_NAME}/info/{PROJECT_NAME}_info_%d.log}			         </fileNamePattern>
+        <maxHistory>${LOG_FILE_MAX_HISTORY}</maxHistory>
+    </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_FILE_PATTERN}</pattern>
+        </encoder>
+        <!-- ThresholdFilter过滤打印指定级别日志, levelFilter过滤打印该级别及以上日志-->
+     <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+         	<
+     </filter>
+    </appender>
+```
+
+- root 定义全局日志
+
+```xml
+<!-- 定义全局logger，当前类没有找到对应logger时，使用root全局设置输出 -->
+<root level="info">
+     <appender-ref ref="consoleAppender"/>
+</root>
+```
+
+- logger 定义日志
+
+```xml
+<!-- 定义单个logger，name用于匹配类的包名或指定的loggerName,匹配则使用当前logger进行日志输出，否则使用全局logger
+logger默认是继承使用root中的Appender组件;为了放在日志重复输出，添加additivity="false",不继承root中的Appender组件-->
+<logger name="testLogger" level="debug" additivity="false">
+    <appender-ref ref="debugAppender"/>
+</logger>
+```
+
+### 3、logback启动原理
+
+- 使用slf4j接口的好处：基本所有日志框架，都可以作为其实现层，因此我们可以面向该接口进行编程，通过切换slf4j的实现，来简单完整实现底层日志框架的切换
+
+- logback启动过程：
+
+  调用slf4接口的方法：LoggerFactory.getLogger(Test.class)；此时slf4j调用org.slf4j.StaticLoggerBinder进行初始化，就会扫描项目中所有`org.slf4j.StaticLoggerBinder`的具体实现；
+
+  而logback-classic中就定义了StaticLoggerBinder的实现方法，此时就会加载logback.xml
+
+### 4、logback日志使用要点
+
+- 定义logger变量
+
+```java
+private static final Logger logger = LoggerFactory.getLogger(XX.class);
+要确保一个类中，只有一个logger对象（静态成员常量），从而减少对象的内存占用
+```
+
+- 在生产环境中，应该禁止debug级别日志的输出
+
+  由于logger会继承root的输出源，因此一般需要添加additivity="true"，防止日志重复输出
+
+- error日志信息输出时，应该携带异常信息，帮助分析异常原因
+
+```java
+		try {
+			int a= 1/0;
+		} catch (Exception e) {
+			log.error("test发生异常，异常信息："+e.getMessage(),e);
+		}
+```
+
+- 减少日志打印对应用程序性能的损耗
+
+  虽然我们在生产环境下，会提高日志级别的打印，减少不必要的日志打印；但是日志中的字符串拼接还是会执行，这样会白白浪费性能，因此需要以下手段来进行这样情况的发生：
+
+  1、使用条件判断，判断当前logger对象的需要输出的日志级别，再对日志进行打印后者忽略
+
+  ```java
+  	if (log.isErrorEnabled()) {
+  		log.error("test发生异常，异常信息："+e.getMessage(),e);
+  	}
+  ```
+
+  2、使用占位符，来减少字符串拼接时，String对象的创建；使用占位符时，只有需要打印该字符串时，才会进拼接（有些日志框架不支持占位符,logback支持）
+
+  ```java
+  	int id=100;
+  	String user="yh"; 
+  	log.debug("错误，id：{},user:{}",id, user);
+  ```
+
+- 日志文件命名：推荐使用projectName_logName_logType.log
+
+### 5、springboot默认配置和推荐配置
+
+**1、springboot整合logback时，提供logback默认配置：**
+
+​	全局日志级别为INFO，不进行日志文件输出（通过logging.logback包下的base.xml、console-appender.xml、defaults.xml、file-appender.xml 配置文件提供实现）
+
+可以通过springboot主配置文件，来对默认配置进行修改：
+
+- logging.level.* 可以改变指定包名下的日志级别，创建单独的logger
+
+- logging.level.root 可以改变全局日志级别
+
+- logging.file  设置日志文件生成路径（可以是相对路径或绝对路径）
+
+- logging.path 设置日志文件目录（在项目根目录下生成）
+
+  logging.file优先级大于logging.path，默认情况下，日志文件大于10MB时，会产生新文件
+
+当需要自定义logback配置时，springBoot推荐使用logback-spring.xml命名，这样可以实现对spring-profile功能的支持：
+
+在logback-spring.xml内部，使用**springProfile标签**对root、logger标签进行多环境配置
+
+**2、一般情况下，推荐自定义logback配置文件，基于阿里规范，日志配置推荐如下：**
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<configuration scan="true" scanPriod="60 seconds" debug="false">
+    <!--引入springboot提供了关键字解析器-->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <property name="LOG_FILE_MAX_HISTORY" value="30 day"/>
+    <property name="LOG_FILE_PATH" value="D://log"/>
+    <property name="PROJECT_NAME" value="system"/>
+    <!--时间、日志级别、PID、线程、日志名(日志创建使用的class全类名)、msg-->
+    <property name="LOG_CONSOLE_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %clr(%-5level){green} %clr(${PID:- }){magenta} --- [%15thread]  %clr(%-50logger{49}){cyan} : %msg%n"/>
+    <property name="LOG_FILE_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level ${PID:- } --- [%15thread]  %-50logger{49} : %msg%n"/>
+
+    <!--输出控制台-->
+    <appender name="consoleAppender" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_CONSOLE_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!--输出到文件,info-->
+    <appender name="infoFileAppender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!-- 滚动策略，log.filePathTimeBasedRollingPolicy,每天生成一个文件，指定文件名、文件保存时间 -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE_PATH}/${PROJECT_NAME}/info/${PROJECT_NAME}_info_%d.log}</fileNamePattern>
+            <maxHistory>${LOG_FILE_MAX_HISTORY}</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_FILE_PATTERN}</pattern>
+        </encoder>
+        <!-- 过滤打印指定级别日志 -->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
+    </appender>
+
+    <!--输出到文件,warn-->
+    <appender name="warnFileAppender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE_PATH}/${PROJECT_NAME}/warn/${PROJECT_NAME}_warn_%d.log}</fileNamePattern>
+            <maxHistory>${LOG_FILE_MAX_HISTORY}</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_FILE_PATTERN}</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
+    </appender>
+
+    <!--输出到文件,error-->
+    <appender name="errorFileAppender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE_PATH}/${PROJECT_NAME}/error/${PROJECT_NAME}_error_%d.log}</fileNamePattern>
+            <maxHistory>${LOG_FILE_MAX_HISTORY}</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_FILE_PATTERN}</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+    </appender>
+
+    <!--全局日志级别为info,当springboot中指定额外的logger时，默认继承root所有组件-->
+    <springProfile name="dev,test">
+        <root level="info">
+            <appender-ref ref="consoleAppender"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="prod">
+        <root level="info">
+            <appender-ref ref="consoleAppender"/>
+            <appender-ref ref="infoFileAppender"/>
+            <appender-ref ref="warnFileAppender"/>
+            <appender-ref ref="errorFileAppender"/>
+        </root>
+    </springProfile>
+
+</configuration>
+```
+
+springboot默认配置和开发者自定义配置可以同时存在，但自定义配置可以覆盖默认配置：
+
+​		一般情况下，我们只修改springboot默认配置中的logging.level.*，用于创建新的logger，来进行局部的日志打印；而新的logger会继承自定义的全局root日志组件，进行相同方式的日志输出
+
+## 7、Druid
+
+​		Druid是java数据库连接池技术，提供强大的监控和扩展功能：
+
+- 连接池稳定
+- JDBC执行、慢查询、异常监控
+- 防sql注入
+
+依赖引入：
+
+```xml
+	<dependency>
+		<groupId>com.alibaba</groupId>
+		<artifactId>druid</artifactId>
+		<version>${druid-version}</version>
+	</dependency>
+```
+
+### 1、连接池配置
+
+​		Druid连接池大部分配置属性都参考了DBCP连接池
+
+```properties
+#数据库连接池常用配置属性
+#最大连接数、初始化连接数、获取连接最大等待时间、最小连接数
+maxActive:20  
+initialSize:1  
+maxWait:6000  
+minIdle:10  
+ 
+#检查连接活动状态线程执行间隔时间、连接最小休眠时间（当检查连接活动线程启动，查询该连接休眠时间大于该值时，释放连接（保证连接数大于最小值））  
+timeBetweenEvictionRunsMillis:60000  
+minEvictableIdleTimeMillis:300000  
+
+#检查连接是否有效，mysql为  SELECT 1 ；oracle为select 1 from dual
+validationQuery:SELECT 1
+    
+#周期性检查连接是否有效（休眠时间大于timeBetweenEvictionRunsMillis的连接）
+testWhileIdle:true  
+    
+#申请连接时，检查连接是否有效、归还连接时，检查连接是否有效  
+testOnBorrow:false 
+testOnReturn:false
 
 
+#对PreparedStatements对象进行对象池缓存、PreparedStatements缓冲池最大数
+poolPreparedStatements:true  
+maxOpenPreparedStatements:20  
+
+#在连接数小于当前最小连接空闲数(minIdle)时,保持keepAlive不进行关闭，如果连接处理次数大于phyMaxUseCount时，则强制关闭
+keepAlive：true       
+phyMaxUseCount：1000
+```
+
+除此之外，druid连接池还提供了过滤器链设置,默认按顺序开启所有过滤器
+
+**如果设置则为用户指定的过滤器链,stat和wall先后顺序,决定了sql防火墙在监控页面是否可见(一般情况下,为stat,wall,保证拦截的sql在监控页面显示)**
+
+```properties
+#基于servletFilter实现，包含stat（监控）、wall（sql防火墙）、log4j（日志记录），使用逗号分割同时开启
+filters：stat
+```
+
+### 2、基于springboot进行配置
+
+​		druid官方提供springBoot-starter，在springboot中快速整合druid
+
+依赖引入：
+
+```xml
+<dependency>
+   <groupId>com.alibaba</groupId>
+   <artifactId>druid-spring-boot-starter</artifactId>  
+	<version>${druid-version}</version>
+</dependency>
+```
+
+启动器对druid提供了自动配置，和druid自定义属性配置入口：
+
+- jdbc配置
+
+```properties
+spring.datasource.druid.url= # 或spring.datasource.url= 
+spring.datasource.druid.username= # 或spring.datasource.username=
+spring.datasource.druid.password= # 或spring.datasource.password=
+spring.datasource.druid.driver-class-name= #或 spring.datasource.driver-class-name=
+```
+
+- 连接池配置
+
+```properties
+spring.datasource.druid.initial-size=
+spring.datasource.druid.max-active=
+spring.datasource.druid.min-idle=
+spring.datasource.druid.max-wait=
+spring.datasource.druid.pool-prepared-statements=
+spring.datasource.druid.max-pool-prepared-statement-per-connection-size= 
+spring.datasource.druid.max-open-prepared-statements= #和上面的等价
+spring.datasource.druid.validation-query=
+spring.datasource.druid.validation-query-timeout=
+spring.datasource.druid.test-on-borrow=
+spring.datasource.druid.test-on-return=
+spring.datasource.druid.test-while-idle=
+spring.datasource.druid.time-between-eviction-runs-millis=
+spring.datasource.druid.min-evictable-idle-time-millis=
+spring.datasource.druid.max-evictable-idle-time-millis=
+spring.datasource.druid.filters= #配置多个英文逗号分隔
+....//more
+```
+
+**注意：**
+
+​		在多数据源情况下，springboot2.X版本不支持配置继承，即每个数据源都需要进行手动配置，并不能提供一个主配置用于继承，即如下方式失效：
+
+```properties
+# Druid 数据源主配置
+...
+spring.datasource.druid.initial-size=5
+spring.datasource.druid.max-active=5
+
+#Druid 数据源 1 配置，继承spring.datasource.druid.* 配置，相同则覆盖
+spring.datasource.druid.one.max-active=10
+spring.datasource.druid.one.max-wait=10000
+```
+
+- 自定义配置：
+
+  durid提供DruidDataSourceBuilder对象进行数据源创建，绑定druid线程池使用：
+
+  ```java
+  @ConfigurationProperties("spring.datasource.druid")
+  public DataSource dataSourceOne(){
+      return DruidDataSourceBuilder.create().build();
+  }
+  ```
+
+### 3、监控相关功能
+
+**监控器地址： ${ip}:${port}/${applicationName}/druid**
+
+- 监控配置:
+
+  springboot提供监控相关功能自动配置,但必须由开发者手动开启,并设置相关属性:
+
+  ```properties
+  # WebStatFilter配置：采集web-jdbc关联监控的数据
+  spring.datasource.druid.web-stat-filter.enabled= #是否启用StatFilter默认值false
+  spring.datasource.druid.web-stat-filter.url-pattern=
+  spring.datasource.druid.web-stat-filter.exclusions=
+  spring.datasource.druid.web-stat-filter.session-stat-enable=
+  spring.datasource.druid.web-stat-filter.session-stat-max-count=
+  spring.datasource.druid.web-stat-filter.principal-session-name=
+  spring.datasource.druid.web-stat-filter.principal-cookie-name=
+  spring.datasource.druid.web-stat-filter.profile-enable=
+  
+  # StatViewServlet配置：展示Druid的统计信息
+  spring.datasource.druid.stat-view-servlet.enabled= #是否启用StatViewServlet（监控页面）默认值为false（考虑到安全问题默认并未启动，如需启用建议设置密码或白名单以保障安全）
+  spring.datasource.druid.stat-view-servlet.url-pattern=
+  spring.datasource.druid.stat-view-servlet.reset-enable=
+  spring.datasource.druid.stat-view-servlet.login-username=
+  spring.datasource.druid.stat-view-servlet.login-password=
+  spring.datasource.druid.stat-view-servlet.allow=
+  spring.datasource.druid.stat-view-servlet.deny=
+  
+  # Spring监控配置
+  spring.datasource.druid.aop-patterns= # Spring监控AOP切入点，如x.y.z.service.*,配置多个英文逗号分隔
+  ```
+
+  当然也可以手动创建ServletRegistrationBean、FilterRegistrationBean来开启和配置监控功能：
+
+  ```java
+      @Bean
+      public ServletRegistrationBean statViewServlet() {
+          StatViewServlet statViewServlet = new StatViewServlet();
+          ServletRegistrationBean servletRegistrationBean = new ServletRegistrationBean(statViewServlet, "/druid/*");
+          servletRegistrationBean.addInitParameter("allow", "127.0.0.1");
+          servletRegistrationBean.addInitParameter("loginUsername", "admin");
+          servletRegistrationBean.addInitParameter("loginPassword", "123456");
+          servletRegistrationBean.addInitParameter("resetEnable", "false");
+          return servletRegistrationBean;
+      }
+  
+      @Bean
+      public FilterRegistrationBean webStatFilter(){
+          WebStatFilter webStatFilter = new WebStatFilter();
+          FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(webStatFilter);
+          filterRegistrationBean.addUrlPatterns("/*");
+          filterRegistrationBean.addInitParameter("exclusions","*.js,*.gif,*.png,*.css,*.ico,/druid/*");
+          return filterRegistrationBean;
+      }
+  ```
+
+- 过滤器配置:
+
+  druid提供如下过滤器：
+
+  | 过滤器                                                      | 作用                          | 别名                                |
+  | ----------------------------------------------------------- | ----------------------------- | ----------------------------------- |
+  | StatFilter                                                  | 统计监控信息(sql监控)         | stat                                |
+  | WallFilter                                                  | 拦截指定类型sql(sql防火墙)    | wall                                |
+  | Slf4jLogFilter、Log4jFilter、Log4j2Filter、CommonsLogFilter | jdbc执行日志输出              | slf4j、log4j、log4j2、commonlogging |
+  | ConfigFilter                                                | 配置加密                      | config                              |
+  | EncodingConvertFilter                                       | 用于手动配置客户端\服务端编码 | encoding                            |
+
+  springboot提供两种配置方式：
+
+  - filters别名配置
+
+    开启druid提供的过滤器
+
+    在进行数据源初始化时,按顺序创建指定过滤器实例,并进行添加到过滤器链中
+
+    **缺点:无法手动修改过滤器属性**
+
+    ```properteis
+    spring.datasource.druid.filters= stat,wall,log4j
+    ```
+
+  - proxyFilters配置
+
+    开启springboot默认提供的过滤器,可以自定义相关属性,并按照默认顺序添加在过滤器链中
+
+    ```properties
+    
+    ```
+
+  **注意:**
+
+  - 两种配置方式为组合关系,如果出现重复类型的过滤器,则proxyFilters会替换filters别名配置
+
+  - proxyFilters配置会干扰filters别名配置顺序,从而使用默认顺序
+
+  综上所述,推荐使用proxyFilters来进行过滤器配置
+
+- statFilter
+
+  ​		statFilter在进行sql监控时,提供如下功能;
+
+  - 合并sql
+
+    通过设置属性mergeSql=ture开启,从而使sql语句结构相同,参数不同的,同一统计为一条sql
+
+  - 慢sql记录
+
+    通过设置属性logSlowSql=ture开启,slowSqlMillis慢sql限制时间为3000(3s),如果超过则进行日志输出
+
+  - 多数据源监控数据合并
+
+    通过设置属性useGlobalDataSourceStat=ture开启,从而将多个数据源sql一起统计
+
+- logFilter
+
+  ​		logFilter在进行JBDC日志输出时,默认提供4种日志记录器,name分别为:
+
+  - druid.sql.dataSource
+
+  - druid.sql.connection
+
+  - druid.sql.statemnet
+
+  - druid.sql.resultSet
+
+    在开启logFilter后,需要在对应日志配置文件中,声明指定日志记录器的输出组件:
+
+    logback日志配置:
+
+    ```xml
+    <logger name="druid.sql.Statement" level="debug" additivity="false">
+           <appender-ref ref="consoleAppender"/>
+    </logger>
+    ```
+
+- 开启配置加密
+
+  ```properties
+  # 加密后的密码（原密码 123456）
+  spring.datasource.password=WVMjPhfXQrIsWRo0/RCqAVvYtTU9WNVToKJohb8AlUmHwnV6vwFL+FM2CNFDMJwGHW1iCmyaUlF+sgvFdogqEA==
+  # 公钥
+  publickey=MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAIiwHpFrDijV+GzwRTzWJk8D3j3jFfhsMFJ/7k1NTvBuLgL+TdIHgaMNOIEjHpXzuvX38J3FtOK8hLrySncVGOMCAwEAAQ==
+  # 启动ConfigFilter
+  spring.datasource.druid.filter.config.enabled=true
+  # 配置 connection-properties，启用加密，配置公钥。
+  spring.datasource.druid.connection-properties=config.decrypt=true;config.decrypt.key=${publickey}
+  ```
+
+- 获取Druid监控数据
+
+  在开启StatFilter后，开发者可以手动创建http接口，来暴露监控数据
+
+  ```java
+  @RestController
+  public class DruidStatController {
+      @GetMapping("/druid/stat")
+      public Object druidStat(){
+          //DruidStatManagerFacade#getDataSourceStatDataList 该方法可以获取所有数据源的监控数据
+          return DruidStatManagerFacade.getInstance().getDataSourceStatDataList();
+      }
+  }
+  ```
+
+## 8、HuTool
+
+见官方文档

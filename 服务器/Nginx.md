@@ -66,7 +66,7 @@
   make install
   ```
 
-- 启动nginx,cd /usr/local/ginx/sbin,执行niginx shell脚本
+- 启动nginx,cd /usr/local/nginx/sbin,执行niginx shell脚本
 
   ```jav a
   ./nginx
@@ -358,7 +358,7 @@ location /old/path.html {
 
   ```java
   location /images/ {
-      alias /data/
+      alias /data/;
   }
   ```
 
@@ -395,7 +395,7 @@ location /old/path.html {
 
   ```java
   location / {
-      try_files $uri	/images/default.gif
+      try_files $uri	/images/default.gif;
   }
   ```
 
@@ -449,6 +449,10 @@ location /old/path.html {
   ```
 
   则会将请求/some/path/page.html代理到http://www.example.com/link/page.html上
+
+  **注意:**
+
+  ​		**proxy_pass中,不能使用localhost代替本地ip**
 
 - **proxy_set_header指令**
 
@@ -531,10 +535,6 @@ location /old/path.html {
       }
   ```
 
-6、
-
-
-
 ### 5、压缩和解压缩
 
 ​	nginx通过压缩响应，可以减少传输数据的大小，但是压缩会有很大的性能开销；如果响应已经被压缩时（代理服务器处理过的响应），则nginx不会再进行压缩
@@ -588,6 +588,8 @@ location /old/path.html {
   ```
 
 ### 6、Https服务器
+
+省略...
 
 ## 4、常规使用
 
@@ -677,7 +679,7 @@ yum	install keepalived	-y
 
 **省略。。。**
 
-## 4、nginx原理
+## 5、nginx原理
 
 ### 1、master-worker进程机制
 

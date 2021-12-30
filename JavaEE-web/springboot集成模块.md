@@ -1,4 +1,8 @@
-# Springboot的任务模块
+# springboot集成模块
+
+springboot提供一系列模块，实现后台开发相关功能，
+
+## 1、springboot任务模块
 
 springboot任务模块支持三种常用任务模块：
 
@@ -26,7 +30,7 @@ springboot任务模块支持三种常用任务模块：
 
 异步任务默认使用一个springboot的core.task包下提供配置的一个线程池对象，继承了JDK中的Executor类
 
-1、默认异步任务线程池
+#### 1、默认异步任务线程池
 
 springboot默认自动配置一个TaskExecutorBuilder对象，用于创建ThreadPoolTaskExecutor异步任务线程池；默认配置了线程池的属性：
 
@@ -38,9 +42,9 @@ springboot默认自动配置一个TaskExecutorBuilder对象，用于创建Thread
 
 线程池中的线程name的前缀： task-
 
-2、自定义异步任务线程池
+#### 2、自定义异步任务线程池
 
-````java
+```java
 //@Configuration
 public class AsyncThreadPoolConfig {
 
@@ -59,19 +63,34 @@ public class AsyncThreadPoolConfig {
 }
 
 ，然后在异步方法上添加@Async 注解（组件名：即@Bean中的值或方法名）
-````
-
-
+```
 
 当自定义异步任务线程池后，会取代默认线程池；需要多个线程池时，应添加@Primary ：指定主键（默认）组件
 
-- **异步任务线程池的异常捕获**
+#### 3、**线程池的大小选择**
+
+​		线程任务分为CPU密集型任务、IO密集型任务、混合型任务：
+
+- CPU密集型任务，应尽可能减少线程数，避免cpu切换线程带来的损失，一般为CPU核心线程数+1
+
+- IO密集型任务，任务执行速度依赖于其他IO资源（数据库、文件系统），导致会出现线程阻塞，导致CPU等待浪费性能，因此线程数应该多一些，避免cpu空闲，一般为CPU核心线程数*2+1
+
+- 混合型任务,不能很好的确定CPU的使用状态，因此需要进行合理的估算：
+
+  线程数=（平均线程等待时间/平均线程运行时间+1）*CPU数目
+
+  ```java
+  //当前JVM的核心线程数
+  Runtime.getRuntime().availableProcessors();
+  ```
+
+#### 4、异步任务线程池的异常捕获
 
 由于多线程在执行时，并不能将异常进行抛出，因此其调用者无法捕获其异步任务中发生的异常（但可以在内部中捕获处理）
 
 1、对于没有返回值的异步方法，可以通过AsyncUncaughtExceptionHandler异常处理器来统一处理任务内部未捕捉的异常
 
-````java
+```java
 @Configuration
 public class AsyncThreadPoolConfig implements AsyncConfigurer{
 	
@@ -88,7 +107,7 @@ public class AsyncThreadPoolConfig implements AsyncConfigurer{
 		}
 	}
 }
-````
+```
 
 
 
@@ -137,15 +156,10 @@ public class ScheduleConfig implements SchedulingConfigurer {
 一共有六个参数，以空格分隔；参数含义从左往右依次为：
 
 - second  0-59   秒
-
 - min    0-59  分
-
 - hour  0-23  时
-
 - day of month   1-31   一个月中的第几天
-
 - month  1-12 或月份英文简写    月份
-
 - day of week   0-7或星期英文简写（0从周末开始）  一个周的第几天
 
 特殊字符：
@@ -165,18 +179,17 @@ springboot默认自动配置一个TasScheduleBuilder对象，用于创建ThreadP
 
 默认配置：固定线程数为1，即单线程；线程前缀为 scheduling-
 
-###由于定时任务线程池默认只有一个线程，因此每个定时任务都有自己唯一固定的线程池；也无法进行自定义的线程池配置
+**由于定时任务线程池默认只有一个线程，因此每个定时任务都共用同一个固定的线程池**
 
 - **定时任务下，支持异步任务**
 
-由于在fixedRate模式下，定时任务会发生阻塞，因此需要通过多线程执行来阻止阻塞的发生：
+由于在fixedRate模式/或多个定时任务同时执行时，定时任务会发生阻塞，因此需要通过多线程执行来阻止阻塞的发生：
 
 开启异步任务注解，然后再定时任务方法上添加@Async注解：当定时任务发生阻塞时，会创建一个异步任务线程池，启动一个线程执行该方法，但方法的执行时间还是通过定时任务线程池中时间调度器控制
 
 - **注意**
 
 1、springboot在1.5后，定期任务类中的依赖注入可以在任务启动前提前注入。当然也可以通过ApplicationContext来手动注入bean
-
 
 2、springboot 不使用任务模块，自定义线程任务时，其类的成员变量无法进行依赖注入。为了保证线程安全
 
@@ -202,7 +215,7 @@ springboot默认自动配置一个TasScheduleBuilder对象，用于创建ThreadP
 
 2、配置邮件发送必须的配置
 
-````java
+```java
 #配置邮件任务：该项目的邮件客户端信息（使用qq邮箱作为发件服务器）
 spring.mail.username=756116832@qq.com
 #并不是直接使用密码，而是使用第三方登录授权码
@@ -213,11 +226,11 @@ spring.mail.host=smtp.qq.com
 #springboot默认使用TLS安全协议，对于SMTP服务器端口为25
 #邮件发送额外配置,设置邮件发送时，使用ssl安全协议，对于SMTP服务器端口为465，因此不需要对端口进行指定（防止安全协议和端口不对应）
 #spring.mail.properties.mail.smtp.ssl.enable=true
-````
+```
 
 3、编写邮件发送类
 
-````java
+```java
 @Test
 	void contextLoads() {
 		// 简单消息邮件
@@ -248,13 +261,13 @@ spring.mail.host=smtp.qq.com
 		//发送简单消息邮件
 		mailSender.send(createMimeMessage);
 	}
-````
+```
 
 4、由于每个邮箱账号每天发送邮件数有限（减少邮箱厂商应用服务器的压力，也可以出钱提高上限），因此常设置多个账号来进行邮件轮询发送，方法如下：
 
 - 重写配置邮件发送类（JavaMailSenderImpl）的部分实现方法，让其创建的发送者对象配置的账号轮询使用
 
-````java
+```java
 @Configuration
 @EnableConfigurationProperties(MailProperties.class) // 将MailProperties组件放入该配置类中
 public class MailConfig extends JavaMailSenderImpl implements JavaMailSender {
@@ -317,13 +330,13 @@ public class MailConfig extends JavaMailSenderImpl implements JavaMailSender {
 		return usernameList.get(currentMailId);
 	}
 }
-````
+```
 
 注意，此时配置文件中的账号密码为多个，使用“，”分隔
 
 - 定义一个邮箱发送的方法，可以自定义收件人邮箱、邮件内容、邮件附件等
 
-````java
+```java
 @Component
 public class SendMailUtils {
 	@Autowired
@@ -346,6 +359,95 @@ public class SendMailUtils {
 		return text;
 	}
 }
-````
+```
 
 - 最后，在指定controller层，进行邮件发送的方法调用
+
+## 2、springboot缓存模块
+
+### 1、springboot缓存注解：
+
+**springboot使用了JSR-107的CacheManager、Cache接口来统一不同的缓存技术，并支持JSR-107的注解简化开发**
+
+- @Cacheable:
+  
+  ​		方法注解，对方法返回值进行缓存，如果方法入参相同时，则从缓存中读取结果，不执行方法
+  
+  属性：
+  
+  - value缓存名，可以指定多个
+  - key缓存使用的key，可以使用keyGrnerator自动生成
+  - cacheManager缓存管理器
+  - condition缓存条件，满足条件时才进行缓存处理
+
+- @CachePut : 
+
+  ​		方法注解， 通过方法返回值来更新缓存
+  
+- @Cacheable运行流程：
+  		 
+     - 方法运行之前，先通过cacheName获取对应Cache组件，若没有则生成
+  - 查找Cache中的对应缓存，使用key来匹配
+       		key的按照固定的策略生成：
+    默认使用SimplekeyGenerator生成key，如果没有参数，key=new simpleKey()；有一个参数，key=参数值；有多个参数，key=new simplekey(params)
+    		     3、没有查到相应缓存则调用目标方法
+    		     4、将方法返回结果放入到缓存	
+  
+- @CacheEvict，清空对应方法的缓存；用于清除缓存，它会先调用方法（删除数据库数据），然后再将删除的数据对应的缓存删除
+  因此需要指定value=cacheName（清除哪个缓存的数据）、数据对应的key，来匹配删除缓存key=“#id”
+  通过allEntries=true属性，可以请求这个缓存Cache中的所有数据
+  通过beforeIncocation=true，缓存清除操作在方法执行之前，用于使缓存清除，不会因为方法执行出现异常而不执行
+  
+- @Caching ,用于设置复杂缓存规则，它可以设置多个@Cacheable、@CachePut、@CacheEvict注解
+  如：@Caching{
+  	cacheable={
+   		@Cacheable（value=“”，key=“”）
+  		@Cacheable （value"“，key=""）
+     	},
+  	put={
+  		@CachePut(value="",key="")
+  	}
+  }
+  
+- @CacheConfig  用于注解类，指定该类中所有cache注解的一些公共属性，如cachename=""指定了改类所有缓存注解用到的cachename
+
+- @EnableCaching   开启缓存注解，一般注解到主配置类上
+
+
+
+springboot在导入redis的start后，spring容器会自动将redisCacheManager作为缓存组件（已经被springboot自动配置好了）,然后结合springboot的缓存注解进行redis缓存操作（也可以使用编码的方式，直接注入一个缓存管理器对象，获取Cache进行增删改查）
+
+**redis作为缓存保存数据时，默认使用    缓存对象名：：作为前缀**
+
+#### 2、redis相关配置：
+
+- redisCacheManager配置：
+
+  **当使用缓存时，则需要额外配置redisCacheManager：**
+
+  ```java
+  @Bean
+  public CacheManager cacheManager(RedisConnectionFactory factory) {
+  		//通过RedisCacheConfiguration对象生成一个默认config对象，并修改其默认属性
+  		RedisCacheConfiguration cacheConfig = RedisCacheConfiguration.defaultCacheConfig();
+      	//设置缓存过期时间（1天）
+  		cacheConfig.entryTtl(Duration.ofDays(1))
+          		//不允许缓存有空值
+  				.disableCachingNullValues()
+              
+  				//设置缓存管理器key-value数据序列化策略（key为String，value为json）
+             	                               	.serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))		.serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new Jackson2JsonRedisSerializer(Object.class)));
+      
+  		//通过RedisConnectionFactory、RedisCacheConfiguration来创建RedisCacheManager
+  		return RedisCacheManager.builder(factory).cacheDefaults(cacheConfig).build();
+  }
+  ```
+
+**redis搭配缓存注解使用时，额外使用redisTemplate存入的数据不被Cache保存使用，原因为**：
+
+​		基于JSR107进行缓存时，数据在redis存储时，会根据缓存对象生成缓存目录名，因此实际key值并不相同
+
+# springboot消息队列
+
+
+
