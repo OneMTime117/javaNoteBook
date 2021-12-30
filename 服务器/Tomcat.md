@@ -427,7 +427,7 @@ public void resetBuffer()
 
 #### 2、响应头
 
-​		HttpServletResponse提供api进行HTTP响应头操作
+​	HttpServletResponse提供api进行HTTP响应头操作
 
 ```java
 //设置响应头(如果响应头存在，则覆盖)
@@ -436,7 +436,7 @@ public void setHeader(String name, String value)
 public void addHeader(String name, String value)
 ```
 
-​		相同响应头数据，会通过set保存value值，最后通过逗号分割展示
+​	**相同响应头数据，会通过set集合保存value值，最后通过逗号分割展示**
 
 除了默认的String类型的value值外，还提供date、int类型数据的header值设置
 
@@ -538,6 +538,183 @@ public default void destroy() {}
 
 **处理请求的serivce方法和过滤器链都允许在同一个线程中**
 
+#### 2、过滤器配置
 
+在web.xml中，提供<filter>标签进行过滤器定义,它有三个子标签，来定义过滤器
+
+- filter-name：过滤器名（保证唯一）
+- filter-class：过滤器对应的类
+- init-params：过滤器初始化参数
+
+在web.xml中，提供<filter-mapping>标签进行过滤器的配置，它有三个子标签：
+
+- filter-name：引入定义好的Filter
+
+- url-pattern：指定映射url，进行拦截处理
+
+- servlet-name：指定拦截的Servlet
+
+  url-pattern、servlet-name可以同时指定多个，并且servlet-name匹配对应的过滤器永远为最后一个（允许一个过滤器被多次匹配，同样也会按照顺序多次处理请求）
+
+**在Servlet3.1中，提供@WebFilter注解简化Filter的配置**
+
+#### 4、过滤器和RequestDispatcher
+
+​	在Servlet2.4后，过滤器配置支持识别请求是否被RequestDispatcher分发，从而进行更加细致化的匹配拦截
+
+在web.xml的filter-mapping标签中，使用dispatcher子标签值进行约束：
+
+- REQUEST：请求直接来自于客户端，默认值
+
+- FORWARD：请求被请求分派器的forward（）方法调用处理
+
+- INCLUDE：请求被请求分派器的include（）方法调用处理
+
+- ERROR：请求被错误页面机制处理
+
+- ASYNC：请求被异步处理
+
+  dispatcher子标签可以指定多个，并集关系
+
+### 9、Session
+
+​	由于Http是一种无状态协议，无法将请求与指定客户端绑定，因此在服务器和浏览器之间就创建一种额外的机制，会话；**它是对Http协议的扩展，实现服务器对用户整个会话的追踪和记录**；在Servlet规范中，提供HttpSession接口进行实现
+
+#### 1、会话跟踪机制原理
+
+​	会话机制的实现，通过客户端的Cookie和服务端的Session共同完成
+
+在Http响应头中，通过Set-Cookie来传输服务端传递给客户端的Cookie信息，Servlet容器默认创建一个Cookie：
+
+```java
+Set-Cookie: JSESSIONID=07CA5FA20FB2B28A3AF3A385A2D2693D; Path=/; HttpOnly
+```
+
+- JSEEIONID 为cookie的标准name，用于浏览器回传cookie时，服务端通过sessionId与其对应，进行session绑定
+- path 表示当前域下，哪些请求可以访问传递cookie， /表示任何请求
+- HttpOnly 表示cookie不能在浏览器中，被js脚本获取
+
+在后续客户端的请求发送时，都会自动通过cookie请求头，来传递cookie中的name-value键值对；服务端通过解析name=JSEEIONID的cookie值，来绑定会话，实现会话跟踪
+
+#### 2、Cookie属性和使用
+
+​	除了cookie本身的K-V键值对、HttpOnly、Path外，还提供其他属性，来定义cookie在浏览器中的作用范围：
+
+- maxAge：告诉浏览器，该cookie的失效时间
+- secure：告诉浏览器，该cookie是否必须使用安全协议传输，如SSL
+- domain：告诉浏览器，允许访问该cookie的域名
+
+​	Cookie可以指定多个，通过其KV来保存客户端信息，除了实现会话追踪外，还能进行不同Servlet之间的数据交换，Cookie包含如下特征：
+
+- 不可跨越
+- 使用Unicode编码传输，支持中文
+
+#### 3、会话的生命周期
+
+- 创建：
+
+  ​	当开发者手动调用getSession（）、getSession（true），就会返回一个session（如果没有，就会创建），并保持在服务端，此时Servlet容器就会自动创建一个name=JSEEIONID的cookie，返回sessionId，从而实现会话追踪
+
+- 销毁：
+
+  ​	在Http协议中，客户端并没有显示的终止信号，来提示服务端关闭会话，因此会话超时时终止会话的唯一机制。Servlet容器定义了一个默认的会话超时时间（30分钟），通过`HttpSession`接口中的相关方法，可以获取和自定义：
+
+  ```java
+  //获取最后一次访问时间
+  public long getLastAccessedTime();
+  //设置会话超时时间
+  public void setMaxInactiveInterval(int interval);
+  //获取会话超时时间
+  public int getMaxInactiveInterval();
+  ```
+
+  当超时时间=-1时，会话永不过期，直到Servlet容器关闭
+
+#### 4、URL重写
+
+​	由于cookie可能会被浏览器禁用，此时就无法实现session的绑定；因此Servlet提供另外一种方式，来完成SessionId的回传。但相对于cookie，需要开发者手动进行传递，并且会暴露会话标识
+
+URL重写的实现方式：在URL后面添加 ;jseeionid=xxxx
+
+```java
+http://www.myserver.com/catalog/index.html;jsessionid=1234
+```
+
+#### 5、Session属性
+
+​	`HttpSession`接口提供一系列方法，实现session会话内的数据交换
+
+```java
+//获取指定属性值
+public Object getAttribute(String name);
+
+//获取所有属性名
+public Enumeration<String> getAttributeNames();
+
+//设置属性
+public void setAttribute(String name, Object value);
+
+//删除属性
+public void removeAttribute(String name);
+```
+
+​	Session本身通过Servlet容器来保证线程安全，因此多个请求线程访问同一个属性时，不需要额外处理；**但是对于属性中的对象，对其进行的操作，并不是线程安全的；因此对于该对象的成员变量修改，必须由开发者添加线程同步机制**
+
+如：
+
+```java
+	UserInfoDTO user = (UserInfoDTO)session.getAttribute("user");
+		synchronized (user){
+			user.setUsername("YH");
+		}	
+```
+
+### 10、RequestDispatcher
+
+​	在web应用中，存在请求转发功能。而在Servlet中，通过`RequestDispatcher`就能实现将请求转发给另一个Servlet处理
+
+#### 1、RequestDispatcher的获取
+
+- 通过`ServletContext`来获取`RequestDispatcher`对象：
+
+```java
+//根据Servlet映射路径，获取对应的Servlet对象，并将其封装为RequestDispatcher
+public RequestDispatcher getRequestDispatcher(String path);
+
+//根据ServletName，获取对应的Servlet对象，并将其封装为RequestDispatcher
+public RequestDispatcher getNamedDispatcher(String name);
+```
+
+- 通过`ServletRequest`来获取ReqeustDispatcher对象：
+
+```java
+//基于当前请求的URL，使用path来作为另外一个Servlet映射（资源）的相对路径
+public RequestDispatcher getRequestDispatcher(String path);
+```
+
+#### 2、转发方式
+
+​	RequestDispatcher提供两种转发方式，Include（包含）和forward（转发）
+
+- **Include方法**
+
+  ​	该方法会对Response进行限制，转发后的Servlet只能操作response对象中的输出对象（ServletOutputStream、Writer），不能设置响应头或调用影响响应头的相关方法
+
+  **原理：**将请求转发到另外一个资源上进行处理，并只获取响应的Body数据，返回给客户端；后一个资源只进行响应数据的输出
+
+- **Forward方法**
+
+  ​	该方法必须保证Response缓冲区未提交过数据，并且在调用转发后的Servlet.service方法前，缓冲区数据需要被清除
+
+  **原理：**新建一个完全相同的请求对象，转发到另外一个资源上处理、响应；整个过程只做单纯的转发
+
+#### 3、转发时的参数处理
+
+- 当该RequestDispatcher是通过getRequestDispatcher进行获取时，可以通过path来修改请求相关参数，如果出现重复，则进行覆盖
+- 使用getNamedDispatcher时，则参数不能修改
+
+#### 4、请求异步处理时的转发
+
+​	通过AsyncContext的dispatch（）方法，可以实现请求异步处理时的转发，必须保证当前异步请求未调用complete（）方法
 
 # Http协议
