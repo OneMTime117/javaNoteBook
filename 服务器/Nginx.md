@@ -74,7 +74,7 @@
 
 ### 2、nginx常用命令
 
-​	由于没有配置环境变量，因此需要在Nginx bin目录下执行，即**/usr/local/niginx**
+​	由于没有配置环境变量，因此需要在Nginx bin目录下执行，即**/usr/local/nginx/sbin**
 
 - 查看版本：
 

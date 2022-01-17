@@ -914,4 +914,39 @@ springBoot默认自动配置了StringRedisTemplate、RedisTemplate：
 
 - Jackson2JsonRedisSerializer序列化问题:
 
-  对于List泛型数据,进行json反序列化时,会默认将元素指定为
+  ​		为了redis序列化器的通用性,一般开发者会将Jackson2JsonRedisSerializer中的javaType设置为Object.class,从而导致reids反序列化数据都为Object对象;此时jackson就会使用默认类型（LinkedHashMap）作为Object对象的原始数据类型,导致后续无法进行类型强行转化
+  
+  - 两种解决方法:
+  
+    1、通过objectMapper.convertValue()方法进行类型转化
+  
+    2、配置objectMapper，开启jackson多态类型处理，即在序列化时会记录当前对象及其属性的类型信息，从而在反序列化时能够直接使用该类型作为默认类型，实现强行转化
+  
+    ```java
+    objectMapper.activateDefaultTyping(objectMapper.getPolymorphicTypeValidator(),
+    				ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY);
+    ```
+  
+    - objectMapper.getPolymorphicTypeValidator()为类型校验器，直接使用默认值
+    - ObjectMapper.DefaultTyping用于指定记录哪些类型信息，包含如下类型：
+  
+    | 枚举                    | 作用                              |
+    | ----------------------- | --------------------------------- |
+    | JAVA_LANG_OBJECT        | Object类型                        |
+    | OBJECT_AND_NON_CONCRETE | Object或接口/抽象类               |
+    | NON_CONCRETE_AND_ARRAYS | Object、接口/抽象类或所有数组类型 |
+    | NON_FINAL               | 所有非Final属性和自身             |
+  
+    - JsonTypeInfo.Id，用于指定类型信息描述方式，默认直接使用CLASS，即序列化时额外添加一个@class属性，来描述当前对象的全类名
+    - JsonTypeInfo.As，用于指定类型信息描述在Json字符串中的结构位置，包含如下类型：
+  
+    | 枚举              | 作用                                                     |
+    | ----------------- | -------------------------------------------------------- |
+    | PROPERTY          | 作为内部属性存放                                         |
+    | EXISTING_PROPERTY | 作为已存在的属性                                         |
+    | EXTERNAL_PROPERTY | 作为外部属性存放（不能使用，直接抛出异常）               |
+    | WRAPPER_OBJECT    | 作为一个包装对象（额外添加一个key-value层级）            |
+    | WRAPPER_ARRAY     | 作为一个包装数组（额外添加一个数组层级，描述和数据同级） |
+
+### 4、spring-context
+

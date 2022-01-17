@@ -1237,7 +1237,7 @@ public class GroupValidatorDemoDTO {
 
 ​	**注意：**
 
-​	当存在父类继承时，该功能会存在一些问题（当超类没有提供有价值的equals、hashCode方法），因此不推荐使用
+​	当存在父类继承时，该功能会存在一些问题（当超类没有提供有价值的equals、hashCode方法），因此推设置callSuper = false,避免父类属性对equals、hashCode方法的影响
 
 - hashCode算法：
 
@@ -1264,9 +1264,13 @@ public class GroupValidatorDemoDTO {
 
 ### @Data
 
-​	@Data捆绑了@ToString、@EqualsAndHashCode、@Getter/Setter和@RequiredArgsConstructor注解，方便lombok对于POJO的模板化的注解使用（即，POJO类一般都需要添加以上注解）
+​		@Data捆绑了@ToString、@EqualsAndHashCode、@Getter/Setter和@RequiredArgsConstructor注解，方便lombok对于POJO的模板化的注解使用（即，POJO类一般都需要添加以上注解）
 
-​	但是@Data并没有提供绑定注解的相关属性设置，如果需要改变有关绑定注解的属性，可以进行额外显示声明
+​		但是@Data并没有提供绑定注解的相关属性设置，如果需要改变有关绑定注解的属性，可以进行额外显示声明，
+
+​		**注意：**
+
+​		@EqualsAndHashCode默认callSuper=false，但避免开发者本意是需要父类属性参与equals、hashCode方法，编译器器发出警告，强制开发者显式声明@EqualsAndHashCode注解的callSuper属性
 
 ### @Builder
 
@@ -1492,7 +1496,7 @@ JsonFactory jsonFactory = new JsonFactory();
 
 #### 5、ObjectMapper
 
-​	Jackson对外，基于ObjectMapper来实现JSON的解析操作，开发者可以通过配置该对象的相关属性，来改变JSON序列化和反序列化的规则：
+​		Jackson对外，基于ObjectMapper来实现JSON的解析操作，开发者可以通过配置该对象的相关属性，来改变JSON序列化和反序列化的规则：
 
 ```java
 ObjectMapper objectMapper = new ObjectMapper();
@@ -1503,33 +1507,67 @@ objectMapper.setDateFormat(new SimpleDateFormat(DEFAULT_DATE_TIME_FORMAT));
 JavaTimeModule javaTimeModule = new JavaTimeModule();
 objectMapper.registerModule(javaTimeModule);
 
-//序列化参数配置
+//序列化参数配置：枚举序列化使用toString方法、总是序列化所有字段、反序列化允许未知字段出现
 objectMapper.configure(SerializationFeature.WRITE_ENUMS_USING_TO_STRING, true);
 objectMapper.setSerializationInclusion(JsonInclude.Include.ALWAYS);
+objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,false);
+```
+
+​		基于objectMapper对象，数据绑定常用api：
+
+```java
+//json字符串  <-> 对象
+public <T> T readValue(String content, Class<T> valueType)
+public String writeValueAsString(Object value)
+    
+//指定集合的反序列化(map、list)，对于复杂泛型对象反序列化，直接使用readValue会将泛型元素转化为LinkedHashMap，导致转化异常    
+public <T> T readValue(String content, TypeReference<T> valueTypeRef)  
+public <T> T readValue(String content, JavaType valueType)
+    
+//Object <->对象，用于将反序列化为Object的对象，转化为Bean(如在redis反序列化时使用,为了redis序列化的通用性，一般会将Jackson2JsonRedisSerializer中的javaType泛型设置为Object.class)
+public <T> T convertValue(Object fromValue, JavaType toValueType)
+public <T> T readValue(String content, JavaType valueType)
+```
+
+- TypeReferene<T>和JavaType的区别：
+
+​		ObjectMapper内部会通过TypeReference<T>来创建JavaType，最后执行相同方法;但是JavaType通过class对象来指定泛型，从而更加灵活。以反序列化List<User>对象为例
+
+```java
+//TypeReference<T>
+TypeReference<List<User>> typeReference = new TypeReference<List<User>>(){};
+objectMapper.readValue(jsonStr,typeReference);
+
+//JavaType
+JavaType javaType = OBJECT_MAPPER.getTypeFactory().constructParametricType(List.class, User.class);
+return OBJECT_MAPPER.readValue(jsonStr, javaType);
 ```
 
 ## 5、junit4	
 
 ​		**java单元测试是最小的功能单元测试代码，即针对单个java方法的测试（java的最小单位为方法）**
 
-### main方法进行测试的缺点：
+- main方法进行测试的缺点：
 
-- 只能有一个main（）方法，不能把所有测试代码按一个个方法分开
-- 无法打印出测试结果和预期结果
+  - 只能有一个main（）方法，不能把所有测试代码按一个个方法分开
 
-### 单元测试的优点：
+  - 无法打印出测试结果和预期结果
 
-- 可以打印测试报告
-- 可以进行自动测试，进行执行结果的判断
-- 可以在一个类中，书写多个测试方法，并且每个单元测试都可以独立执行
+- 单元测试的优点：
 
-### JUnit4框架，java最常用的测试框架：
+  - 可以打印测试报告
+  - 可以进行自动测试，进行执行结果的判断
+  - 可以在一个类中，书写多个测试方法，并且每个单元测试都可以独立执行
 
-1、JUnit4框架有标准规定，测试类必须在src/test/java的目录中；maven项目就满足该目录结果
+### 1、基本概念
 
-并且，**测试类不能使用Test命名，否则会出现导入的org.junit.Test类名冲突**
+**JUnit4框架，java最常用的测试框架标准书写规范**：
 
-2、编写一个测试方法，只需要使用@Test注解，并且保证方法满足以下条件：
+1、测试类必须在src/test/java的目录中（如maven项目的目录结构）
+
+2、测试类不能使用Test命名，否则会出现导入的org.junit.Test类名冲突
+
+3、编写一个测试方法，只需要使用@Test注解，并且保证方法满足以下条件：
 
 - 无返回值
 - 无参数
@@ -1542,9 +1580,9 @@ public void Test(){
 }
 ```
 
-2、对单元测试进行断言（Assertion），即判定程序的执行结果是否符合预期，从而通过测试
+4、对单元测试进行断言（Assertion），即判定程序的执行结果是否符合预期，从而通过测试
 
-使用assertEquals（obj，obj）、、、等方法来对结果进行断言
+​			使用assertEquals（obj，obj）、、、等方法来对结果进行断言
 
 3、@Before、@After、@BeforeClass、@AfterClass使用，用于指定单元测试执行前后的代码（如资源初始化和释放）
 
