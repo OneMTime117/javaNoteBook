@@ -128,7 +128,7 @@ public class IocFactory {
 }
 ```
 
-### 2.3、核心接口
+### 2.3、核心接口：
 
 spring容器的实现基于BeanFactory和ApplicationContext两个接口
 
@@ -477,7 +477,6 @@ bean的加载顺序由bean直接的依赖关系决定：
 
 - 延迟加载并不会影响bean的注册，当该bean被需要加载的bean依赖时，则按顺序进行正常加载
 
-
 **强制依赖：**
 
 ​		当Bean依赖关系不太直接时，IOC容器则无法严格确定bean的加载顺序，比如：
@@ -578,7 +577,7 @@ spring2.0提供@Component系列相关注解，来注册bean：
 注意：
 
 - @Controller、@Service、@Reposity为包含@Component的组合注解，实际还是通过@Component注解来起到注册bean的作用；通过导入spring-web模块，IOC容器会通过它们进行AOP代理，从而对Bean进行额外处理
-- @Component系列注解默认使用类名（转为驼峰模式）的作为bean的id，可以使用value属性自定义
+- @Component系列注解默认使用类名（转为驼峰模式）的作为bean的id，可以使用value属性自定义bean的id
 
 **开启@Component注解：**
 
@@ -620,30 +619,55 @@ spring通过context:property-placeholde标签，来导入properties文件，同�
 
 - 当所有properties文件不存在@Value指定值时，会报错；出现多个时，会按照文件加载顺序，选取优先值
 
-### 2.5、IOC容器配置注解
+### 2.5、IOC容器配置（注解）：
 
-spring3.0中，提供java注解的方式来代替xml配置
+spring3.0中，提供java注解的方式来代替xml配置，搭配一系列配置注解，来省略spring.xml
 
 #### 2.5.1、@Configuration
 
-spring提供@Configuration注解，来声明配置类，完全代替spring.xml，并开启IOC容器注解功能
+@Configuration注解为@Component的组合注解，它们都为配置类注解，用于Bean注册；@Component为Lite模式，@Configuration为Full模式
 
-- 加载配置类：
+**Lite模式和Full模式的区别：**
 
-  ```java
-  public static void main(String[] args) {
-      ApplicationContext ctx = new AnnotationConfigApplicationContext();
-      ctx.register(AppConfig.class);
-      ctx.register(OtherConfig.class,AdditionalConfig.class);
-      ctx.refresh();
-  }
-  ```
+@Configuration注解的类，在注册到IOC容器时，默认会通过CGLIB进行@Bean注解方法的动态代理，来处理带有@Bean注解方法的依赖调用问题：
 
-  使用ApplicationContext实现类（`AnnotationConfigApplicationContext`）进行配置文件的加载；
+```java
+	@Bean("userA")
+	public  User getUserA() {
+		User user = new User();
+		user.setName("A");
+		return user;
+	}
 
-**或者使用@Import注解，在一个配置类上加载其他配置类（即当前为主配置类）**
+	@Bean("userB")
+	public  User getUserB() {
+        User user = getUserB();
+		user.setName("B");
+		return user;
+	}
+```
 
-@Configuration同时也是包含@Component的组合注解，在
+1、如果使用@Component注解，则userA和userB并不是同一个Bean
+
+2、如果使用@Configuration注解，则userA和userB为同一个Bean，这样便于在同一个配置类的多个方法中，进行bean的传递
+
+注意：
+
+- @Component注解可以使用@Qualifier，来将所依赖方法返回值对应的Bean作为参数进行传递，避免重复创建对象
+- @Configuration注解提供proxyBeanMethods属性，默认为ture；**由于动态代理会导致一定的性能损失，在spring5.2后，推荐使用@Configuration(proxyBeanMethods=false)，将其设置为Lite模式**
+
+**加载配置类：**
+
+```java
+public static void main(String[] args) {
+    ApplicationContext ctx = new AnnotationConfigApplicationContext();
+    ctx.register(AppConfig.class);
+    ctx.register(OtherConfig.class,AdditionalConfig.class);
+    ctx.refresh();
+}
+```
+
+使用ApplicationContext实现类（`AnnotationConfigApplicationContext`）进行配置类的加载
 
 #### 2.5.2、@Bean：
 
@@ -673,15 +697,121 @@ public class UserFactory {
 - @Bean注解的方法参数会使用IOC容器进行依赖注入，默认通过参数名进行匹配Bean的id，也可以使用@Qualifier自定义
 - @Bean默认使用方法名作为Bean的name（别名），可以通过name属性指定多个；根据别名和id的关系，默认选择第一个作为Bean的id
 - 一个类中所有@Bean注释的方法，会按照其声明顺序进行bean注册；当@Bean方法之间存在依赖注入时，则按照依赖关系进行bean的注册
+- @Bean注解方法不能为private，因为方法可能会搭配@Configuration进行动态代理
 - @Bean注解提供initMethod、destroyMethod属性，指定该Bean生命周期的回调方法
+
+**@Bean和@Component的区别：**
+
+​		@Component用于开发者编写类的Bean注册；而@Bean一般用于第三方类的Bena注册，并且可以对其实例进行额外配置
+
+**@Bean使用在静态方法上：**
+
+​		@Bean允许注解到静态方法上，从而允许在当前配置类未实例化的情况下被调用；让这些bean在IOC容器生命周期的早期完成初始化，提前于其他普通bean；并且由于为静态方法，不会被IOC容器拦截进行动态代理
+
+​		作用：可以用于BeanPostProcessor、BeanFactoryPostProcessor这些需要早期完成初始化的Bean的注册（但一般情况下，使用@Component方式就可以完成，因为spring会对该种类型的Bean进行提前初始化处理）
 
 #### 2.5.3、@Autowired
 
+@Autowired用于代替Bean标签的autowired属性，来实现自动装配；并根据注解位置的不同，分为三种类型:
+
+| 注解位置 | 类型                                          | 注入时间     |
+| -------- | --------------------------------------------- | ------------ |
+| 构造方法 | 基于构造方法自动注入                          | bean实例化时 |
+| set方法  | 基于set方法自动注入                           | bean初始化时 |
+| 成员变量 | 基于反射方式进行自动注入（XML配置方式不支持） | bean初始化时 |
+
+- 基于set方法自动注入
+- 基于反射进行自动注入,将注入
+
+可以注解在构造方法、普通方法和成员变量上，来完成Bean的自动装配
+
+```java
+@Component
+public class User {
+
+    @Autowired
+    private Gread gread;
+    
+    @Autowired
+    public User(Gread gread){
+     	this.gread=gread;   
+    }
+    
+    @Autowired
+    public void setGread(Gread gread) {
+        this.gread=gread; 
+    }
+}
+```
+
+注意：
+
+- 对于成员变量的自动装配，通过java反射实现依赖注入，不需要提供当前成员变量的set方法
+
+- @Autowired不能声明在静态方法和成员变量上，否则无法生效（但并不影响IOC容器的初始化）；对于静态变量，可以使用ApplicationContext进行手动注入
+
+- @Autowired提供属性required，默认为true，表示IOC容器中必须存在匹配的Bean；当设置required=false时，则允许IOC容器中没有匹配的Bean
+
+- @Autowired默认使用类型匹配唯一Bean，如果匹配到多个Bean，则抛出异常；可以通过@Qualifier注解来声明Bean的id，或者使用@primary搭配Bean注册，来定义当前类型所有Bean中，该bean进行类型优先匹配
+
+  ```java
+     	@Qualifier("gread")
+  	@Autowired
+      private Gread gread;
+      
+      @Autowired
+      public User(@Qualifier("gread") Gread gread){
+       	this.gread=gread;   
+      } 
+  ```
+
+**@Autowired基于构造方法自动装配时，构造方法的选择选择策略：**
+
+- 当不使用@Autowired不指定构造方法时：
+
+  1、只有一个构造方法，则直接使用该构造方法
+
+  2、有多个构造方法，则使用无参构造方法，没有就会报错
+
+- 当使用@Autowired指定构造方法时：
+
+  1、只指定一个构造方法，则使用该构造方法，如果IOC容器无法完成依赖注入，则会抛出异常；如果额外设置required=false，则如果IOC容器无法完成依赖注入，将改为无参构造方法（如果没有则会抛出异常）
+
+  2、指定了多个构造方法，则必须保证所有构造方法的@Autowried属性required=false；然后IOC容器根据匹配策略，选择对于构造方法完成自动装配（**策略和xml方式的自动装配一致**）
+
 #### 2.5.4、@Value
+
+@Value和@Autowired类似，用于通过配置文件，进行基础数据类型的自动装配，提供两种类型：
+
+- 注解在方法参数上（包括构造方法）
+- 注解在成员变量上，基于java反射完成，因此不需要提供set方法，并且不支持静态成员变量
+
+@Value注解通过value属性值，来匹配配置文件中的key，根据vlaue值的表达方式，分为两种：
+
+- ${}表达式：
+
+```java
+@Value("${name}")
+private String name;
+```
+
+- #{}表达式，即Spring-EL表达式，进行动态属性注入
+
+  通过Spring-EL表达式，可以是实现复杂数据结构对象的属性注入
+
+  ```java
+  @Value("#{{'math':100,'english':99}}")  
+  private  Map<String, Integer> map;
+  ```
+
+**@Vlaue配置文件key的匹配策略：**
+
+- 当在所有配置文件、环境变量中无法匹配到key时，则抛出异常
+- 当出现多个匹配值时，根据配置文件、环境变量的优先级顺序确定
 
 #### 2.5.5、配置类相关注解
 
-spring3.0通过@Configuration注解来代替spring.xml配置文件,关于相关配置标签都提供对应的注解，并且**必须搭配@Configuration一起使用**
+spring3.0通过@Configuration、@Component注解来搭配其他配置类相关注解，代替spring.xml配置文件
 
 ##### 2.5.6.1、@ComponentScan
 
@@ -802,9 +932,14 @@ public class CachingMovieLister {
 
 | 注解       | 作用                                                         |
 | ---------- | ------------------------------------------------------------ |
-| @Scope     | 和@Component、@Bean一起使用，定义Bean注册时的作用域，默认为singleton |
+| @Scope     | 和@Component、@Bean一起使用，定义bean注册时的作用域，默认为singleton |
 | @Lazy      | 和@Component、@Bean一起使用，使bean的初始化延迟，getBean时才进行加载，默认为true |
-| @DependsOn | 和@Component、@Bean一起使用，定义该bena的初始化，要在指定bean完成之后进行 |
+| @DependsOn | 和@Component、@Bean一起使用，定义该bean的初始化，要在指定bean完成之后进行 |
+| @Order     | 和@Component、@Bean一起使用，定义bean在被使用时的优先级      |
+
+@Order应用场景：
+
+​		在AOP中，对于一个切点存在多个切面时，可以通过@Order定义切面方法执行的优先级
 
 ##### 2.5.7.2、JSR-330注解
 
@@ -819,439 +954,176 @@ public class CachingMovieLister {
 
 @Autowired的required属性作用类似，只能注解在set方法上，搭配xml配置方式使用，表示当前Bean使用xml注册时，必须保证该set方法属性被注入，默认为true
 
+### 2.6、IOC容器扩展接口：
 
+springIOC容器在设计上，为开发者提供了强大的自定义功能，允许对Bean的整个生命周期过程进行扩展处理；**它们本身也需要注入到IOC容器中**
 
+#### 2.6.1、FactoryBean接口
 
-
-
-
-
-
-**spring 提供@Autowired、@Qualifier、@Value来完成Bean的属性注入**
-
-##### @Autowired（@Qualifier、@Primary）
-
-可以注解在构造方法、普通方法和成员变量上，来完成Bean的自动装配
+​		spring提供FactoryBean接口，来简化FactoryBean配置：
 
 ```java
-@Component
-public class User {
-
-    @Autowired
-    private Gread gread;
-    
-    @Autowired
-    public User(Gread gread){
-     	this.gread=gread;   
-    }
-    
-    @Autowired
-    public void setGread(Gread gread) {
-        this.gread=gread; 
-    }
-}
-```
-
-- 通过三种方式来实现IOC容器的自动装配：
-
-1、构造方法：当User类被IOC容器创建时，则会使用User构造方法，将IOC容器中的Gread实例作为参数属性注入
-
-2、普通方法：当User类被IOC容器创建后，会继续执行被@Autowired的普通方法，将IOC容器中的Gread实例作为参数，将进行属性注入
-
-3、成员变量：@Autowired注解在成员变量上时，**不需要为该类添加当前成员变量的setter方法**；当User类被IOC容器创建后，会将IOC容器中的Gread实例，**使用反射的方式进行属性注入**
-
-**@Autowired不能注解在静态成员变量和静态方法上，否则spring进行错误提示，无法起作用；而对于静态成员变量的属性注入，只能通过手动编写注入方法（普通方法、构造方法）并添加@Autowired注解来完成**
-
-- @Autowired有一个唯一属性required，默认为true；当自动装配在IOC容器中没有查询到可以匹配的bean时，会抛出异常；而当设置required=false时，就会忽略异常不进行当前的自动装配
-
-- @Autowired自动装配默认使用byType，当IOC容器中存在多个bean时，**则默认使用参数名/变量名指定注入Bean的唯一id，如果没有匹配则报错存在多个同类型Bean**；我们也可以通过**@Qualifier**注解来，手动指定注入Bean的唯一ID；或者在多个相同类型Bean中，选择一个Bean作为默认值，添加**@Primary**注解
-
-  ```JAVA
-     	@Qualifier("gread")
-  	@Autowired
-      private Gread gread;
-      
-      @Autowired
-      public User(@Qualifier("gread") Gread gread){
-       	this.gread=gread;   
-      } 
-  ```
-
-- 自动装配时，构造方法的选择：
-  1. 当不使用@Autowired不指定构造方法时：
-     - 只有一个构造方法：则直接使用该构造方法
-     - 有多个构造方法：则使用默认构造方法（无参构造方法），没有就会报错
-  2. 当使用@Autowired指定构造方法时：
-     - 只指定一个构造方法：则使用该构造方法；当设置required为false时，该构造方法参数无法通过IOC容器依赖注入时，则会使用默认构造方法
-     - 指定了多个构造方法：必须保证所有@Autwired属性required为false，即允许当前构造方法匹配不到Bean，这样spring就在所有注解的构造方法中，选择一个构造方法来实例化Bean（**选择策略和xml基于构造方法自动装配的一致**）
-
-- @Autowired的额外功能：获取容器中所有当前类型的Bean实例，使用数组、集合进行保存
-
-  ```java
-  @Component
-  public class MovieRecommender {
-  
-      @Autowired
-      private MovieCatalog[] movieCatalogs;
-      
-      @Autowired
-      private Set<MovieCatalog> movieCatalogs;
-      
-      @Autowired
-      private Map<String, MovieCatalog> movieCatalogs;
-      
-      // ...
-  }
-  ```
-
-  对于Map存储，key为当前Bean的id、value为当前Bean实例对象；所有集合元素的排序，遵循它们的注册顺序，但是@Priority注解的Bean会默认排序第一位；而@Order注解，可以修改注册优先级，但并不会影响Bean的实例化顺序（**注意：@Order不能注解在方法中，因此无法改变@bean方法的注册优先**级）
-
-- spring可以通过@Autowired注解，直接进行springIOC容器API接口的实例化创建，如`BeanFactory`，`ApplicationContext`，`Environment`，`ResourceLoader`， `ApplicationEventPublisher`，和`MessageSource`。这些接口及其扩展接口（例如`ConfigurableApplicationContext`或`ResourcePatternResolver`）
-
-  ```JAVA
-  	@Autowired
-  	public  ApplicationContext context;
-  ```
-
-##### @Value
-
-@Value可以注解在带有@Autowired注解的方法中、成员变量中，用于字面量的属性注入；**在注解在成员变量上时，不需要set方法，会使用反射的方式进行属性注入**
-
-- ${}方式：
-
-  ```java
-  @Value("${name}")
-  private String name;
-  ```
-
-  1. 首先引入外部properties文件
-  2. 在指定方法参数或成员变量上，添加@Value注解
-  3. spring会自动通过注解值，在所有外部properties文件中，选择该key；找到则进行自动注入，找不到则使用注键值的字面量（即name）
-
-  如果需要严格控制不存在的值时，则需要声明一个**PropertySourcesPlaceholderConfigurer**bean，此时如果找不到，则会在spring初始化时报错
-
-  ```java
-  @Configuration
-  public class SpringConfig {
-  
-       @Bean
-       public static PropertySourcesPlaceholderConfigurer propertyPlaceholderConfigurer() {
-             return new PropertySourcesPlaceholderConfigurer();
-       }
-  }
-  ```
-
-- #{}方式，使用SpEL表达式，进行动态属性注入
-
-  通过SpEL表达式，可以是实现复杂数据结构对象的属性注入
-
-  ```java
-  @Value("#{{'math':100,'english':99}}")  
-  private  Map<String, Integer> countOfMoviesPerCatalog;
-  ```
-
-@Value和@Autowired一样，也无法注解在静态变量和静态方法上，因此静态变量的属性注入，可以通过set方法来完成
-
-### spring注解使用注意事项：
-
-#### 1、@Bean和@Component的使用：
-
-​		两者都可以定义bean：@Component只能声明式的定义Bean，Bean的创建过程完全交给IOC容器，通过构造方法完成；而@Bean可以有效的显式控制Bean的创建过程，并进行Bean实例对象的配置；
-
-​		对于我们自己定义的类，一般完全就可以使用@Component来定义Bean；但对于第三方库包，由于不能直接修改源码，因此只能使用@Bean来定义相应类的Bean，并设置该实例对象的属性
-
-​		**@Bean方法创建返回的实例，其生命周期会满足该类本身的生命周期配置（即实例还会执行自身属性注入、初始化方法和销毁方法）**
-
-#### 2、@Component和@Configuration的区别：
-
-​		在测试中，我们可以发现@Component和@Configuration都可以搭配@Bean进行Bean的注册；但实际上，两者有本质的区别：
-
-​	@Configuration是一个全配置类，在注册到IOC容器中后，会创建一个CGLIB的动态代理类，作为其初始化实例；此时在执行@Bean方法时创建Bean实例时，会执行方法拦截器，将配置类的@Bean方法间出现的依赖调用，转化为先从IOC容器中获取，没有则直接执行依赖方法的Bean创建，然后获取其实例化对象，进行当前方法的Bean创建，有效避免出现多个对象创建
-
-```java
-	@Bean("userB")
-	public  User getUserB() {
-		System.out.println("b前");
-		User user = new User();
-		user.setName("yh123B");
-		System.out.println("b后");
-		return user;
-	}
-
-	@Bean("userA")
-	public  User getUserA() {
-		System.out.println("a前");
-        User user = getUserB();
-		user.setName("yh123A");
-		System.out.println("a后");
-		return user;
-	}
-```
-
-​	@Component则会正常进行的@Bean方法，来创建Bean实例；当出现@Bean方法间的依赖调用时，就会创建多个对象，即一个Bean的创建依赖于另一个Bean，但实际IOC容器中该Bean中依赖的对象实例，和IOC容器中的存在的对象实例不相同
-
-​	当然，对于@Component的缺点，可以使用方法参数注入的方式解决:
-
-```java
-	@Bean("userB")
-	public  User getUserB() {
-		System.out.println("b前");
-		User user = new User();
-		user.setName("yh123B");
-		System.out.println("b后");
-		return user;
-	}
-
-	@Bean("userA")
-	public  User getUserA(@Qualifier("userB")User user) {
-		System.out.println("a前");
-		System.out.println(user);
-		user.setName("yh123A");
-		System.out.println("a后");
-		return user;
-	}
-```
-
-#### 3、@Bean注解普通方法和静态方法的区别：
-
-@Bean可以注解在普通方法和静态方法，**对于静态@Bean的实例化，不会触发当前配置类的实例化**；因此在使用@Bean方式添加BeanPostProcessor、BeanFactoryPostProcessor时，该bean会在spring所有Bean初始化之前，提前实例化使用，因此当不声明为静态方法时，就会导致当前配置类提前实例化，从而无法进行spring的色号给生命周期，无法完成依赖注入
-
-**即一般Bean直接使用普通方法；对于BeanPostProcessor、BeanFactoryPostProcessor这些需要提前实例化、不参与spring生命周期的Bean，则使用静态方法**
-
-#### 4、@Bean和@Component出现beanName相同时：
-
-由于IOC容器是先处理@ComponentScan注解，来注册使用@Component声明的Bean，因此其优先度高（相同优先度，出现同一BeanName时，会直接初始化报错），因此在@Bean出现相同beanName时，优先级底，会直接忽略不进行注册
-
-### IOC容器的常用回调接口（仅spring）：
-
-**IOC容器的所有回调接口在实现时，都需要添加@Component注解，从而被IOC容器管理，spring才能进行其方法的回调**
-
-**所有回调接口的实现，都是基于对于Bean或spring相关对象的AOP增强，进行前置、后置通知**
-
-#### Aware接口
-
-定义向bean提供容器的基础信息
-
-##### BeanClassLoaderAware
-
-获取spring使用的类加载器
-
-```java
-public interface BeanClassLoaderAware extends Aware {
-	void setBeanClassLoader(ClassLoader var1);
-}
-```
-
-##### ResourceLoaderAware
-
-获取spring的资源加载器，来手动加载外部资源
-
-```java
-public interface ResourceLoaderAware extends Aware {
-	void setResourceLoader(ResourceLoader var1);
-}
-```
-
-##### BeanNameAware
-
-获取当前Bean被IOC容器管理使用的id(name)
-
-```java
-public interface BeanNameAware extends Aware {
-	void setBeanName(String name);
-}
-```
-
-##### BeanFactoryAware
-
-获取IOC容器的BeanFactory对象，并可以转化为已知子类，进行Bean的生产和管理
-
-```java
-public interface BeanFactoryAware extends Aware {
-	void setBeanFactory(BeanFactory var1) throws BeansException;
-}
-```
-
-##### ApplicationContextAware
-
-和BeanFactoryAware类似，获取IOC容器的上下文（ApplicationContext），并可以转化为已知子类，在BeanFactory基础上提供额外操作
-
-```java
-public interface ApplicationContextAware extends Aware {
-	void setApplicationContext(ApplicationContext var1) throws BeansException;
-}
-```
-
-除此之外，还提供了直接使用ApplicationContext额外操作的接口（可以直接通过ApplicationContext实现）
-
-- MessageSourceAware：用于国际化资源解析
-
-- ApplicationEventPublisherAware：用于事件发布
-
-#### IOC容器扩展接口
-
-##### BeanPostProcessor
-
-定义了IOC容器中所有Bean初始化方法前后所执行的逻辑
-
-**配置方式：**BeanPostProcessor接口的实现类，可以直接像普通Bean一样，将其放入IOC容器，ApplicationContext会进行自动检测和配置；但需要注意：当使用@Bean注解来声明时，返回值类型应该为BeanPostProcessor，否则spring无法实现自动检测
-
-两个方法，提供当前Bean的实例对象和beanName，需要将实例对象返回，在此期间可以对实例对象进行操作
-
-```java
-public interface BeanPostProcessor {
-	Object postProcessBeforeInitialization(Object var1, String var2) throws BeansException;
-
-	Object postProcessAfterInitialization(Object var1, String var2) throws BeansException;
-}
-```
-
-**优先级：**可以定义多个接口实现类，通过@Order注解，来定义Bean的注册顺序，从而定义处理器执行的优先级
-
-##### BeanFactoryPostProcessor
-
-定义了IOC容器完成Bean注册后，所执行的逻辑
-
-**配置方式：**同样和BeanPostProcessor一样，放在IOC容器中，被自动扫描配置
-
-提供BeanFacotry的实例化对象，用于对Bean配置元数据（**BeanDefintion**）进行操作
-
-```java
-public interface BeanFactoryPostProcessor {
-	void postProcessBeanFactory(ConfigurableListableBeanFactory var1) throws BeansException;
-}
-```
-
-**优先级：**可以定义多个接口实现类，通过@Order注解，来定义Bean的注册顺序，从而定义处理器执行的优先级
-
-##### FactoryBean
-
-实现XML中的工厂bean，定义bean的实例化逻辑，但只能有一个产品类；**用于创建实例化逻辑比较复杂的Bean**
-
-提供了三个方法，getObject（）用于提供产品类Bean的实例化对象；getObjectType（）用于提供产品类的类型；isSingleton（）提供产品类是否为单例（默认为单例，则不需要重写返回true）
-
-```java
-public interface FactoryBean<T> {
+	//获取该工厂Bean生产的Bean对象
 	T getObject() throws Exception;
 
+	//获取生产Bean的类型
 	Class<?> getObjectType();
 
-	boolean isSingleton();
-}
+	//生产Bean是否为单例（默认ture）
+	default boolean isSingleton() {
+		return true;
+	}
 ```
 
-对于工厂Bean，进行注册时，ID会添加&前缀；在获取工厂Bean和其产品Bean的方式也就有区别：
+​		该接口一般用于复杂对象Bean的创建，并且FactoryBean本身也会注册到IOC容器中，但beanId会添加&前缀表示，其生产的Bean则为普通Bean
+
+#### 2.6.2、BeanFactoryPostProcessor接口
+
+​		用于在BeanFacotry（IOC容器）实例化后，对其中已加载的BeanDefinition（Bean注册信息）进行修改
 
 ```java
-	User user = context.getBean("userBeanFactory",User.class);
-
-	UserBeanFactory bean = context.getBean("&userBeanFactory",UserBeanFactory.class)
+//获取已实例化的BeanFacotry，对其进行操作
+void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException;
 ```
 
-**FactoryBean和@Bean的本质区别：**
+注意：
 
-它们相对于@Compenton注解，都可以显式的定义bean的实例化逻辑，但侧重点不同：@Bean是用于解决第三方类注册Bean的问题；而FactoryBean是用于创建实例化逻辑比较复杂的Bean，相对于@Compenton自动装配、手动注入和调用初始化方法，这种方式更加优雅
+- BeanFacotryPostProcessor可以存在多个，可以同@Order或者Ordered接口来控制它们的执行顺序
 
-### IOC容器源码解析（注解版）
+#### 2.6.3、BeanPostProcessor接口
 
-#### IOC容器内部功能实现的常用对象：
+​		用于对已完成属性注入的Bean，在执行初始化方法前后，对其进行额外处理
 
-##### GennericBeanDefinition：
+```java
+	//Bean执行初始化之前
+	@Nullable
+	default Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+		return bean;
+	}
 
-​	**BeanDefintion**的实现类，IOC容器进行Bean注册后的生成的对象，用于保存当前bean的类信息（类名、类calss对象。。）和bean定义信息（作用域、懒加载、自动装配Mode、是否为工厂Bean。。。）
+	//Bean执行初始化之后
+	@Nullable
+	default Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+		return bean;
+	}
+```
 
-##### DefaultListableBeanFactory：
+注意：
 
-​	**BeanFactory**的最常用实现类，IOC容器的核心类，实现Bean的生产和获取，常用成员变量有（**子类还有其他属性**）：
+- BeanPostProcessor可以存在多个，可以同@Order或者Ordered接口来控制它们的执行顺序
+
+- **BeanPostProcessor接口和InitializingBean、DisposableBean接口区别：**
+
+  1、前者是通过BeanPostProcessor的执行方式，作用于所有Bean的初始化阶段
+
+  2、后者是提供针对于实现该接口的单个Bean，编写初始化和销毁方法，无法作用于所有Bean（XML中的init-method、destroy-method就是使用这种方式）
+
+  3、@PostConstruct发生在BeanPostProcessor接口方法后；@Processor发生在DisposableBean接口前
+
+#### 2.6.4、Aware系列接口
+
+​		aware系列接口用于为当前Bean进行指定对象或数据的注入：
+
+| 接口                           | 作用                                 |
+| ------------------------------ | ------------------------------------ |
+| BeanClassLoaderAware           | 获取当前Bean使用的类加载器           |
+| ResourceLoaderAware            | 获取资源加载器                       |
+| BeanNameAware                  | 获取当前Bean的id                     |
+| BeanFactoryAware               | 获取当前Bean所在的BeanFacotry        |
+| ApplicationContextAware        | 获取当前Bean所在的ApplicationContext |
+| MessageSourceAware             | 获取消息资源处理器                   |
+| ApplicationEventPublisherAware | 获取事件发布器                       |
+
+##### Aware接口的回调执行点：
+
+1、BeanNameAware、BeanClassLoaderAware、BeanFactoryAware接口，会在Bean完成属性注入后，执行初始化回调前，被回调处理
+
+2、EnvironmentAware、EmbeddedValueResolverAware、ResourceLoaderAware、ApplicationEventPublisherAware、MessageSourceAware、ApplicationContextAware接口，会在`ApplicationContextAwareProcessor`的初始化回调方法中，进行回调处理
+
+### 2.7、IOC容器的内部实现
+
+​		BeanFacotry是实现IOC容器的核心接口，内部实现了对Bean的加载全过程
+
+#### 2.7.1、BeanDefinition
+
+​		beanDefinition为Bean的元数据，定义了Bean创建所需要的所有信息，其实现类为`GennericBeanDefinition`
+
+**GennericBeanDefinition重要属性：**
+
+| 属性              | 作用                                             |
+| ----------------- | ------------------------------------------------ |
+| beanClass         | bean类型                                         |
+| scope             | bean作用域                                       |
+| lazyInit          | 是否延迟加载                                     |
+| autowiredMode     | 自动注入模式（NO、ByName、ByType）               |
+| dependsOn         | 依赖于指定bean的优先创建                         |
+| autowireCandidate | false时,自动装配不考虑将该bean作为依赖注入的对象 |
+| primary           | 自动装配出现多个匹配项时,该bean优先              |
+| qualifiers        | 内部所依赖的bean                                 |
+| initMethodName    | 初始化方法名                                     |
+| destroyMethodName | 销毁方法名                                       |
+
+#### 2.7.2、DefaultListableBeanFactory
+
+​	`BeanFactory`的实现类，IOC容器的核心类，实现Bean的管理
+
+实现Bean管理相关属性：
 
 - beanDefinitionNames：所有bean注册名称列表，按注册顺序排序
 - singletonBeanNamesByType：所有单例bean其类型和beanNames的 K-V映射
 - allBeanNamesByType：所有bean其类型和beanNames的 K-V映射
 - beanDefinitionMap：所有bean其beanName和BeanDefintion的K-V映射
 
-beanName和beanNames的区别：beanName为bean在IOC容器中的唯一标识符（即ID），beanNames为bean的id和别名的集合（默认使用第一个值作为id）
+beanName和beanNames的区别：
 
-##### ConfigurableListableBeanFactory ：
+​	beanName为bean在IOC容器中的唯一标识符（即ID），beanNames为bean的id和别名的集合（默认使用第一个值作为id）
 
-​	**postProcessBeanFactory**的实现类，其postProcessBeanFactory方法在**Bean注册完成后**执行，并能获取当前上下文中的BeanFactory，修改所有**BeanDefintion**的属性
+##### 2.7.2.1、DefaultSingletonBeanRegistry
 
-##### BeanDefinitionRegistryPostProcessor:
-
-​	为BeanFactoryPostProcessor接口的子接口，额外提供了postProcessBeanDefinitionRegistry，用于完成Bean的注册，其实现类为**ConfigurationClassPostProcessor**
-
-##### BeanPostProcessor：
-
-​	IOC容器的一个重要接口，提供了postProcessBeforeInitialization、postProcessAfterInitialization两个方法，参数为Bean实例化对象和BeanName，在bean初始化方法执行之前（创建Bean实例后）和之后执行；用于实现操作管理springBean的整个初始化过程（如属性注入）
-
-##### DefaultSingletonBeanRegistry：
-
-​	为**BeanFactory**的中间实现类，实现IOC容器单例Bean的初始化管理，其成员变量有：
+​	`DefaultListableBeanFactory`子类，用于处理单例Bean的注册销毁和依赖关系
 
 - singletonObjects：存放所有单例Bean的初始化对象（初始化完成的），也称之为IOC容器的单例池
+- earlySingletonObjects：存放所有单例Bean的实例化对象（没有进行属性注入的）
+- singletonFactories ：存放已实例化Bean的引用ObjectFactories
 
-- earlySingletonObjects：存放所有单例Bean的实例化对象（没有进行属性注入的），用于解决循环依赖
+IOC容器通过这三个Map集合，来构成Bean创建过程中的三级缓存，解决循环依赖问题
 
-  其子类FactoryBeanRegistrySupport，实现了工厂Bean产品类的初始化管理，其成员变量有：
+#### 2.7.3、初始化IOC容器
 
-  - factoryBeanObjectCache：存放工厂Bean中的单例产品Bean的初始化对象
-
-#### 1、初始化spring环境（IOC容器）
+​		IOC容器的启动，基于AnnotationConfigApplicationContext实例化来完成：
 
 ```java
 AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(springTest.class);
 ```
 
-- 调用其父类**GenericApplicationContext**默认构造方法,初始化一个**beanFactory**
+并在实例化过程中，完成如下操作：
 
-  ```java
-  this.beanFactory = new DefaultListableBeanFactory();
-  ```
+- 创建`DefaultListableBeanFactory`(BeanFactory)
+- 创建AnnotatedBeanDefinitionReader，用于后续Bean注册，并在初始化时注册spring一系列内置Bean
+- 创建ClassPathBeanDefinitionScanner，用于开发者手动注册Bean
+- 调用refresh方法，初始化IOC容器上下文
 
-- 调用**AnnotationConfigApplicationContext**自身默认构造方法，初始化**reader**、**scanner**成员变量
+##### 2.7.3.1、内置bean
 
-  ```java
-  this.reader = new AnnotatedBeanDefinitionReader(this);
-  this.scanner = new ClassPathBeanDefinitionScanner(this);
-  ```
+​		AnnotatedBeanDefinitionReader初始化时，注册如下spring内置Bean
 
-  - AnnotatedBeanDefinitionReader初始化,创建**读取器**，完成IOC内置Bean的注册和IOC容器中的一些处理器配置（这些bean和处理器都是用于处理spring注解）
+```java
+//注册spring内置的注解处理器（会进行初始化）
+AnnotationConfigUtils.registerAnnotationConfigProcessors(this.registry);
+```
 
-    ```java
-    //注册spring内置的注解处理器（会进行初始化）
-    AnnotationConfigUtils.registerAnnotationConfigProcessors(this.registry);
-    ```
-  
-    **配置处理器：**
-  
-    - AnnotationAwareOrderComparator   解析@Order、@Priority注解
-    - ContextAnnotationAutowireCandidateResolver  提供延迟加载功能
-  
-    **注册内置Bean：**
-  
-    | 内置Bean类型                         | 接口类型                   | 作用                                         |
-    | ------------------------------------ | -------------------------- | -------------------------------------------- |
-    | ConfigurationAnnotationProcessor     | BeanFactoryPostProcessor   | 用于完成Bean的注册                           |
-    | AutowiredAnnotationBeanPostProcessor | BeanPostProcessor          | 处理@Autowired注解，完成Bean的属性注入       |
-    | CommonAnnotationBeanPostProcessor    | BeanPostProcessor          | 处理@PostConstruct和@PreDestroy还有@Resource |
-    | PersistenceAnnotationProcessor       | BeanPostProcessor          | 处理JPA注解（需要导入spirng-orm包）          |
-    | EventListenerMethodProcessor         | ApplicationContext额外功能 | 处理事件监听                                 |
-    | DefaultEventListenerFactory          | EventListenerFactory       | 用于事件监听（）                             |
-  
-  - ClassPathBeanDefinitionScanner初始化,创建**类路径扫描器**，将类转化为BeanDefinition对象
-  
-    该扫描器并不是spring默认使用的扫描器，而是提供给开发者使用的（一般不会用到）
-  
-- 调用**AnnotationConfigApplicationContext**有参构造方法（调用无参构造方法时，则需要手动调用refresh（））
+| 内置Bean类型                         | 接口类型                 | 作用                                       |
+| ------------------------------------ | ------------------------ | ------------------------------------------ |
+| ConfigurationAnnotationProcessor     | BeanFactoryPostProcessor | 用于完成Bean的注册                         |
+| AutowiredAnnotationBeanPostProcessor | BeanPostProcessor        | 处理@Autowired注解，完成Bean的属性注入     |
+| CommonAnnotationBeanPostProcessor    | BeanPostProcessor        | 处理@PostConstruct和@PreDestroy、@Resource |
+| PersistenceAnnotationProcessor       | BeanPostProcessor        | 处理JPA注解（需要导入spirng-orm包）        |
+| EventListenerMethodProcessor         | BeanFactoryPostProcessor | 处理事件监听                               |
+| DefaultEventListenerFactory          | EventListenerFactory     | 事件监听工厂                               |
 
-  ```java
-  //手动注册Bean，生成相应beanDfinition对象；
-  register(componentClasses);
-  //初始化spring上下文
-  refresh();
-  ```
-  
+##### 2.7.3.2、refresh
 
-**refresh方法源码：**
+**refresh方法源码解析：**
 
 ```java
 	@Override
@@ -1303,565 +1175,102 @@ AnnotationConfigApplicationContext context = new AnnotationConfigApplicationCont
 	}
 ```
 
-#### 2、Bean的注册过程
+#### 2.7.4、Bean注册
 
-在Refresh方法中，执行所有的BeanFactoryPostProcessor，从而完成Bean的注册
+在Refresh方法中，调用所有的BeanFactoryPostProcessor，从而完成Bean的注册
 
 ```java
 invokeBeanFactoryPostProcessors(beanFactory);
 ```
 
-- getBeanFactoryPostProcessors()目前为null;只有在refresh之前，手动调用context.addBeanFactoryPostProcessor(xxx)方法传入BeanFactoryPostProcessor对象，才会有（一般情况下不使用该方式）
+BeanFactoryPostProcessor分为两种类型：
 
-```
-invokeBeanFactoryPostProcessors(beanFactory, getBeanFactoryPostProcessors())；
-```
+- BeanDefinitionRegistryPostProcessor：用于注册Bean的BeanFactory后置处理器,优先执行
+- BeanFactoryPostProcessor：常规BeanFactory后置处理器,用于对beanDefinition信息进行修改
 
-##### 1、执行所有BeanDefinitionRegistryPostProcessor类型的BeanFactoryPostProcessor
+默认情况下,spring只提供一个BeanDefinitionRegistryPostProcessor类型的Bean,用于完成bean注册;该bean为`ConfigurationClassPostProcessor`
 
-- 创建一个set，保存已经执行的BeanFactoryPostProcessor的BeanName
+**ConfigurationClassPostProcessor完成Bean注册的过程如下:**
 
-```java
-Set<String> processedBeans = new HashSet<>();
-```
+- 获取调用BeanFacotry.register方法手动注册的Bean，判断它们是否为配置类（被@Component注解），同时设置其类型为Full或Lite
 
-- 创建两个list，保存不同类型的BeanFactoryPostProcessor
+- 初始化配置类解析器ConfigurationClassParser
 
-```java
-//常规后置处理器
-List<BeanFactoryPostProcessor> regularPostProcessors = new ArrayList<>();
-//用于注册Bean的后置处理器
-List<BeanDefinitionRegistryPostProcessor> registryProcessors = new ArrayList<>();
-```
+- 对当前配置类进行解析，处理其中的注解（@PropertySource、@ComponentScan、@Import、@Bean、@ImportResource），使用`AnnotatedBeanDefinitionReader`完成注册
 
-- 首先执行BeanDefinitionRegistryPostProcessor类型的BeanFactoryPostProcessor对象（因为此时beanFactoryPostProcessors为null，所以没有可执行的）
+- 对于Full配置类，进行动态代理，实现配置类中@Bean方法间的依赖注入
 
-```java
-	for (BeanFactoryPostProcessor postProcessor : beanFactoryPostProcessors) {
-				if (postProcessor instanceof BeanDefinitionRegistryPostProcessor) {
-					BeanDefinitionRegistryPostProcessor registryProcessor =
-							(BeanDefinitionRegistryPostProcessor) postProcessor;
-                    //执行后置处理器
-					registryProcessor.postProcessBeanDefinitionRegistry(registry);
-                    //并添加到用于注册Bean的后置处理器集合中
-					registryProcessors.add(registryProcessor);
-				}
-				else {
-                    //否则添加到常规后置处理器集合中
-					regularPostProcessors.add(postProcessor);
-				}
-			}
-```
+#### 2.7.5、Bean初始化
 
-- 获取beanFactory中BeanDefinitionRegistryPostProcessor类型的Bean（spring内置处理器 BeanName=internalConfigurationAnnotationProcessor，class=**ConfigurationClassPostProcessor**)，**初始化并执行spring内置的BeanDefinitionRegistryPostProcessor的postProcessBeanDefinitionRegistry方法**
-
-```java
-//创建一个List，保存当前用于注册Bean的后置处理器
-List<BeanDefinitionRegistryPostProcessor> currentRegistryProcessors = new ArrayList<>();
-
-//获取当前已注册的BeanDefinitionRegistryPostProcessor类型BeanNames
-String[] postProcessorNames =				beanFactory.getBeanNamesForType(BeanDefinitionRegistryPostProcessor.class, true, false);
-
-//执行getBean，初始化internalConfigurationAnnotationProcessor类型Bean
-for (String ppName : postProcessorNames) {
-    //实现PriorityOrdered接口的Bean
-	if (beanFactory.isTypeMatch(ppName, PriorityOrdered.class)) {
-		currentRegistryProcessors.add(beanFactory.getBean(ppName, BeanDefinitionRegistryPostProcessor.class));
-        //表示当前处理器Bean要被执行
-		processedBeans.add(ppName);
-		}
-	}
-
-//进行排序
-sortPostProcessors(currentRegistryProcessors, beanFactory);
-
-//添加到注册Bean的后置处理器集合中
-registryProcessors.addAll(currentRegistryProcessors);
-
-//执行internalConfigurationAnnotationProcessor，然后清空currentRegistryProcessors
-invokeBeanDefinitionRegistryPostProcessors(currentRegistryProcessors, registry);
-currentRegistryProcessors.clear();
-```
-
--  执行internalConfigurationAnnotationProcessor，会完成所有Bean的注册，因此BeanNames中就会存在自定义的BeanFactoryPostProcessor的BeanName；此时**初始化并执行自定义的BeanDefinitionRegistryPostProcessor的postProcessBeanDefinitionRegistry方法**
-
-```java
-//获取当前BeanDefinitionRegistryPostProcessor类型的所有BeanName
-postProcessorNames = beanFactory.getBeanNamesForType(BeanDefinitionRegistryPostProcessor.class, true, false);
-
-//遍历，找出没有被执行、实现Ordered接口的BeanName，执行getBean初始化
-for (String ppName : postProcessorNames) {
-		if (!processedBeans.contains(ppName) && beanFactory.isTypeMatch(ppName, Ordered.class)) {
-		currentRegistryProcessors.add(beanFactory.getBean(ppName, BeanDefinitionRegistryPostProcessor.class));
-		processedBeans.add(ppName);
-		}
-	}
-
-//排序
-sortPostProcessors(currentRegistryProcessors, beanFactory);
-
-//添加到注册Bean的后置处理器集合中
-registryProcessors.addAll(currentRegistryProcessors);
-
-//执行自定义BeanDefinitionRegistryPostProcessor类型Bean（一般用于扩展IOC容器的管理，识别其他注解，来注册Bean，如mybatis中的mapper）
-invokeBeanDefinitionRegistryPostProcessors(currentRegistryProcessors, registry);
-currentRegistryProcessors.clear();
-```
-
-- 再一次遍历postProcessorNames，初始化并执行**其他没有实现Ordered接口的BeanDefinitionRegistryPostProcessor的postProcessBeanDefinitionRegistry方法**
-
-```java
-//执行其他BeanDefinitionRegistryPostProcessor，可能会进行额外Bean的注册，因此需要不断循环遍历，获取所有的BeanDefinitionRegistryPostProcessor
-boolean reiterate = true;
-while (reiterate) {
-	reiterate = false;
-	postProcessorNames = beanFactory.getBeanNamesForType(BeanDefinitionRegistryPostProcessor.class, true, false);
-    //遍历，找出其他没有执行的BeanDefinitionRegistryPostProcessor，执行getBean初始化
-	for (String ppName : postProcessorNames) {
-		if (!processedBeans.contains(ppName)) {
-			currentRegistryProcessors.add(beanFactory.getBean(ppName, BeanDefinitionRegistryPostProcessor.class));
-			processedBeans.add(ppName);
-			reiterate = true;
-			}
-		}
-    	//排序
-		sortPostProcessors(currentRegistryProcessors, beanFactory);
-    	//添加到注册Bean的后置处理器集合
-	    registryProcessors.addAll(currentRegistryProcessors);
-    
-    	//执行所有其他没有实现Ordered接口BeanDefinitionRegistryPostProcessor
-		invokeBeanDefinitionRegistryPostProcessors(currentRegistryProcessors, registry);
-		currentRegistryProcessors.clear();
-	}
-```
-
-- 最后，再按顺序执行所有BeanDefinitionRegistryPostProcessor的postProcessBeanFactory方法（先执行注册Bean的后置处理，再执行常规处理器）
-
-```java
-invokeBeanFactoryPostProcessors(registryProcessors, beanFactory);
-invokeBeanFactoryPostProcessors(regularPostProcessors, beanFactory);
-```
-
-**作用：**
-
-完成IOC容器中所有Bean的注册
-
-##### 2、执行所有非BeanDefinitionRegistryPostProcessor类型的postProcessBeanFactory
-
-按照  实现PriorityOrdered接口-------实现Ordered接口-------没有实现Ordered接口的顺序执行；
-
-**作用：**
-
-用于执行自定义postProcessBeanFactory接口，对已注册的Bean的BeanDefinition进行属性设置
-
-##### 3、ConfigurationClassPostProcessor
-
-**默认情况下，BeanDefinitionRegistryPostProcessor类型的ProcessBeanFactory就只有ConfigurationClassPostProcessor，因此整个注册过程就是由它来完成**
-
-- **postProcessBeanDefinitionRegistry方法：**
-
-```java
-postProcessor.postProcessBeanDefinitionRegistry(registry);
-
-processConfigBeanDefinitions(registry);
-```
-
-processConfigBeanDefinitions：
-
-1、获取注册的自定义Bean（在refresh之前，调用register(xxx)方法注册的Bean，也就是配置类Bean）
-
-```java
-//获取所有BeanNames
-List<BeanDefinitionHolder> configCandidates = new ArrayList<>();
-String[] candidateNames = registry.getBeanDefinitionNames();
-
-//遍历BeanNames
-for (String beanName : candidateNames) {
-    //获取BeanDefinition对象
-	BeanDefinition beanDef = registry.getBeanDefinition(beanName);
-    
-    //判断当前类为FUll配置类Bean（@Configuration注解）还是Lite配置类Bean（@Component注解）
-    //已经check的就不在做处理（排除spring内部处理器Bean）
-	if (beanDef.getAttribute(ConfigurationClassUtils.CONFIGURATION_CLASS_ATTRIBUTE) != null) {
-		if (logger.isDebugEnabled()) {
-			logger.debug("Bean definition has already been processed as a configuration class: " + beanDef);
-		}
-		//无法判断，则check来标记其类型，并添加到一个list中（获取已注册的自定义Bean）
-	  }else if (ConfigurationClassUtils.checkConfigurationClassCandidate(beanDef, this.metadataReaderFactory)) {
-			configCandidates.add(new BeanDefinitionHolder(beanDef, beanName));
-		}
-	}
-
-//没有则return，结束方法
-if (configCandidates.isEmpty()) {
-	return;
-}
-
-//排序
-configCandidates.sort((bd1, bd2) -> {
-	int i1 = ConfigurationClassUtils.getOrder(bd1.getBeanDefinition());
-	int i2 = ConfigurationClassUtils.getOrder(bd2.getBeanDefinition());
-	return Integer.compare(i1, i2);
-});
-```
-
-2、解析配置类Bean
-
-```java
-//初始化配置类解析器
-ConfigurationClassParser parser = new ConfigurationClassParser(
-		this.metadataReaderFactory, this.problemReporter, this.environment,
-		this.resourceLoader, this.componentScanBeanNameGenerator, registry);
-		
-//创建集合保存所有配置类的BeanDefinitionHolder和ConfigurationClass对象
-Set<BeanDefinitionHolder> candidates = new LinkedHashSet<>(configCandidates);
-Set<ConfigurationClass> alreadyParsed = new HashSet<>(configCandidates.size());
-
-do {
-    //进行配置类解析，并进行校验
-    //通过解析配置类中所有注解，并注册所有@Component注解声明的Bean
-	parser.parse(candidates);
-	parser.validate();
-	Set<ConfigurationClass> configClasses = new LinkedHashSet<>(parser.getConfigurationClasses());
-    
-    //删除已经解析过的配置类的ConfigurationClass对象（目前为null）
-	configClasses.removeAll(alreadyParsed);
-
-	//获取spring初始化前创建的读取器
-	if (this.reader == null) {
-		this.reader = new ConfigurationClassBeanDefinitionReader(
-			registry, this.sourceExtractor, this.resourceLoader,this.environment,this.importBeanNameGenerator, parser.getImportRegistry());
-		}
-    //对已经解析的注解内容（@Import、@Bean、@ImportResource）进行处理，注册Bean
-	this.reader.loadBeanDefinitions(configClasses);
-    //并将其设置为已解析的
-	alreadyParsed.addAll(configClasses);
-	candidates.clear();
-  
-}
-```
-
-parser.parse(candidates)：
-
-```java
-public void parse(Set<BeanDefinitionHolder> configCandidates) {
-    //遍历配置类的BeanDefinition
-	for (BeanDefinitionHolder holder : configCandidates) {
-		BeanDefinition bd = holder.getBeanDefinition();
-		try {
-            //是否为注解声明注册的Bean（直接进入）
-			if (bd instanceof AnnotatedBeanDefinition) { 
-			parse(((AnnotatedBeanDefinition) bd).getMetadata(), holder.getBeanName());
-			}
-            xxxx
-		}
-```
-
-processConfigurationClass》》》》doProcessConfigurationClass
-
-```java
-//递归处理内部类
-if (configClass.getMetadata().isAnnotated(Component.class.getName())) {
-	processMemberClasses(configClass, sourceClass, filter);
-}
-
-		//处理其@PropertySource，加载外部资源
-for (AnnotationAttributes propertySource : AnnotationConfigUtils.attributesForRepeatable(
-sourceClass.getMetadata(),PropertySources.class,org.springframework.context.annotation.PropertySource.class)) {
-	if (this.environment instanceof ConfigurableEnvironment) {
-		processPropertySource(propertySource);
-	}
-	else {
-		logger.info("Ignoring @PropertySource annotation on [" + sourceClass.getMetadata().getClassName() +
-		"]. Reason: Environment must implement ConfigurableEnvironment");
-	}
-}
-
-//处理其@ComponentScan注解
-//获取@ComponentScan中的具体内容
-Set<AnnotationAttributes> componentScans = AnnotationConfigUtils.attributesForRepeatable(
-				sourceClass.getMetadata(), ComponentScans.class, ComponentScan.class);
-	
-	//如果有@ComponentScan注解，则进行处理
-	if (!componentScans.isEmpty() &&
-		!this.conditionEvaluator.shouldSkip(sourceClass.getMetadata(), ConfigurationPhase.REGISTER_BEAN)) {
-        
-        //遍历所有componentScan内容
-		for (AnnotationAttributes componentScan内容 : componentScans) {
-            //创建@component注解扫描器，并立即执行
-			Set<BeanDefinitionHolder> scannedBeanDefinitions =
-			this.componentScanParser.parse(componentScan, sourceClass.getMetadata().getClassName());
-            
-            //遍历通过扫描@component注解创建的BeanDefinition对象
-			for (BeanDefinitionHolder holder : scannedBeanDefinitions) {
-				BeanDefinition bdCand = holder.getBeanDefinition().getOriginatingBeanDefinition();
-				if (bdCand == null) {
-					bdCand = holder.getBeanDefinition();
-				}
-				if (ConfigurationClassUtils.checkConfigurationClassCandidate(bdCand, this.metadataReaderFactory)) {
-                    //递归处理解析该Bean
-					parse(bdCand.getBeanClassName(), holder.getBeanName());
-				 }
-			}
-		}
-	}
-
-//处理@Import注解
-processImports(configClass, sourceClass, getImports(sourceClass), filter, true);
-
-//处理@ImportResource注解，导入spring的XML配置文件，读取配置资源
-AnnotationAttributes importResource =
-AnnotationConfigUtils.attributesFor(sourceClass.getMetadata(), ImportResource.class);
-	if (importResource != null) {
-		String[] resources = importResource.getStringArray("locations");
-		Class<? extends BeanDefinitionReader> readerClass = importResource.getClass("reader");
-		for (String resource : resources) {
-			String resolvedResource = this.environment.resolveRequiredPlaceholders(resource);
-				configClass.addImportedResource(resolvedResource, readerClass);
-		}
-	}
-
-//处理当前所有Bean中的@Bean注解
-Set<MethodMetadata> beanMethods = retrieveBeanMethodMetadata(sourceClass);
-for (MethodMetadata methodMetadata : beanMethods) {
-	configClass.addBeanMethod(new BeanMethod(methodMetadata, configClass));
-	}
-processInterfaces(configClass, sourceClass);
-```
-
-**对于@Import、@Bean、@ImportResource，只是进行了内容解析，所有Bean的注册在this.reader.loadBeanDefinitions(configClasses)中完成**
-
-- **postProcessBeanFactory方法**
-
-完成配置类（@Configuration）的动态代理，实现配置类中@Bean方法间的依赖注入
-
-#### 3、Bean初始化过程
-
-以refresh方法中，实例化所有单例bean为例：（多例bean和懒加载Bean会在**依赖注入或getBean**时初始化）
+在refresh方法中，完成所有单例Bean的初始化（如果非单例bean被依赖，则也会初始化）
 
 ```java
 finishBeanFactoryInitialization(beanFactory);
 ```
 
-- Bean注册后，会将封装的**BeanDefinition**对象保存到beanfactory的**BeanDefinitionMap**中
+Bean初始化过程如下：
 
-- 进行单例bean的初始化：
+- 创建bean的实例化对象,并保证所依赖的bean被创建
+- 调用所有BeanPostProcessor,完成bean的初始化（属性注入、初始化回调）
 
-  ```java
-  beanFactory.preInstantiateSingletons();
-  ```
+**spring提供4个BeanPostProcessor子接口，来完成整个初始化：**
 
-  ```java
-  		//获取beanfactory中beanDefinitionNames，所有所有bean注册名称列表
-  		List<String> beanNames = new ArrayList<>(this.beanDefinitionNames);
-  
-  		//遍历，实例化所有非懒加载的单例bean
-  		for (String beanName : beanNames) {
-              //通过beanName获取BeanDefinition对象
-  			RootBeanDefinition bd = getMergedLocalBeanDefinition(beanName);
-              
-              //判断当前bean是否为单例、非懒加载、非抽象
-  			if (!bd.isAbstract() && bd.isSingleton() && !bd.isLazyInit()) {
-                  //判断当前bean是否为工厂bean
-  				if (isFactoryBean(beanName)) {
-                  //如果为工厂bean，在使用带有&前缀的beanName参数执行getBean方法，初始化bean
-  				Object bean = getBean(FACTORY_BEAN_PREFIX + beanName);
-                  xxxx
-                  }
-                  //非工厂bean
-  				else {
-                      //初始化bean
-  					getBean(beanName);
-  				}
-  			}
-  		}
-  
-  		// 执行所有单例池中Bean初始化后的回调方法
-  		for (String beanName : beanNames) {
-  			Object singletonInstance = getSingleton(beanName);
-  			xxxx
-  			}
-  		}
-  ```
+**1、InstantiationAwareBeanPostProcessor**
 
-  getBean》》》》doGetBean：
+提供三个方法：
 
-  ```java
-  	//第一次getSingleton
-      //检测该bean是否在单例池中已存在（用于getBean获取实例对象）、或在初始化中（防止循环依赖）
-  	Object sharedInstance = getSingleton(beanName);
-  	if (sharedInstance != null && args == null) {
-          xxx
-          //如果为工厂Bean，则根据name和BeanName判断返回工厂对象实例还是产品对象实例
-          bean = getObjectForBeanInstance(sharedInstance, name, beanName, null);
-      }
-  	else{
-          xxx
-          //保证当前bean所依赖的bean都已初始化
-           String[] dependsOn = mbd.getDependsOn();
-  		if (dependsOn != null) {
-  			for (String dep : dependsOn) {
-  			xxxx
-              }
-          }
-          
-          //创建bean实例化对象，并执行一系列BeanPostProcessor，完成bean的初始化
-          //为单例
-          if (mbd.isSingleton()) {
-              //第二次getSingleton（单例池中不存在时，同步进行bean的初始化，并使该beanName添加到表示处于初始化状态中的集合）	
-              sharedInstance = getSingleton(beanName, () -> {	
-  				return createBean(beanName, mbd, args);
-              });
-  			
-          } 
-          //为多例
-          else if(mbd.isPrototype()){
-              //用于多例Bean的实例获取
-              xxx
-          }
-      }        
-  ```
+- postProcessBeforeInstantiation，Bean实例化前，是否提供其他对象，作为其实例化对象
+- postProcessAfterInstantiation，Bean实例化后，执行属性注入前，设置Bean是否正常执行自动装配
+- postProcessPropertys，Bean属性注入前，对PropertyValues对象（已创建好的属性值）进行修改
 
-  createBean：
+实现类和作用有：
 
-  **lookup-method和replaced-method的标签用于实现对方法返回值的替换和方法的重写**
+`AutowiredAnnotationBeanPostProcessor`  对Bean中@Autowired、@Value注解进行处理，完成依赖注入
 
-  ```java
-  //获取Bean的class对象
-  Class<?> resolvedClass = resolveBeanClass(mbd, beanName);
-  
-  //处理lookup-method和replaced-method的标签方法
-  mbdToUse.prepareMethodOverrides();
-  
-  //实现Bean代理对象的初始化（不执行）
-  Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
-  
-  //实现Bean的初始化
-  Object beanInstance = doCreateBean(beanName, mbdToUse, args);
-  ```
+`CommonAnnotationBeanPostProcessor`  对Bean中@Resource注解进行处理，完成依赖注入
 
-  doCreateBean：
+**2、SmartInstantiationAwareBeanPostProcessor**
 
-  ```java
-  //调用Bean的构造方法，创建实例对象
-  instanceWrapper = createBeanInstance(beanName, mbd, args);
-  
-  //属性注入
-  populateBean(beanName, mbd, instanceWrapper);
-  
-  //执行Bean生命周期的初始化回调
-  exposedObject = initializeBean(beanName, exposedObject, mbd);
-  ```
-  
-- 整个初始化过程就是通过八个BeanPostProcessors来实现：
+提供三个方法：
 
-##### 	BeanPostProcessor有5种类型接口：
+- predictBeanType，获取bean的类型
+- determineCandidateConstructors，自定义bean的构造方法
+- getEarlyBeanReference，获取提前暴露bean的引用
 
-- **BeanPostProcessor**
+实现类和作用有：
 
-  定义Bean初始化回调前后的逻辑代码
+`AnnotationAwareAspectJAutoProxyCreator`用于对bean进行动态代理，实现aop
 
-  ```java
-  public interface BeanPostProcessor {
-      //Bean执行初始化回调之前执行
-  	@Nullable
-  	default Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-  		return bean;
-  	}
-  
-      //Bean执行初始化回调之后执行
-  	@Nullable
-  	default Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-  		return bean;
-  	}
-  }
-  ```
+**3、MergedBeanDefinitionPostProcessor**
 
-- **InstantiationAwareBeanPostProcessor**
+提供一个方法：
 
-  提供三个方法：
+- postProcessMergedBeanDefinition，在bean实例化之后，对当前Bean的BeanDeinition对象进行修改
 
-  - Bean实例化前，是否提供其他对象，作为其实例化对象
-  - Bean实例化后，执行属性注入前，设置Bean是需要正常执行自动依赖注入
-  - Bean属性注入后，实现Bean的初始化回调，检测属性注入值，可以进行重新赋值
+实现类和作用有：
 
-  ```java
-  public interface InstantiationAwareBeanPostProcessor extends BeanPostProcessor {
-      //这个方法用来在对象实例化前直接返回一个对象（如代理对象）来代替通过内置的实例化流程创建对象；
-      @Nullable
-      default Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName) throws BeansException {
-          return null;
-      }
-      
-      //在对象实例化完毕执行populateBean之前 如果返回false则spring不再对对应的bean实例进行自动依赖注入。
-      default boolean postProcessAfterInstantiation(Object bean, String beanName) throws BeansException {
-          return true;
-      }
-      
-      //这里是在spring处理完默认的成员属性，应用到指定的bean之前进行回调，可以用来检查和修改属性，最终返回的PropertyValues会应用到bean中
-      //@Autowired、@Resource等就是根据这个回调来实现最终注入依赖的属性的
-      @Nullable
-      default PropertyValues postProcessPropertyValues(
-              PropertyValues pvs, PropertyDescriptor[] pds, Object bean, String beanName) throws BeansException {
-          return pvs;
-      }
-  }
-  ```
+`AutowiredAnnotationBeanPostProcessor`  对@Autowired、@Value注解处理进行准备操作
 
-- **SmartInstantiationAwareBeanPostProcessor**
+`CommonAnnotationBeanPostProcessor`  对@Resource、@PostConstruct、注解进行祖辈操作
 
-  实例化之前执行，提供给spring内部使用，来确认Bean的实例化方式
+**4、DestructionAwareBeanPostProcessor**
 
-  ```java
-  public interface SmartInstantiationAwareBeanPostProcessor extends InstantiationAwareBeanPostProcessor {
-      //用来返回目标对象的类型（比如代理对象通过raw class获取proxy type 用于类型匹配）
-      @Nullable
-      default Class<?> predictBeanType(Class<?> beanClass, String beanName) throws BeansException {
-          return null;
-      }
-      //这里提供一个拓展点用来解析获取用来实例化的构造器（比如未通过bean定义构造器以及参数的情况下，会根据这个回调来确定构造器）
-      @Nullable
-      default Constructor<?>[] determineCandidateConstructors(Class<?> beanClass, String beanName)
-              throws BeansException {
-          return null;
-      }
-      //获取要提前暴露的bean的引用，用来支持单例对象的循环引用（一般是bean自身，如果是代理对象则需要取用代理引用）
-      default Object getEarlyBeanReference(Object bean, String beanName) throws BeansException {
-          return bean;
-      }
-  }
-  ```
+bean销毁前执行，用于Bean声明周期的销毁回调
 
-- **MergedBeanDefinitionPostProcessor**
+```java
+public interface DestructionAwareBeanPostProcessor extends BeanPostProcessor {
+    //这里实现销毁对象的逻辑
+    void postProcessBeforeDestruction(Object bean, String beanName) throws BeansException;
+    //判断是否需要处理这个对象的销毁
+    default boolean requiresDestruction(Object bean) {
+        return true;
+    }
+}
+```
 
-  bean实例化之后执行，检测和修改当前Bean的BeanDefinition属性
+##### 2.7.5.1、Bean初始化过程
 
-  ```java
-  public interface MergedBeanDefinitionPostProcessor extends BeanPostProcessor {
-      //在bean实例化完毕后调用 可以用来修改merged BeanDefinition的一些properties 或者用来给后续回调中缓存一些meta信息使用
-      //这个算是将merged BeanDefinition暴露出来的一个回调
-      void postProcessMergedBeanDefinition(RootBeanDefinition beanDefinition, Class<?> beanType, String beanName);
-  }
-  ```
-
-- **DestructionAwareBeanPostProcessor**
-
-  bean销毁前执行，用于Bean声明周期的销毁回调
-
-  ```java
-  public interface DestructionAwareBeanPostProcessor extends BeanPostProcessor {
-      //这里实现销毁对象的逻辑
-      void postProcessBeforeDestruction(Object bean, String beanName) throws BeansException;
-      //判断是否需要处理这个对象的销毁
-      default boolean requiresDestruction(Object bean) {
-          return true;
-      }
-  }
-  ```
-
-##### Bean初始化过程中BeanPostProcessor的执行过程：
-
-Bean的初始化过程有8个BeanPostProcessor、实例化执行、属性注入和初始化回调共同构成
+基于所有BeanPostProcessor方法调用，Bean初始化过程分为八步：
 
 | 序号 | BeanPostProcessor接口类型和方法                              | 执行点和作用                                                 |
 | ---- | ------------------------------------------------------------ | ------------------------------------------------------------ |
@@ -1874,9 +1283,9 @@ Bean的初始化过程有8个BeanPostProcessor、实例化执行、属性注入�
 | 7    | BeanPostProcessor.postProcessAfterInitialization             | Bean初始化回调后                                             |
 | 8    | DestructionAwareBeanPostProcessor.postProcessBeforeDestruction | 执行Bean的销毁回调                                           |
 
-spring初始化过程对应执行的注解：
+spring初始化过程对应处理入口：
 
-| 初始化过程       |                                                              |
+| 初始化过程       | 入口                                                         |
 | ---------------- | ------------------------------------------------------------ |
 | 实例化           | 实现构造方法的属性注入（@AutoWired注解在构造方法上）         |
 | 属性注入         | @AutoWired、@Value                                           |
@@ -1886,25 +1295,7 @@ spring初始化过程对应执行的注解：
 | Bean销毁回调前   | @Processor                                                   |
 | Bean销毁回调     | 实现DisposableBean接口                                       |
 
-**BeanPostProcessor接口和InitializingBean、DisposableBean接口区别：**
 
-1、前者是通过BeanPostProcessor的执行方式，作用于所有Bean的初始化阶段
-
-2、后者是提供针对于实现该接口的单个Bean，编写初始化和销毁方法，无法作用于所有Bean（XML中的init-method、destroy-method就是使用这种方式）
-
-3、@PostConstruct发生在BeanPostProcessor接口方法后；@Processor发生在DisposableBean接口前
-
-##### Aware接口的回调执行点：
-
-1、对于Bean完成属性注入后，在执行BeanPostProcessor.postProcessBeforeInitialization方法前，会进行部分Aware接口的回调，回调顺序如下：
-
-BeanNameAware、BeanClassLoaderAware、BeanFactoryAware
-
-2、然后开始执行BeanPostProcessor.postProcessBeforeInitialization，其中一个为：
-
-ApplicationContextAwareProcessor.postProcessBeforeInitialization,用于进行其他Aware接口的回调，回调顺序如下：
-
-EnvironmentAware、EmbeddedValueResolverAware、ResourceLoaderAware、ApplicationEventPublisherAware、MessageSourceAware、ApplicationContextAware
 
 ### ApplicationContext其他功能：
 
@@ -2110,7 +1501,7 @@ registry.registerBeanDefinition("helloWord", bean);
 
 ## 3、AOP
 
-### AOP概念
+### 3.1、基本概念
 
 - AOP的定义：
 
@@ -2128,80 +1519,109 @@ registry.registerBeanDefinition("helloWord", bean);
   1. 提供声明式的企业服务，如spring的声明式事务管理
   2. 为用户提供切面编程开发手段，即spring aop
 
-### AOP底层原理
+### 3.2、AOP原理-动态代理
 
-- AOP底层原理技术：动态代理
+​	AOP底层原理技术为动态代理，分为JDK动态代理和CGLIB动态代理
 
-- 两种动态代理：JDK动态代理、CGLIB动态代理
+- JDK动态代理：
 
-  - JDK动态代理：创建接口实现类的代理对象，从而增强实现类的方法
+  ​		创建接口实现类的代理对象，从而增强实现类的方法
 
-    代码实现过程如下：
+  代码实现过程如下：
 
-    通过JDK提供的java.lang.reflect.Proxy对象，来创建singerL类的代理对象，参数需要singerL的类加载器、singerL类的接口和java.lang.reflect.InvocationHandler接口的实现类，在实现InvocationHandler接口中，编写方法增强代码;在执行Method.invoke方法时，还需要singerL实例对象
+  ​		1、通过JDK提供的java.lang.reflect.Proxy对象newProxyInstance方法来创建代理对象
 
-    ```java
-    		//动态代理
-    		Singer singerProxy1 = (Singer)Proxy.newProxyInstance(singerL.getClass().getClassLoader(),
-    				new InvocationHandler() {
-    					@Override
-    					public Object invoke(Object proxy, Method method, Object[] args){
-    						System.out.println("进行动态代理1");
-    						Object invoke = method.invoke(singerL, args);
-    						System.out.println("进行动态代理2");
-                            //invoke为singerL实现类的当前方法的返回值；当return null时，代理类执行返回值就为null
-    						return invoke;
-    					}
-    				});
-    		singerProxy1.sing();
-    ```
+  ​		2、方法参数包括：目标类的类加载器、目标类所实现的接口、InvocationHandler对象
 
-    InvocationHandler接口的invoke方法参数：proxy 生成的代理对象；method 目标类方法对象； agrs 目标类方法参数
+  ​		3、在InvocationHandler中，重写invoke方法，完成目标类指定方法的拦截处理
 
-    method.invoke(singerL, args) 直接执行目标类对象方法
+  ​		4、在invoke方法中，proxy为代理对象，method为目标类方法对象，args为目标类方法参数；通过method.invoke(目标类实例，args)来执行原方法
 
-  - CGLIB动态代理：创建当前类子类的代理对象，从而增强当前类的方法
+  ```java
+  		//动态代理
+  		Singer singerProxy1 = (Singer)Proxy.newProxyInstance(singerL.getClass().getClassLoader(),Singer.classs
+  				new InvocationHandler() {
+  					@Override
+  					public Object invoke(Object proxy, Method method, Object[] args){
+  						System.out.println("进行动态代理1");
+  						Object invoke = method.invoke(singerL, args);
+  						System.out.println("进行动态代理2");
+                          //invoke为singerL实现类的当前方法的返回值；当return null时，代理类执行返回值就为null
+  						return invoke;
+  					}
+  				});
+  		singerProxy1.sing();
+  ```
 
-    代码实现过程如下：
+- CGLIB动态代理：
 
-    - 首先需要导入额外依赖包：cglib（在spring-core中已经包含了该工具包）
+  ​		创建当前类子类的代理对象，从而增强当前类的方法
 
-    创建一个enhancer对象，用于设置动态代理的目标类、方法拦截器；最后在生成以目标类作为父类继承的子类代理类
+  代码实现过程如下：
 
-    ```java
-    		Enhancer enhancer = new Enhancer();
-    		enhancer.setSuperclass(SingerL.class);
-    		enhancer.setCallback(new MethodInterceptor() {
-    			@Override
-    			public Object intercept(Object Proxy, Method method, Object[] arg, MethodProxy methodProxy) throws Throwable {
-    				System.out.println("进行动态代理1");
-    				Object invokeSuper = methodProxy.invokeSuper(Proxy, args);
-    				System.out.println("进行动态代理2");
-    				return invokeSuper;
-    			}
-    		});
-    		
-    		SingerL singerLProxy = (SingerL)enhancer.create();
-    		singerLProxy.sing();
-    ```
+  1、首先需要导入额外依赖包：cglib（在spring-core中已经包含了该工具包）
 
-    MethodInterceptor接口的intercept方法参数：Proxy 生成代理对象、method 目标类的方法对象、arg 方法参数、methodProxy 代理类的方法对象
+  2、创建一个enhancer对象，用于设置动态代理的目标类、方法拦截器
+  
+  3、最后在生成以目标类作为父类继承的子类代理类
+  
+  ```java
+  		Enhancer enhancer = new Enhancer();
+  		enhancer.setSuperclass(SingerL.class);
+  		enhancer.setCallback(new MethodInterceptor() {
+  			@Override
+  			public Object intercept(Object Proxy, Method method, Object[] arg, MethodProxy methodProxy) throws Throwable {
+  				System.out.println("进行动态代理1");
+  				Object invokeSuper = methodProxy.invokeSuper(Proxy, args);
+  				System.out.println("进行动态代理2");
+  				return invokeSuper;
+  			}
+  		});
+		
+  		SingerL singerLProxy = (SingerL)enhancer.create();
+		singerLProxy.sing();
+  ```
 
-     methodProxy.invokeSuper(Proxy, args) ：使用代理对象来执行其父类方法（即目标类的方法）
+**spring动态代理方式的选择：**
 
-- spring动态代理方式的选择：
+​		spring默认使用JDK动态代理，由于JDK动态代理需要基于目标类的接口来实现，因此要确保目标类有对应的接口；当没有接口时，spring则使用CGlib动态代理的方式实现
 
-  spring默认使用JDK动态代理，由于JDK动态代理需要基于目标类的接口来实现，因此要确保目标类有对应的接口；当没有接口时，spring则使用CGlib动态代理的方式实现
+springAOP在使用动态代理实现切面编程中，是基于IOC容器的依赖注入，实现动态代理类的创建和使用的；**因此在使用AOP时，需要保证被增强类和增强类都被IOC容器管理**
 
-- springAOP在使用动态代理实现切面编程中，是基于IOC容器的依赖注入，实现动态代理类的创建和使用的；**因此在使用AOP时，需要保证被增强类和增强类都被IOC容器管理**
+**动态代理对于final或private修饰方法的处理：**
 
-### AOP术语
+- 对于JDK动态代理，需要基于目标类接口，而接口方法只能为public（非final），因此不支持final或private的动态代理
+- 对于CGLIB动态代理，则通过动态创建目标类子类方式进行代理，因此只会继承public（非final）方法，，因此不支持final或private的动态代理
 
-- 连接点：程序运行中，被AOP代理执行的所有方法，即可以被增强的方法
+### 3.3、springAOP的使用
 
-- 切入点：表示实际被真正增强的方法
+​		通过导入spring-aop包，来引入springAop模块；同时springAop基于IOC容器来进行对象管理，因此还需要导入springIOC容器相关依赖
 
--  增强/通知：用于方法增强的代码；通知可以分为多种类型：前置通知、后置通知、环绕通知、异常通知、最终通知
+​		spring-aop提供三种使用方式，xml、注解、接口编程式；一般推荐使用注解方式，更加简洁；而注解方式需要基于AspectJ完成（单独的AOP框架）
+
+#### 3.2.1、AspectJ
+
+​		AspectJ是一个AOP框架，它扩展了java语言，定义了AOP语法
+
+**实现原理：**
+
+​		通过专门的编译器，解读AOP语法，在编译过程中，对目标类进行切面代码织入，生成class文件；因此被称之为静态织入
+
+**优缺点：**
+
+- 缺点：需要专门的编译器ajc；新增增强代码时，需要重新编译被增强目标类
+- 优点：从class文件上，就进行了AOP的实现，性能更好；支持多个所有级别的切入点，AOP能力更加强大
+
+#### 3.2.2、AOP术语
+
+​		AOP作为一种编程思想，相对于OOP（面向对象编程），提供了一系列新的术语
+
+- 切面（Aspect）：声明当前类可以用于AOP，包含通知和切入点
+
+- 连接点（JointPoint）：进行AOP增强的目标方法
+- 切入点（Pointcut）：表示一组连接点，通过切入点表达式进行匹配，找到满足条件的连接点
+
+- 通知（Advice）：定义具体的增强处理，并声明通知类型
 
   | 通知类型 | 代码执行时间点                                               |
   | -------- | ------------------------------------------------------------ |
@@ -2211,151 +1631,231 @@ registry.registerBeanDefinition("helloWord", bean);
   | 异常通知 | 当原方法出现异常时                                           |
   | 最终通知 | 类似于JAVA异常中的finally，无论方法是否发生异常，都会在最后被执行 |
 
-- 切面：将通知配置到切入点上的过程
+- 织入（Weaving）：表示完成AOP增强操作的过程
 
-### AOP的使用
+#### 3.2.3、springAop（注解版）
 
-#### AOP相关依赖
+​		springAop（注解）基于AspectJ实现，spring利用AspectJ框架的配置模式，使用其aop相关注解和切入点表示，来完成AOP的定义；内部则完全通过动态代理，在运行期实现对目标类的增强；因此被称之为动态织入
 
-- springIOC容器和AOP是虽然是两个不同的模块，但是springAOP的使用依赖于IOC容器，因此需要spring核心容器的相关依赖：spring-beans、spring-core、spring-context、spring-expression
+**优缺点：**
 
-- 同时springAOP容器使用还需要：
+- 缺点：依赖于springIOC容器，由于是动态代理实现方法增强，因此性能不如AspectJ；只支持方法级别的切入点
+- 优点：纯java代码实现，无需额外编译，使用更加简单
 
-  spring-aop（spring-context会将其依赖导入）：提供spring对AOP的实现
+**依赖：**
 
-  spring-aspects（会依赖导入aspectjweaver包）：提供spring对AspectsJ框架配置驱动的整合；aspectjweaver则就是支持aop相关注解和切入点表达式
+​		spring-aop默认不会引入AspectsJ模块依赖，需要额外导入spring-aspects（提供spring对于AspectJ配置驱动的整合）、aspectjweaver（提供aop相关注解和切入点表达式）
 
-#### AOP切入点表达式
+##### 3.2.3.1、springAop切面注解
 
-作用：用于定义需要对哪个类的哪个方法进行增强
+- @EnableAspectJAutoProxy：开启springAop功能
 
-execution（[权限修饰符]    [返回类型]    [全类名].[方法名] ([参数列表])）  
+- @Aspect：注解在指定类上，将其声明切面类（需要保证该类被IOC容器管理）
 
-可以通过*   表示匹配任意值，例子：
+- @Pointcut：注解在指定方法上，用于声明切入点，定义切入点表达式；此时该方法签名在aspectJ语法中，就表示为该切入点，实现切入点表达式的复用（需要保证方法返回值为void，无参）
+
+- 通知注解：注解在指定方法上，搭配切入点，定义通知内容和通知类型
+
+  | 通知注解        | 对应通知类型           | 通知执行点                                               |
+  | --------------- | ---------------------- | -------------------------------------------------------- |
+  | @Before         | 前置通知               | 连接点方法执行前                                         |
+  | @AfterReturning | 后置通知（返回前通知） | 连接点方法执行、返回结果前                               |
+  | @Around         | 环绕通知               | 控制整个连接点方法的执行（执行完成的前后处理、是否执行） |
+  | @AfterThrowing  | 异常通知               | 在连接点方法发生异常后执行（可以匹配指定异常）           |
+  | @After          | 最终通知               | 连接点方法执行、返回结果后                               |
+
+##### 3.2.3.2、切入点表达式
+
+AspectJ切入点表达式语法，提供9种匹配、限制语句
+
+| 表达式类型  | 规则                                                         |
+| ----------- | ------------------------------------------------------------ |
+| execute     | 匹配连接点方法（灵活性高，最常用）                           |
+| within      | 限制连接点所在的包、类                                       |
+| this        | 限制AOP代理类的类型                                          |
+| target      | 限制AOP目标类的类型                                          |
+| args        | 限制连接点方法的参数类型；同时可以搭配通知方法进行连接点实参传递 |
+| @target     | 限制AOP目标类的类型上必须包含指定注解                        |
+| @args       | 限制连接点方法参数类型的类上，包含指定注解                   |
+| @within     | 限制连接点所在类上，包含指定注解                             |
+| @annotation | 限制连接点方法必须包含指定注解                               |
+
+**execution表达式格式：**
+
+​		execution（[权限修饰符]    [返回类型]    [包名.类名].[方法名] ([参数列表]) throws [异常类型]）  
+
+注意：
+
+- 由于AOP基于动态代理，因此连接点方法必须为public，所以权限修饰符可以省略
+- 包名和类名可以省略，表示任意类
+- throws一般情况下，推荐省略
+
+通配符：
+
+- *匹配所有支付
+
+- ..   匹配多个包、多个参数
+- +表示类和其子类
+
+**可以搭配&&将execution和其他限制语句一起使用：**
 
 ```java
-execution(public void yh.com.User.setUser(String id))   
+//com.yh.common.aop包下任意public方法
+execution(* *(..))&&within(com.yh.common.aop..*)
 ```
 
-#### springAOP的声明方式：
+**限制语句也可以单独使用：**
 
-##### springAOP提供三种声明方式：
+```java
+//com.yh.common.aop包下任意方法
+within(com.yh.common.aop..*)
+```
 
-1. xml
-2. java注解
-3. AOP api
+##### 3.2.3.3、五种通知使用规范和使用场景：
 
-- 对于XML和java注解，spring是利用AspectJ框架中配置引擎来完成的，但是在实现上并不依赖于AspectJ编译器，而是使用动态代理完成；而AOP api 是提供了spring在实现AOP的一系列接口，从而以代码编程的方式来完成，一般不推荐使用
+- @Before：
 
-##### AspectJ和springAOP的区别：
+  通知方法返回值应该为void（允许设置返回值，但没有意义），参数列表只能引入JoinPoint对象（保证第一个参数），用于获取连接点信息（代理对象、目标对象、连接点方法信息）
 
-- AspectJ是一个AOP框架，它扩展了java语言，定义了AOP语法。它的底层实现是需要使用一个专门的编译器，解读AOP语法，然后在目标类中进行切面代码的织入，生成class文件；称之为静态织入
-  - 缺点：需要专门的编译器ajc；新增增强代码时，需要重新编译被增强目标类
-  - 优点：从class文件上，就进行了AOP的实现，性能更好；支持多个所有级别的切入点，AOP能力更加强大
-- springAOP利用动态代理，来在运行期实现目标类的增强；在ioc容器初始化Bean时，创建动态代理类进行依赖注入；因此称之为动态织入
-  - 缺点：依赖于springIOC容器，由于是动态代理实现方法增强，因此性能不如AspectJ；只支持方法级别的切入点
-  - 优点：纯java代码实现，无需额外编译，使用更加简单
+  **一般用于方法调用前的日志记录**
 
-#### 基于AspectJ注解的AOP
+- @After：
 
-- 在配置类中添加@EnableAspectJAutoProxy
+  和@Before一致
 
-  - @EnableAspectJAutoProx：启用@AspectJ的所有注解
+  **一般用于方法调用后的日志记录、资源关闭**
 
-- 编写一个增强类，用于提供切面编程的逻辑代码，并添加@Aspect、@Component
+- @AfterReturning
 
-  - @Aspect：声明该类为一个切面类，提供切面编程的逻辑代码
-  - @Component：springAOP注解的作用，是基于ICO容器Bean进行管理的，因此@Aspect注解需要被IOC容器管理，才能够生效
+  通知方法返回值应该为void（允许设置返回值，但没有意义），参数列表可以引入JoinPoint对象（保证第一个参数）；搭配returning属性，可以通过通知方法参数接收连接点返回值对象，需要保证通知方法参数名和reurning属性值一致；从而实现对其返回值对象的处理（对于final对象，无法进行修改）
 
-- 使用**通知注解** 注解在增强类的方法上，并配置切入点
+  **一般用于对方法返回值进行额外处理，如对结果进行缓存**
 
-  | 通知注解        | 对应通知类型 |
-  | --------------- | ------------ |
-  | @Before         | 前置通知     |
-  | @AfterReturning | 后置通知     |
-  | @Around         | 环绕通知     |
-  | @AfterThrowing  | 异常通知     |
-  | @After          | 最终通知     |
+- @AfterThrowing
+
+  通知方法返回值应该为void（允许设置返回值，但没有意义），参数列表可以引入JoinPoint对象（保证第一个参数）；搭配throwing属性，可以通过通知方法参数来接收连接点抛出的异常对象，需要保证通知方法参数名和throwing属性值一致；同时连接点只有抛出该异常类型，才会进行该通知处理
+
+  **一般用于方法调用异常的日志记录（并不能对捕获异常）**
+
+- @Around
+
+  通知方法返回值应该为Object，参数列表可以引入ProceedingJoinPoint对象（保证第一个参数），在JoinPoint对象基础上提供了执行连接点方法功能；可以对整个连接点方法执行前后进行处理、控制连接点方法是否执行、自定义返回值
+
+  **一般用于统一异常处理、缓存控制**
+
+可以看出，@Around功能最为强大，实际上可以实现其他4中通知功能；但在满足需求的情况下，应该选择更加简单的通知
+
+**五种通知同时声明时，其执行顺序：**
+
+| 通知处理流程                     |
+| -------------------------------- |
+| 环绕通知-方法执行前              |
+| 前置通知                         |
+| 方法执行中                       |
+| 后置通知（异常通知）             |
+| 最终通知                         |
+| 环绕通知-后（环绕通知-异常处理） |
+
+**通知优先级和执行顺序：**
+
+​		当一个切入点有多个同类型通知时，其优先级则根据IOC容器注册顺序决定；如果通知都在同个Bean中，优先级根据通知方法的声明顺序决定
+
+​		优先级越高，增强代码越靠近目标源代码，即前置通知优先级越高，越后执行；后置通知优先级越高，越前执行
+
+##### 3.2.3.4、通知方法的参数传递
+
+​		所有通知方法都默认允许接收JoinPoint对象，用于获取连接点信息；并且需要作为第一参数
+
+JoinPoint常用方法：
+
+| 方法名           | 作用               |
+| ---------------- | ------------------ |
+| getArgs（）      | 返回方法参数       |
+| getThis（）      | 返回代理对象       |
+| getTarget（）    | 返回目标对象       |
+| getSignature（） | 返回连接点方法信息 |
+
+​		基于**args**切入点表达式，通知方法还可以直接接收连接点实参对象：
+
+```java
+	@Before("name()&&args(fixed)")
+	public void beforeAop(JoinPoint joinPoint,String fixed) {
+		System.out.println(fixed);
+		System.out.println("前置通知");
+	}
+```
+
+##### 3.2.3.4、使用Demo
+
+**切面：**
 
 ```java
 @Component
 @Aspect
-public class SingerProxy {
-	
-	@Before("execution(public String com.yh.aop.SingerL.sing()) ")
-	public void before() {
-		System.out.println("sing前");
-	};
-    
-    @AfterReturning("execution(public String com.yh.aop.SingerL.sing()) ")
-	public void afterReturning() {
-		System.out.println("sing后");
-	};
+public class AopAspect {
+
+	@Pointcut("execution(public * com.yh.common.demo.aop.AopTarget.getName(..))")
+	public void name() {
+	}
+
+	@Before("name()")
+	public void beforeAop(JoinPoint joinPoint) {
+		System.out.println("前置通知");
+	}
+
+	@After(value = "name()")
+	public void afterAop(JoinPoint joinPoint) {
+		System.out.println("最终通知");
+	}
+
+	@AfterReturning(value = "name()", returning = "retVal")
+	public void afterAop(JoinPoint joinPoint, Object retVal) {
+		System.out.println("返回值:"+retVal);
+		((Map<String, String>) retVal).put("name","yh");
+		System.out.println("返回前通知");
+	}
+
+	@AfterThrowing(value = "name()",throwing = "e")
+	public void afterAop(JoinPoint joinPoint, BusinessException e) {
+		System.out.println("异常处理");
+	}
+
+	@Around(value = "name()")
+	public Object around(ProceedingJoinPoint proceedingJoinPoint)  {
+		System.out.println("环绕通知-方法执行前");
+
+		Object proceed = null;
+		try {
+			proceed = proceedingJoinPoint.proceed();
+		} catch (Throwable throwable) {
+			System.out.println("环绕通知-处理异常");
+		}
+		System.out.println("环绕通知-方法执行前");
+		return proceed;
+	}
 }
 ```
 
-- 通过@Pointcut可以实现**公共切入点的声明**，实现切入点声明代码的复用，直接使用@Pointcut注解的**方法签名**作为**通知注解的value属性值**
+目标类：
 
 ```java
 @Component
-@Aspect
-public class SingerProxy {
-    
-    @Pointcut("execution(public String com.yh.aop.SingerL.sing())")
-    public void sing(){};
-	
-	@Before("sing()")   
-	public void before() {
-		System.out.println("sing前");
-	};
-    
-    @AfterReturning("sing()")
-	public void afterReturning() {
-		System.out.println("sing后");
-	};
+public class AopTarget {
+
+	public Map<String, String> getName(String fixed) throws Exception{
+		System.out.println("目标方法执行中");
+		Map<String,String> map  = new HashMap<>();
+		map.put("name",fixed+"Name");
+		if (Objects.equals(fixed,"1")){
+			throw new BusinessException("");
+		}else {
+			return map;
+		}
+	}
 }
 ```
 
-- 通过@Order可以设置增强类在IOC容器中注册的优先级，从而也就定义了目标动态代理类中相同切入点，增强代码的优先级
-
-  原则：优先级越高，增强代码越靠近目标源代码，原理为**动态代理的迭代**
-
-  - 原代码
-
-  ```java
-  	public String sing() {
-  		System.out.println("singerL实现类");
-  		return "sing";
-  	}
-  ```
-
-  - 最高优先级的增强类方法，进行切入点的动态代理
-
-  ```java
-  	public String sing() {
-          system.out.println("sing前A")
-  		System.out.println("singerL实现类");
-          system.out.println("sing后A")
-  		return "sing";
-  	}
-  ```
-
-  - 第二优先级的增强类方法，进行切入点的动态代理
-
-  ```java
-  	public String sing() {
-          system.out.println("sing前B")
-          system.out.println("sing前A")
-  		System.out.println("singerL实现类");
-          system.out.println("sing后A")
-          system.out.println("sing前B")
-  		return "sing";
-  	}
-  ```
-
-  因此可以得知：**优先级越高，Before越后执行，after越先执行**
-
-  **在同一个增强类中，相同切入点，会根据方法名来定义其优先级，无法使用@Order进行控制**
+### 3.4、springAOP实际应用场景
 
 ## spring面试问题：
 

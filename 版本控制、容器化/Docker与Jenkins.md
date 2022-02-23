@@ -370,7 +370,7 @@ docker run --name system -d -p 8001:8001  system
 
 ## 8 、docker各种常用开发软件镜像启动规范：
 
-- mysql： docker run --name mysql01  -e MYSQL_ROOT_PASSWORD=123456  -p 3306:3306 -d   --restart always  mysql
+- mysql： docker run --name mysql01  -e MYSQL_ROOT_PASSWORD=123456  -p 3306:3306 -d   --restart always  mys
 
 指定root用户登入的密码（否则mysql启动失败）、指定端口映射（用于访问mysql）
 

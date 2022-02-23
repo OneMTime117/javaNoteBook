@@ -1117,6 +1117,8 @@ private List<Gread> gread;
 
 **ofType：是collection标签和association唯一不同的属性，用于指定集合的泛型**
 
+**集合嵌套映射必须保证外层实体类中的id被声明,否则mybatis无法确定将哪些外层数据对应的内层数据合并为一组集合**
+
 #### 7.2.5、discriminator（鉴别器）子标签：
 
 ​		类似于java语言中的switch语句；根据结果集中的某个字段值，来选择结果集中需要映射的部分字段

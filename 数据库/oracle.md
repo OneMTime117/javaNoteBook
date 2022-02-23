@@ -1115,7 +1115,7 @@ B树索引（普通索引）、位图索引、唯一索引、函数索引
   Flashback table table_name to Timestamp/scn ?
   ```
 
-  5、
+  5、flashback drop
 
   需要保证，数据库开启了回收站功能，从而时flashback drop生效
 

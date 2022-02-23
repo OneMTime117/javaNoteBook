@@ -2189,3 +2189,5 @@ spring.datasource.druid.one.max-wait=10000
 ## 8、HuTool
 
 见官方文档
+
+writer.autoSizeColumnAll() 自适应单元格宽度
