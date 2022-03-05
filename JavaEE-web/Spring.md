@@ -1295,209 +1295,41 @@ spring初始化过程对应处理入口：
 | Bean销毁回调前   | @Processor                                                   |
 | Bean销毁回调     | 实现DisposableBean接口                                       |
 
+### 2.8、编程式注册Bean：
 
-
-### ApplicationContext其他功能：
-
-#### 资源加载：
-
-- spring提供了Resource接口，重新定义了java中各种资源获取的API，功能更加强大，且使用方便；其实现类包括：
-
-  | 类名                   | 作用                                                         |
-  | ---------------------- | ------------------------------------------------------------ |
-  | UrlResource            | 对java.net.URL进行了包装，通过不同前缀，来进行不同类型的资源访问 |
-  | ClassPathResource      | 从当前类路径中获取资源                                       |
-  | FileSystemResource     | 从文件系统中获取资源                                         |
-  | ServletContextResource | 从web应用根目录中获取资源                                    |
-  | InputStreamResource    | 通过一个输入流来创建资源对象                                 |
-  | ByteArrayResource      | 通过一个字节数组来创建资源对象                               |
-
-- UrlResource，前缀和访问资源类型的匹配策略：
-
-  | 前缀           | 访问资源类型          |
-  | -------------- | --------------------- |
-  | classpath：    | 类路径                |
-  | file：         | 文件系统              |
-  | https：/http： | URL                   |
-  | 无             | 根据ReourceLoader决定 |
-
-- ReourceLoader接口资源加载器
-
-  ApplicationContext就实现了这个接口，根据不同了Reource实现类，加载特定的Resource资源
-
-- spring提供ResourceLoaderAware接口，用于获取ApplicationContext中的ReourceLoader,手动进行外部资源加载
-
-#### 国际化功能（i18n）
-
-spring提供了一个**MessageSource接口**，用于提供国际化功能（i18n）。同时还提供了**HierarchicalMessageSource接口**，用于分层解析消息，**根据不同的地区，对消息进行不同的解析**
-
-**自定义MessageSource：**
-
-提供三种解析消息的方法，以消息编码、参数、默认消息、地区四个参数进行自定义逻辑代码解析，实现国际化
-
-```java
-public class MyMessage implements MessageSource{
-
-	@Override
-	public String getMessage(String code, Object[] args, String defaultMessage, Locale locale) {
-	}
-
-	@Override
-	public String getMessage(String code, Object[] args, Locale locale) throws NoSuchMessageException {
-		return null;
-	}
-
-	@Override
-	public String getMessage(MessageSourceResolvable resolvable, Locale locale) throws NoSuchMessageException {
-		return null;
-	}
-}
-```
-
-spring提供一些MessageSource实现类，按照相应配置实现国际化功能（由于一般用于JSP页面，因此不进行深入）
-
-#### 事件监听
-
-spring提供ApplicationEvent类和ApplicationListener接口提供事件监听处理，在spring4.2后，提供基于注解的方式发布事件：
-
-spring提供多个默认事件:
-
-| 事件                       | 作用                                                         |
-| -------------------------- | ------------------------------------------------------------ |
-| ContextRefreshedEvent      | applicationContext刷新（只支持可以热刷新的applicationContext，如XmlWebApplicationContext） |
-| ContextStartedEvent        | applicationContext调用Start方法                              |
-| ContextStoppedEvent        | applicationContext调用Stop方法                               |
-| ContextClosedEvent         | applicationContext调用close方法                              |
-| RequestHandledEvent        | web应用中，spring的DispatcherServlet拦截到http请求           |
-| ServletRequestHandledEvent | RequestHandledEvent的子类，添加了拦截http请求的servlet信息   |
-
-通过实现ApplicationListener接口的Bean来监听这些事件，执行相应代码：
-
-- 自定义事件（不需要放到spring容器中）
-
-```java
-public class MyEvent extends ApplicationEvent {
-	
-	public MyEvent(Object source) {
-		super(source);
-	}
-}
-```
-
-- 自定义事件监听器（被spring容器管理）
-
-```java
-@Component
-public class MyEventListener implements ApplicationListener<MyEvent>{
-
-	@Override
-	public void onApplicationEvent(MyEvent event) {
-		System.out.println(event.getSource());
-	}
-}
-```
-
-- 使用ApplicationContext发布事件，监听器触发执行代码
-
-```java
-context.publishEvent(new MyEvent("sd"));
-```
-
-#### 在web应用快速创建ApplicationContext实例化
-
-ApplicationContext提供声明式的方式来创建其实例，用于web应用中，通过监听器伴随web应用的启动，初始化spring容器：
-
-在web项目的web.xml中进行配置：
-
- ```java
-	<!-- 定义上下文参数，用于指定spring的xml配置文件 -->
-	<context-param>
-    	<param-name>contextConfigLocation</param-name>
-    	<param-value>/WEB-INF/daoContext.xml /WEB-INF/applicationContext.xml</param-	value>
-	</context-param>
-
-	<!-- 配置spring容器监听器，当项目启动时，自动初始化spring容器 -->
-	<listener>
-		<listener-class>
-			org.springframework.web.context.ContextLoaderListener
-		</listener-class>
-	</listener>
- ```
-
-当**contextConfigLocation**参数没有指定时，spring该监听器会默认扫描**/WEB-INF/applicationContext.xml**路径
-
-### spring实现Bean的手动注册：
-
-1、直接通过ApplicationContext，在IOC容器初始化后手动注册；该方式并不会将该Bean交给spring管理，因此**不会遵循springBean的生命周期，只是单纯用于spring将其依赖注入到其他bean中**（一般不使用）
+1、通过`ApplicationContext`对象，在IOC容器初始化后手动注册
 
 ```java
 context.getBeanFactory().registerSingleton("lisr", new HelloWord());
 ```
 
-2、在IOC容器初始化前，创建指定类的BeanDefinition对象，手动注册
+​		该方式并不会将该Bean交给spring管理，因此**不会遵循springBean的生命周期，只单纯将该实例放入IOC容器**（不推荐使用）
+
+2、通过创建`BeanDefinition`对象，在BeanDefinitionRegistryPostProcessor接口中手动注册
 
 ```java
-RootBeanDefinition bean = new RootBeanDefinition(HelloWord.class);
-registry.registerBeanDefinition("helloWord", bean);
+public class MapperBeanDefinitionRegistart implements BeanDefinitionRegistryPostProcessor{
+
+	@Override
+	public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+	}
+
+	@Override
+	public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
+		RootBeanDefinition bean = new RootBeanDefinition(HelloWord.class);
+        registry.registerBeanDefinition("helloWord", bean);
+	}
+}
 ```
 
-可以通过两种方式完成：
+3、使用ImportBeanDefinitionRegistrar接口，来动态注册Bean
 
-- 使用BeanDefinitionRegistryPostProcessor接口，在执行完默认注册处理器后，执行手动注册处理器
+ImportBeanDefinitionRegistrar通过@Import进行声明在配置类上（一般放在主配置类上，搭配@ComponentScan注解）：
 
-  ```java
-  public class MapperBeanDefinitionRegistart implements BeanDefinitionRegistryPostProcessor{
-  
-  	@Override
-  	public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
-  	}
-  
-  	@Override
-  	public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
-  		RootBeanDefinition bean = new RootBeanDefinition(HelloWord.class);
-          registry.registerBeanDefinition("helloWord", bean);
-  	}
-  }
-  ```
+- AnnotationMetadata  用于获取当前配置类注解信息,即@ComponentScan中的basePackages属性
+- BeanDefinitionRegistry 用于通过`BeanDefinition`对象来注册Bean
 
-- 使用ImportBeanDefinitionRegistrar接口，创建一个动态注册Bean的实现类
-
-  使用方式：
-
-  - 实现ImportBeanDefinitionRegistrar接口
-
-    registerBeanDefinitions方法提供两个参数：
-
-    - AnnotationMetadata  使用@Import导入自身的配置类的所有注解信息
-    - BeanDefinitionRegistry spring的Bean注册类（BeanFactory实现类）
-
-    ```java
-    public class MyBeanDefinitionRegistart implements ImportBeanDefinitionRegistrar{
-    
-    	@Override
-    	public void registerBeanDefinitions(AnnotationMetadata annotationMetadata, BeanDefinitionRegistry registry) {
-            //获取当前配置类的注解信息（可以创建一个自定义注解，来获取需要注册的全类名，从而获取class对象）
-    	AnnotationAttributes annoAttrs = AnnotationAttributes.fromMap(annotationMetadata.getAnnotationAttributes(ComponentScan.class.getName()));
-    	String[] basePackages = annoAttrs.getStringArray("basePackages");
-    		
-    	//手动注册Bean（通过class对象创建）
-    	RootBeanDefinition rootBeanDefinition = new RootBeanDefinition(TestMapper.class);
-    	registry.registerBeanDefinition("testMapper", rootBeanDefinition);
-    	}
-    }
-    ```
-
-  - 在配置类上使用@Import注解到，来导入该实现类（使用@Component注册不会生效）
-
-    ```java
-    @Configuration
-    @Import(ImportBeanDefinitionRegistrarTest.class) 
-    public class ConfigurationTest {
-     	
-    }
-    ```
-
-**也可以将@Import声明到自定义注解上，然后通过自定义注解声明到配置类上，来实现整个功能（即利用组合注解，来使自定义注解具有动态注册Bean的能力，mybatis整合spring中，@MapperScan就利用了这种方式）**
+**在spring-mybatis中,就是通过该方式自定义@MapperScan,对Mapper类进行动态注册注册**
 
 ## 3、AOP
 
@@ -1692,14 +1524,16 @@ AspectJ切入点表达式语法，提供9种匹配、限制语句
 
 通配符：
 
-- *匹配所有支付
-
-- ..   匹配多个包、多个参数
+- *匹配所有字符
+- ..   匹配多级包类、多个参数
 - +表示类和其子类
 
 **可以搭配&&将execution和其他限制语句一起使用：**
 
 ```java
+//com.yh.common.aop包下任意public方法
+execution(* com.yh.common.aop..*(..))
+
 //com.yh.common.aop包下任意public方法
 execution(* *(..))&&within(com.yh.common.aop..*)
 ```
@@ -1768,12 +1602,12 @@ within(com.yh.common.aop..*)
 
 JoinPoint常用方法：
 
-| 方法名           | 作用               |
-| ---------------- | ------------------ |
-| getArgs（）      | 返回方法参数       |
-| getThis（）      | 返回代理对象       |
-| getTarget（）    | 返回目标对象       |
-| getSignature（） | 返回连接点方法信息 |
+| 方法名           | 作用                                           |
+| ---------------- | ---------------------------------------------- |
+| getArgs（）      | 返回方法参数数组，可以按顺序获取连接点实参对象 |
+| getThis（）      | 返回代理对象                                   |
+| getTarget（）    | 返回目标对象                                   |
+| getSignature（） | 返回连接点方法信息,使用**MethodSignature**接收 |
 
 ​		基于**args**切入点表达式，通知方法还可以直接接收连接点实参对象：
 
@@ -1857,7 +1691,83 @@ public class AopTarget {
 
 ### 3.4、springAOP实际应用场景
 
+**AOP登录日志记录、接口调用日志记录、接口调用性能分析、接口调用鉴权...**
+
+```java
+@Component
+@Aspect
+@Slf4j
+public class AopDemoAspect {
+
+	@Autowired
+	private UserInfoUtil userInfoUtil;
+
+
+	//登录日志记录
+	@After("execution(* com.yh.system.controller.sys.UserController.login(..))")
+	public void afterLogin(JoinPoint joinPoint) {
+		UserLoginDTO loginDTO = (UserLoginDTO) joinPoint.getArgs()[0];
+		log.info(loginDTO.getUsername() + "登录成功");
+	}
+
+	//接口调用日志记录
+	@Before("execution(* com.yh.system.controller..*(..))")
+	public void beforeController(JoinPoint joinPoint) throws NoSuchMethodException {
+		Class<?> targetClass = joinPoint.getTarget().getClass();
+		Api targetClassAnnotation = targetClass.getAnnotation(Api.class);
+		String apiName = targetClassAnnotation.tags()[0];
+		MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+		Method method = signature.getMethod();
+		ApiOperation annotation = method.getAnnotation(ApiOperation.class);
+		apiName += "-" + annotation.value();
+
+		//获取当前用户信息
+		String username = "匿名用户";
+		try {
+			UserInfoDTO userInfo = userInfoUtil.getUserInfo();
+			username = userInfo.getUsername();
+		} catch (Exception e) {
+		}
+		log.info(username + "调用接口:" + apiName);
+	}
+
+	//接口调用性能分析
+	@Around("execution(* com.yh.system.controller..*(..))")
+	public Object beforeController(ProceedingJoinPoint joinPoint) throws Throwable {
+		Class<?> targetClass = joinPoint.getTarget().getClass();
+		MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+		String apiName = targetClass.getName() + "." + signature.getName();
+
+		Instant before = Instant.now();
+		Object proceed = joinPoint.proceed();
+		Instant after = Instant.now();
+		long millis = Duration.between(before, after).toMillis();
+
+		log.info(apiName + "-接口调用时长:" + millis + "ms");
+		return proceed;
+	}
+
+	//需要鉴权接口的拦截
+	@Before("execution(* com.yh.system.controller..*(..))&&!within(com.yh.system.controller.sys.UserController)")
+	public void authController(JoinPoint joinPoint){
+		UserInfoDTO userInfo=null;
+		try {
+			 userInfo = userInfoUtil.getUserInfo();
+		} catch (Exception e) {
+
+		}
+		if (userInfo == null) {
+			throw new AuthenticationAccessException("token失效");
+		}
+	}
+}
+```
+
 ## spring面试问题：
+
+#### 1、三级缓存
+
+#### 2、循环依赖
 
 1、spring三级缓存：
 

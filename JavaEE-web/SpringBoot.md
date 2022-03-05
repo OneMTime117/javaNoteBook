@@ -950,3 +950,132 @@ springBoot默认自动配置了StringRedisTemplate、RedisTemplate：
 
 ### 4、spring-context
 
+### ApplicationContext其他功能：
+
+#### 资源加载：
+
+- spring提供了Resource接口，重新定义了java中各种资源获取的API，功能更加强大，且使用方便；其实现类包括：
+
+  | 类名                   | 作用                                                         |
+  | ---------------------- | ------------------------------------------------------------ |
+  | UrlResource            | 对java.net.URL进行了包装，通过不同前缀，来进行不同类型的资源访问 |
+  | ClassPathResource      | 从当前类路径中获取资源                                       |
+  | FileSystemResource     | 从文件系统中获取资源                                         |
+  | ServletContextResource | 从web应用根目录中获取资源                                    |
+  | InputStreamResource    | 通过一个输入流来创建资源对象                                 |
+  | ByteArrayResource      | 通过一个字节数组来创建资源对象                               |
+
+- UrlResource，前缀和访问资源类型的匹配策略：
+
+  | 前缀           | 访问资源类型          |
+  | -------------- | --------------------- |
+  | classpath：    | 类路径                |
+  | file：         | 文件系统              |
+  | https：/http： | URL                   |
+  | 无             | 根据ReourceLoader决定 |
+
+- ReourceLoader接口资源加载器
+
+  ApplicationContext就实现了这个接口，根据不同了Reource实现类，加载特定的Resource资源
+
+- spring提供ResourceLoaderAware接口，用于获取ApplicationContext中的ReourceLoader,手动进行外部资源加载
+
+#### 国际化功能（i18n）
+
+spring提供了一个**MessageSource接口**，用于提供国际化功能（i18n）。同时还提供了**HierarchicalMessageSource接口**，用于分层解析消息，**根据不同的地区，对消息进行不同的解析**
+
+**自定义MessageSource：**
+
+提供三种解析消息的方法，以消息编码、参数、默认消息、地区四个参数进行自定义逻辑代码解析，实现国际化
+
+```java
+public class MyMessage implements MessageSource{
+
+	@Override
+	public String getMessage(String code, Object[] args, String defaultMessage, Locale locale) {
+	}
+
+	@Override
+	public String getMessage(String code, Object[] args, Locale locale) throws NoSuchMessageException {
+		return null;
+	}
+
+	@Override
+	public String getMessage(MessageSourceResolvable resolvable, Locale locale) throws NoSuchMessageException {
+		return null;
+	}
+}
+```
+
+spring提供一些MessageSource实现类，按照相应配置实现国际化功能（由于一般用于JSP页面，因此不进行深入）
+
+#### 事件监听
+
+spring提供ApplicationEvent类和ApplicationListener接口提供事件监听处理，在spring4.2后，提供基于注解的方式发布事件：
+
+spring提供多个默认事件:
+
+| 事件                       | 作用                                                         |
+| -------------------------- | ------------------------------------------------------------ |
+| ContextRefreshedEvent      | applicationContext刷新（只支持可以热刷新的applicationContext，如XmlWebApplicationContext） |
+| ContextStartedEvent        | applicationContext调用Start方法                              |
+| ContextStoppedEvent        | applicationContext调用Stop方法                               |
+| ContextClosedEvent         | applicationContext调用close方法                              |
+| RequestHandledEvent        | web应用中，spring的DispatcherServlet拦截到http请求           |
+| ServletRequestHandledEvent | RequestHandledEvent的子类，添加了拦截http请求的servlet信息   |
+
+通过实现ApplicationListener接口的Bean来监听这些事件，执行相应代码：
+
+- 自定义事件（不需要放到spring容器中）
+
+```java
+public class MyEvent extends ApplicationEvent {
+	
+	public MyEvent(Object source) {
+		super(source);
+	}
+}
+```
+
+- 自定义事件监听器（被spring容器管理）
+
+```java
+@Component
+public class MyEventListener implements ApplicationListener<MyEvent>{
+
+	@Override
+	public void onApplicationEvent(MyEvent event) {
+		System.out.println(event.getSource());
+	}
+}
+```
+
+- 使用ApplicationContext发布事件，监听器触发执行代码
+
+```java
+context.publishEvent(new MyEvent("sd"));
+```
+
+#### 在web应用快速创建ApplicationContext实例化
+
+ApplicationContext提供声明式的方式来创建其实例，用于web应用中，通过监听器伴随web应用的启动，初始化spring容器：
+
+在web项目的web.xml中进行配置：
+
+```java
+	<!-- 定义上下文参数，用于指定spring的xml配置文件 -->
+	<context-param>
+    	<param-name>contextConfigLocation</param-name>
+    	<param-value>/WEB-INF/daoContext.xml /WEB-INF/applicationContext.xml</param-	value>
+	</context-param>
+
+	<!-- 配置spring容器监听器，当项目启动时，自动初始化spring容器 -->
+	<listener>
+		<listener-class>
+			org.springframework.web.context.ContextLoaderListener
+		</listener-class>
+	</listener>
+```
+
+当**contextConfigLocation**参数没有指定时，spring该监听器会默认扫描**/WEB-INF/applicationContext.xml**路径
+

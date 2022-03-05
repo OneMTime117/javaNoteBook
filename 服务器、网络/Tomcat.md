@@ -183,9 +183,46 @@ public interface ServletConfig {
 
   2、使用同步块synchronized，保证线程安全（这样会严重影响性能）
 
-- **请求异步处理：**
+- **请求异步处理：** //todo
 
-  ​	在web应用中，常常会由于某个请求处理时间过长(如JDBC连接超时），而导致该线程一直阻塞，这样会严重影响Servlet容器并发处理请求的。因此在Servlet3.0中，引入了异步请求处理功能，
+  ​	在web应用中，常常会由于某个请求处理时间过长(如JDBC连接超时），而导致该线程一直阻塞，这样会严重影响Servlet容器并发处理请求的。因此在Servlet3.0中，引入了异步请求处理功能
+
+#### 4、Servlet配置
+
+​		类继承HttpServlet，根据请求方法类型来重写指定方法，对ServletRequest、ServletResponse对象进行操作
+
+```java
+public class MyServlet extends HttpServlet {
+	@Override
+	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+		super.doGet(req, resp);
+	}
+
+	@Override
+	protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+		super.doPost(req, resp);
+	}
+}
+```
+
+在web.xml中，提供<Servlet>标签进行过滤器定义,它有三个子标签，来定义过滤器
+
+- Servlet-name：过滤器名（保证唯一）
+- Servlet-class：过滤器对应的类
+- init-params：过滤器初始化参数
+
+在web.xml中，提供<Servlet-mapping>标签进行过滤器的配置，它有三个子标签：
+
+- Servlet-name：引入定义好的Servlet
+- url-pattern：指定映射url，进行拦截处理
+
+**在Servlet3.1中，提供@WebFilter注解简化Filter的配置**
+
+#### 5、url-pattern映射规范
+
+- 必须以/ 或者*开始，因为/代表了Servlet应用的根目录
+- /*结束表示匹配后续所有路径
+- *.html 后缀匹配的优先级低于路径匹配
 
 ### 5、ServletContext
 
@@ -427,7 +464,7 @@ public void resetBuffer()
 
 #### 2、响应头
 
-​	HttpServletResponse提供api进行HTTP响应头操作
+HttpServletResponse提供api进行HTTP响应头操作
 
 ```java
 //设置响应头(如果响应头存在，则覆盖)
@@ -464,13 +501,15 @@ onError(Throwable t)；//数据写入发生错误时，进行回调
 
 - sendRedirect
 
-  ​		将设置了header和内容体的响应重定向到另外一个url
+  ​		将设置了header和内容体的响应重定向到另外一个url，url支持相对路径(在当前url的基础上拼接),但是必须要保证该url路径有效
 
-  url支持相对路径(在当前url的基础上拼接),但是必须要保证该url路径有效
+  **原理：**重定向由客户端完成，本质上是两次请求；第一次请求服务器进行响应，返回重定向的地址；第二次则请求重定向地址，因此第一次请求域数据会丢失
+
+  ![](../Typora图片/重定向过程.png)
 
 - sendError
 
-  ​		将设置了header和内容体以响应错误的方式返回客户端
+  ​		将设置了header和内容体以响应错误的方式返回客户端，客户端自己重定向到服务器设置好的标准错误页面（404.html、500.html）
 
 #### 5、国际化
 
@@ -560,7 +599,7 @@ public default void destroy() {}
 
 #### 4、过滤器和RequestDispatcher
 
-​	在Servlet2.4后，过滤器配置支持识别请求是否被RequestDispatcher分发，从而进行更加细致化的匹配拦截
+​		在Servlet2.4后，过滤器配置支持识别请求是否被RequestDispatcher分发，从而进行更加细致化的匹配拦截
 
 在web.xml的filter-mapping标签中，使用dispatcher子标签值进行约束：
 
@@ -578,11 +617,11 @@ public default void destroy() {}
 
 ### 9、Session
 
-​	由于Http是一种无状态协议，无法将请求与指定客户端绑定，因此在服务器和浏览器之间就创建一种额外的机制，会话；**它是对Http协议的扩展，实现服务器对用户整个会话的追踪和记录**；在Servlet规范中，提供HttpSession接口进行实现
+​		由于Http是一种无状态协议，无法将请求与指定客户端绑定，因此在服务器和浏览器之间就创建一种额外的机制，会话；**它是对Http协议的扩展，实现服务器对用户整个会话的追踪和记录**；在Servlet规范中，提供HttpSession接口进行实现
 
 #### 1、会话跟踪机制原理
 
-​	会话机制的实现，通过客户端的Cookie和服务端的Session共同完成
+​		会话机制的实现，通过客户端的Cookie和服务端的Session共同完成
 
 在Http响应头中，通过Set-Cookie来传输服务端传递给客户端的Cookie信息，Servlet容器默认创建一个Cookie：
 
@@ -613,11 +652,11 @@ Set-Cookie: JSESSIONID=07CA5FA20FB2B28A3AF3A385A2D2693D; Path=/; HttpOnly
 
 - 创建：
 
-  ​	当开发者手动调用getSession（）、getSession（true），就会返回一个session（如果没有，就会创建），并保持在服务端，此时Servlet容器就会自动创建一个name=JSEEIONID的cookie，返回sessionId，从而实现会话追踪
+  ​		当开发者手动调用getSession（）、getSession（true），就会返回一个session（如果没有，就会创建），并保持在服务端，此时Servlet容器就会自动创建一个name=JSEEIONID的cookie，返回sessionId，从而实现会话追踪
 
 - 销毁：
 
-  ​	在Http协议中，客户端并没有显示的终止信号，来提示服务端关闭会话，因此会话超时时终止会话的唯一机制。Servlet容器定义了一个默认的会话超时时间（30分钟），通过`HttpSession`接口中的相关方法，可以获取和自定义：
+  ​		在Http协议中，客户端并没有显示的终止信号，来提示服务端关闭会话，因此会话超时时终止会话的唯一机制。Servlet容器定义了一个默认的会话超时时间（30分钟），通过`HttpSession`接口中的相关方法，可以获取和自定义：
 
   ```java
   //获取最后一次访问时间
@@ -632,7 +671,7 @@ Set-Cookie: JSESSIONID=07CA5FA20FB2B28A3AF3A385A2D2693D; Path=/; HttpOnly
 
 #### 4、URL重写
 
-​	由于cookie可能会被浏览器禁用，此时就无法实现session的绑定；因此Servlet提供另外一种方式，来完成SessionId的回传。但相对于cookie，需要开发者手动进行传递，并且会暴露会话标识
+​		由于cookie可能会被浏览器禁用，此时就无法实现session的绑定；因此Servlet提供另外一种方式，来完成SessionId的回传。但相对于cookie，需要开发者手动进行传递，并且会暴露会话标识
 
 URL重写的实现方式：在URL后面添加 ;jseeionid=xxxx
 
@@ -642,7 +681,7 @@ http://www.myserver.com/catalog/index.html;jsessionid=1234
 
 #### 5、Session属性
 
-​	`HttpSession`接口提供一系列方法，实现session会话内的数据交换
+​		`HttpSession`接口提供一系列方法，实现session会话内的数据交换
 
 ```java
 //获取指定属性值
@@ -658,7 +697,7 @@ public void setAttribute(String name, Object value);
 public void removeAttribute(String name);
 ```
 
-​	Session本身通过Servlet容器来保证线程安全，因此多个请求线程访问同一个属性时，不需要额外处理；**但是对于属性中的对象，对其进行的操作，并不是线程安全的；因此对于该对象的成员变量修改，必须由开发者添加线程同步机制**
+​		Session本身通过Servlet容器来保证线程安全，因此多个请求线程访问同一个属性时，不需要额外处理；**但是对于属性中的对象，对其进行的操作，并不是线程安全的；因此对于该对象的成员变量修改，必须由开发者添加线程同步机制**
 
 如：
 
@@ -671,7 +710,7 @@ public void removeAttribute(String name);
 
 ### 10、RequestDispatcher
 
-​	在web应用中，存在请求转发功能。而在Servlet中，通过`RequestDispatcher`就能实现将请求转发给另一个Servlet处理
+​		在web应用中，存在请求转发功能。而在Servlet中，通过`RequestDispatcher`就能实现将请求转发给另一个Servlet处理
 
 #### 1、RequestDispatcher的获取
 
@@ -698,15 +737,19 @@ public RequestDispatcher getRequestDispatcher(String path);
 
 - **Include方法**
 
-  ​	该方法会对Response进行限制，转发后的Servlet只能操作response对象中的输出对象（ServletOutputStream、Writer），不能设置响应头或调用影响响应头的相关方法
+  ​		该方法会对Response进行限制，转发后的资源只能操作response对象中的输出对象（ServletOutputStream、Writer），不能修改response其他属性,如设置响应头等
 
-  **原理：**将请求转发到另外一个资源上进行处理，并只获取响应的Body数据，返回给客户端；后一个资源只进行响应数据的输出
+  **原理：**第一个资源对请求直接进行响应,并开启输出流,但输出流的数据有第二个资源进行提供
+
+  ![](../Typora图片/Include转发方式.png)
 
 - **Forward方法**
 
-  ​	该方法必须保证Response缓冲区未提交过数据，并且在调用转发后的Servlet.service方法前，缓冲区数据需要被清除
+  ​		该方法必须保证Response缓冲区未提交过数据，并且在调用转发后的Servlet.service方法前，缓冲区数据需要被清除
 
-  **原理：**新建一个完全相同的请求对象，转发到另外一个资源上处理、响应；整个过程只做单纯的转发
+  **原理：**第一个资源完全将请求转发到另外一个资源上,进行处理、响应
+  
+  ![](../Typora图片/Forward转发方式.png)
 
 #### 3、转发时的参数处理
 
@@ -715,6 +758,68 @@ public RequestDispatcher getRequestDispatcher(String path);
 
 #### 4、请求异步处理时的转发
 
-​	通过AsyncContext的dispatch（）方法，可以实现请求异步处理时的转发，必须保证当前异步请求未调用complete（）方法
+​		通过AsyncContext的dispatch（）方法，可以实现请求异步处理时的转发，必须保证当前异步请求未调用complete（）方法
 
-# Http协议
+### 12、Listener
+
+​		Servlet提供事件监听器（Listener），来更好的控制SerlvetContext、HttpSession、ServletRequest的生命周期
+
+Servlet中常用事件监听器对应的接口和监听事件：		
+
+| Listener接口                    | 监听事件                                                     |
+| ------------------------------- | ------------------------------------------------------------ |
+| ServletContextListener          | 监听ServletContext的创建和销毁，并可以监听Servlet容器的第一个请求 |
+| ServletContextAttributeListener | 监听ServletContext中的Attribute属性变化（增删改）            |
+| HttpSessionListener             | 监听Session会话的创建、销毁、超时                            |
+| HttpSessionAttributeListener    | 监听Session中的Attribute属性变化（增删改）                   |
+| ServletRequestListener          | 监听ServletRequest请求的初始化和销毁                         |
+| ServletRequestAttributeListener | 监听ServletRequest中的Attribute属性变化（增删改）            |
+| AsyncListener                   | 监听异步请求处理的开始、完成、错误和超时                     |
+
+​		监听器常用场景包括：初始化和关闭数据库连接、servlet访问日志记录、用户在线统计等
+
+​		在Web.xml中，直接提供<listener> 标签，使用全类名来配置监听器
+
+**在Servlet3.1中，提供@WebListener注解简化Listener的配置**
+
+### 13、Servlet3.0常用注解
+
+- **@WebServlet**
+
+  ​		用于定义Servlet组件，必须指定urlPatterns属性，name不指定时，默认使用全类名；所注解的类必须继承javax.servlet.http.HttpServlet类
+
+  ```java
+  @WebServlet(name=”MyServlet”, urlPatterns={"/foo", "/bar"}) 
+  public class SampleUsingAnnotationAttributes extends HttpServlet{ 
+  public void doGet(HttpServletRequest req, HttpServletResponse res) { 
+   } 
+  }
+  ```
+
+- **@WebFilter** 
+
+  ​		用于定义Filter组件，必须指定urlPatterns属性，name不指定时，默认使用全类名；所注解的类必须继承javax.servlet.Filter类
+
+  ```java
+  @WebFilter(“/foo”) 
+  public class MyFilter implements Filter { 
+  public void doFilter(HttpServletRequest req, HttpServletResponse res) { 
+  } 
+  }
+  ```
+
+- **@WebListener** 
+
+  ​		用于定义Listener组件，必须指定urlPatterns属性，name不指定时，默认使用全类名；所注解的类必须继承相关监听接口
+
+  ```java
+  @WebListener 
+  public class MyListener implements ServletContextListener{ 
+   public void contextInitialized(ServletContextEvent sce) { 
+   ServletContext sc = sce.getServletContext(); 
+   //通过ServletContext对象，以编程式手动配置Servlet
+   sc.addServlet("myServlet", "Sample servlet", "foo.bar.MyServlet", null, -1); 
+   sc.addServletMapping("myServlet", new String[] { "/urlpattern/*" }); 
+   } 
+  }
+  ```
