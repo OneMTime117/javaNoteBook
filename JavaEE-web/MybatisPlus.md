@@ -535,6 +535,15 @@ private Integer deleted;
 | value  | 逻辑未删除值 |
 | delval | 删除值       |
 
+​	3、多数据源时，使用配置文件处理：
+
+```java
+MybatisConfiguration mybatisConfigutation = new MybatisConfiguration();
+GlobalConfig globalConifg = new GlobalCOnfig();
+GlobalConfig.DbConfig dbConfig = new  GlobalConfig.DbConfig();
+dbConfig.setLogicDeleteField("deleted")
+```
+
 ### 2、通用枚举
 
 ​	让mybaits更加优雅的使用枚举属性，即通过枚举来接受JSON参数，并且进行数据库的字段映射

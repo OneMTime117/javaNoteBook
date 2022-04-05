@@ -1,6 +1,6 @@
-# Tomcat
+# Servlet和Tomcat
 
-## 1、Servlet历史 
+## 1、动态请求的技术发展 
 
 ​	20世纪90年代，互联网和浏览器飞速发展，基于浏览器的B/S模式开始火爆。起初web服务器只能返回静态资源，无法实现动态请求
 
@@ -39,7 +39,8 @@
 
 ​	在Servlet1.1中，提出了JSP （java server page），实现在静态文件中插入编写后台代码，从而方便后台代码的编写，当着同样存在一些问题：
 
-1、前后端代码都会编写在JSP文件中，导致代码非常混乱
+- 前后端代码都会编写在JSP文件中，导致代码非常混乱
+
 
 #### MVC思想
 
@@ -52,6 +53,10 @@
 3、JSP（V）：通过JSP标签来在指定model数据的渲染方式
 
 这种方式将整个动态请求处理过程分为了3步，大大减少了JSP中的后端代码，并方便后端代码的复用
+
+#### 前后端分离（AJAX）
+
+​		在AJAX技术的出现后，对于动态请求，浏览器不在需要刷新整个页面，直接在当前静态页面中，通过AJAX重新渲染页面数据，从而实现了前后端代码的分离
 
 ## 2、Servlet规范
 
@@ -177,15 +182,84 @@ public interface ServletConfig {
 
 - **请求并发处理：**
 
-  ​	Servlet实例本身是线程不安全的。Servlet容器会通过一个工作线程池，来并发调用同一个Servlet实例的service方法。因此需要开发者以代码的形式，保证Servlet的线程安全：
+  ​		Servlet实例本身是线程不安全的。Servlet容器会通过一个工作线程池，来并发调用同一个Servlet实例的service方法。因此需要开发者以代码的形式，保证Servlet的线程安全：
 
   1、不能在Servlet中使用全局变量
 
   2、使用同步块synchronized，保证线程安全（这样会严重影响性能）
 
-- **请求异步处理：** //todo
+- **请求异步处理：**
 
-  ​	在web应用中，常常会由于某个请求处理时间过长(如JDBC连接超时），而导致该线程一直阻塞，这样会严重影响Servlet容器并发处理请求的。因此在Servlet3.0中，引入了异步请求处理功能
+  ​		在web应用中，常常会由于某个请求处理时间过长(如JDBC连接超时），而导致该线程一直阻塞，这样会严重影响Servlet容器并发处理请求的。因此在Servlet3.0中，引入了异步请求处理功能：
+  
+  Servelt异步请求处理过程：
+  
+  ```java
+  //开启请求异步处理
+  AsyncContext asyncContext = req.startAsync()
+  //开始请求异步处理
+  asyncContext.start(new Runnable() {
+  	@SneakyThrows
+  	@Override
+  	public void run() {
+  		//异步处理请求,通过asyncContext获取
+  		asyncContext.getResponse().getWriter().write("hhh")
+  		//结束请求异步处理
+  		asyncContext.complete();
+  	}
+  });
+  ```
+  
+  1、请求首先交给Servlet容器中的主线程池中的线程处理，当开发者在处理过程中，使用req.startAsync()获取AsyncContext，开启异步处理；
+  
+  2、异步处理开启时，Servlet容器将回收主线程池线程，通过AsyncContext.start将处理任务交给异步线程池线程处理，并可以通过AsyncContext获取异步处理请求的request、response对象
+  
+  3、当在异步线程中调用AsyncContext.complete后，则表示异步处理完成；释放当前异步线程，并将AsyncContext中的request、response对象转交给Servlet容器的主线程处理，完成请求响应
+  
+  **异步请求处理的优势：**
+  
+  ​		在请求处理时间较长时，通过异步处理，来避免Servlet容器主线程池的线程阻塞，导致Servlet容器并发能力下降
+
+- **非阻塞IO异步请求处理**
+
+  ​		在Servlet3.1中，在异步请求基础之上，引入了非阻塞IO；在IO处理处于准备阶段后，调用异步线程处理请求
+
+  ​		由此可知，非阻塞IO本质上基于异步处理实现；因此，在一个请求中，只能用于读或者写，不能两者同时监听；以监听输入流为例
+
+  ​		**非阻塞IO作用：**
+
+  ​		避免请求体、响应体数据较大时，IO阻塞导致异步线程池中的线程阻塞
+
+  ```java
+  //开启异步请求处理
+  AsyncContext asyncContext = req.startAsync();
+  
+  //获取输入流，并设置IO流监听
+  ServletInputStream inputStream = req.getInputStream();
+  inputStream.setReadListener(new ReadListener() {
+  	@Override
+  	public void onDataAvailable() throws IOException {
+  	
+  	@Override
+  	public void onAllDataRead() throws IOException {
+  		//开始请求异步处理
+  		asyncContext.start(new Runnable() {
+  			@SneakyThrows
+  			@Override
+  			public void run() {
+  				//异步处理请求,通过asyncContext获取
+  				asyncContext.getResponse().getWriter().write("hhh")
+  				//结束请求异步处理
+  				asyncContext.complete();
+  			}
+  		});
+  	
+  	@Override
+  	public void onError(Throwable throwable) {
+  		asyncContext.complete();
+  	}
+  });
+  ```
 
 #### 4、Servlet配置
 
@@ -387,7 +461,7 @@ public String getPathInfo();
 
 #### 6、非阻塞IO
 
-​	Servelt 容器在进行异步请求和升级处理时，使用非阻塞IO来提高web容器并发量；在进行http请求数据的读取时，ServletInputStream提供一系列方法，来读取http请求数据
+​		Servelt3.1，在异步请求处理和升级处理时，支持非阻塞IO；在进行http请求数据的读取时，ServletInputStream提供一系列方法，来读取http请求数据
 
 ```java
 public ServletInputStream getInputStream()    通过request获取http请求输入流
@@ -479,7 +553,7 @@ public void addHeader(String name, String value)
 
 #### 3、非阻塞IO
 
-​	Servelt 容器在进行异步请求和升级处理时，支持非阻塞写；在进行http响应数据的写入时，ServletOutputStream提供一系列方法，来写入http响应数据
+​	Servelt3.1，在异步请求处理和升级处理时，支持非阻塞IO；在进行http响应数据的写入时，ServletOutputStream提供一系列方法，来写入http响应数据
 
 ```java
 boolean isReady();//判断数据是否可以被无阻塞写入
@@ -788,6 +862,8 @@ Servlet中常用事件监听器对应的接口和监听事件：
 
   ​		用于定义Servlet组件，必须指定urlPatterns属性，name不指定时，默认使用全类名；所注解的类必须继承javax.servlet.http.HttpServlet类
 
+  ​		可以通过asyncSupported=true属性设置，来开启异步请求处理
+
   ```java
   @WebServlet(name=”MyServlet”, urlPatterns={"/foo", "/bar"}) 
   public class SampleUsingAnnotationAttributes extends HttpServlet{ 
@@ -799,6 +875,8 @@ Servlet中常用事件监听器对应的接口和监听事件：
 - **@WebFilter** 
 
   ​		用于定义Filter组件，必须指定urlPatterns属性，name不指定时，默认使用全类名；所注解的类必须继承javax.servlet.Filter类
+
+  ​		可以通过asyncSupported=true属性设置，来开启异步请求处理
 
   ```java
   @WebFilter(“/foo”) 
@@ -823,3 +901,42 @@ Servlet中常用事件监听器对应的接口和监听事件：
    } 
   }
   ```
+
+## 3、Tomcat
+
+​		Tomcat是一个轻量级Servlet容器，支持Servlet和JSP。由Apache开源、JAVA编写（因此需要JAVA运行环境），本身也可以作为Web服务器
+
+目前常用Web服务器：
+
+| web服务器 | 是否为Servlet容器 | 特点                                                      |
+| --------- | ----------------- | --------------------------------------------------------- |
+| Nginx     | 否                | C编写、并发性和静态资源处理性能高、支持负载均衡和反向代理 |
+| Apache    | 否                | C编写、模块化支持动态请求处理（比如PHP）、功能全面稳定    |
+| IIS       | 否                | Win平台、支持.net/PHP后台应用程序、安全性低               |
+| Tomcat    | 是                |                                                           |
+| Jetty     | 是                | 相对于Tomcat，更适合处理大量长连接应用（如聊天室应用）    |
+| Undertow  | 是                | 相对于Tomcat，更适合高并发场景                            |
+
+### tomcat版本
+
+### 3.1、tomcat目录结构
+
+- bin - 启动、关闭和其他脚本，其中*.sh文件用于Unix系统， *.bat文件用于windows系统
+- conf - 配置文件
+- lib - 核心jar包
+- logs - 日志文件
+- temp - 缓存文件
+- webapps - 资源文件夹（静态资源和应用程序存放地）
+- work - 临时存放JSP页面编译后转化为的class文件
+
+### 3.2、tomcat批处理脚本
+
+**tomcat运行需要JRE，默认会使用系统变量%JAVA_HOME%来获取JRE安装路径**
+
+
+
+startup.bat
+
+server.xml
+
+catalina

@@ -1,8 +1,8 @@
 # Spring-web
 
-**spring-web模块包括三个部分：SpringMVC、Spring WebFlux、Websocket**
+**spring-web模块包括四个部分：SpringMVC、RestClient、Websocket、Spring WebFlux**
 
-## springMVC：
+## SpringMVC：
 
 - springMVC的依赖包：
 
@@ -19,64 +19,51 @@
 
   springMVC是基于Servlet API构建的原始Web框架，使得开发者能够简单高效地实现了MVC分层架构，并且有很强地扩展性
 
-### 1、前端控制器：
+### 1、springMC应用初始化过程：
 
-​		springMVC和其他web框架一样，围绕前端控制器模式来操作servlet API；**DispatcherServlet**就是springMVC的前端控制器；并且springMVC搭配IOC容器，完成所有对象的管理
+​		springMVC和其他web框架一样，围绕前端控制器模式来操作servlet API，并搭配springIOC容器，完成对象管理
 
-#### springMVC启动过程：
+**1、Servlet容器初始化过程：**
 
-- web容器初始化过程：
+- 初始化Listener，执行其contextinitialized方法
+- 初始化filter，执行init方法
+- 初始化servlet，执行init方法
 
-web容器启动时，会先初始化Listener，执行其contextinitialized方法；然后初始化filter，执行init方法；最后初始化servlet，执行init方法；从而完成整个web容器的初始化过程
+**2、springMVC应用的初始化过程：**
 
-- IOC容器初始化过程：
+​		springMVC提供`ContextLoaderListener`(Listener)、`DispatcherServlet`(servlet)来伴随Servlet容器的初始化，完成整个springMVC应用的初始化
 
-springMVC提供ContextLoaderListener、DispatcherServlet来伴随web容器的初始化，完成整个IOC容器的初始化
+- Servlet容器初始化`ContextLoaderListener`，执行`contextinitialized`方法，从而实现对webApplicationContext（IOC容器）的创建，并放入ServletContext属性中
 
-1、web容器初始化ContextLoaderListener，执行contextinitialized方法，使用ContextLoader读取ServletContext中的初始化参数（web容器的初始化参数），创建Root webApplicationContext（spring容器）；最后将创建好的webApplicationContext放入ServletContext中属性中（web容器中）
+- webApplicationContext创建过程中，初始化DispatcherServlet：
 
-2、web容器进一步初始化DispatcherServlet，执行init方法：
+  ​	1、获取ServletContext中的webApplicationContext，作为父容器（spring容器）
 
-​	1、获取ServletContext中的webApplicationContext,作为父容器（spring容器）
+  ​	2、读取DispatcherServlet属性，创建一个新的webApplicationContext，作为子容器（springMVC容器）
 
-​	2、然后读取DispatcherServlet属性，创建一个新的webApplicationContext，作为子容器（springMVC容器）
+  ​	3、将DispatcherServlet相关Bean注入到springMVC容器中
 
-​	3、之后执行DispatcherServlet其他初始化方法，在子容器中注册多个Bean，实现DispatcherServlet功能
-
-#### spring容器和springMVC容器关系：
+#### 1.1、spring容器和springMVC容器关系
 
 - springMVC容器为子容器，可以访问父容器中的Bean；而父容器不能访问子容器中的Bean；
-
-- 父容器通过ApplicationContext来自动注入获取；
-- 子容器通过webApplicationContext自动注入获取
-- WebApplicationContext是ApplicationContext的子接口
-
-- WebApplicationContext子容器可以获取到父容器上下文：
-
+- 父容器通过ApplicationContext来Bean的管理
+- 子容器通过webApplicationContext来完成Bean的管理
+- WebApplicationContext是ApplicationContext的子接口，增加了Web应用特性
+- webApplicationContext子容器可以获取到ApplicationContext父容器：
 
 ```java
 ApplicationContext parent = webApplicationContext.getParent();
 ```
 
-- springMVC提供**RequestContextUtils**工具类，可以通过reuqest获取子容器：
+- springMVC提供**RequestContextUtils**工具类，可以通过reuqest获取WebApplicationContext子容器：
 
 ```java
 RequestContextUtils.findWebApplicationContext(request);
 ```
 
-- 通过依赖注入，在Bean中可以直接获取子容器webApplicationContext、父容器ApplicationContext对象
+#### 1.2、ContextLoaderListener、DispatcherServlet配置
 
-```java
-	@Autowired
-	WebApplicationContext webApplicationContext;
-
-	@Autowired
-	ApplicationContext ApplicationContext;
-```
-
-#### dispatcherServlet配置：
-
-- xml方式：
+##### 1.2.1、xml配置：
 
 ```xml
 <!-- 配置servelt容器初始化参数 -->
@@ -111,11 +98,17 @@ RequestContextUtils.findWebApplicationContext(request);
 </servlet-mapping>
 ```
 
-- spring配置类方式
+##### 1.3.2、WebApplicationInitializer接口配置
 
-  springMVC提供**WebApplicationInitializer**接口，来通过ServletContext来初始化当前web项目的Servlet容器，配置Servlet容器组件(Servlet、Listener、Filter)（实际上就是替代了web.xml文件，将该文件的配置信息交给springMVC管理，**但Servelt容器在启动时，还是会先读取web.xml，然后交给springMVC配置**
+​		springMVC提供`WebApplicationInitializer`接口，通过ServletContext来配置Servlet容器组件(Servlet、Listener、Filter)，完成dispatcherServlet配置
 
-  ），此时可以通过在pom文件中添加如下配置来消除报错：
+​		原理：servlet-API提供ServletContainerInitializer接口；在Servlet容器初始化时，通过SPI机制调用指定ServletContainerInitializer接口实现类的onStartup方法；而springMVC提供SpringServletContainerInitializer，其onStartup方法中，又会调用所有`WebApplicationInitializer`接口实现类的onStartup方法；通过这种形式，springMVC实现对web.xml文件的替代
+
+​		注意：
+
+- Servlet在初始化时，还是会先读取web .xml配置，然后再处理ServletContainerInitializer接口
+
+- 如果没有web.xml文件，POM文件会提示缺失web.xml文件，解决方法：
 
   ```xml
   <properties>
@@ -123,82 +116,79 @@ RequestContextUtils.findWebApplicationContext(request);
   </properties>
   ```
 
-  ```java
-  public class WebConfig implements WebApplicationInitializer{
-  	@Override
-  	public void onStartup(ServletContext servletContext) throws ServletException {
-  		//初始化spring容器 (ContextLoaderListener只能通过读取配置文件来完成spring容器的创建)
-  		servletContext.setInitParameter("contextConfigLocation", "classpath:spring.xml");
-  		ContextLoaderListener contextLoaderListener = new ContextLoaderListener();
-  		servletContext.addListener(contextLoaderListener);
-  
-  		// 创建springMVC容器（可以使用xml或者注解）
-  		AnnotationConfigWebApplicationContext appContext = new AnnotationConfigWebApplicationContext();
-  		appContext.register(MvcConfig.class);
-  //		XmlWebApplicationContext appContext = new XmlWebApplicationContext();
-  //		appContext.setConfigLocation("/WEB-INF/classes/springMVC-config.xml");
-  
-  		// 注册DispatcherServlet，并进行初始化配置（初始化springMVC容器，并注册springMVC需要的Bean）
-  	DispatcherServlet servlet = new DispatcherServlet(appContext);
-  		Dynamic addServlet = servletContext.addServlet("springMVC", servlet);
-  	addServlet.setLoadOnStartup(1);
-  		addServlet.addMapping("/");
-  	addServlet.setAsyncSupported(true);
-  	}
-  }
-  ```
+```java
+public class WebConfig implements WebApplicationInitializer{
+	@Override
+	public void onStartup(ServletContext servletContext) throws ServletException {
+		//初始化spring容器 (ContextLoaderListener只能通过读取配置文件来完成spring容器的创建)
+		servletContext.setInitParameter("contextConfigLocation", "classpath:spring.xml");
+		ContextLoaderListener contextLoaderListener = new ContextLoaderListener();
+		servletContext.addListener(contextLoaderListener);
 
-  2、springMVC还提供**AbstractAnnotationConfigDispatcherServletInitializer**类，为**WebApplicationInitializer**接口的实现类，简化springMVC的配置：
+		// 创建springMVC容器（可以使用xml或者注解）
+		AnnotationConfigWebApplicationContext appContext = new AnnotationConfigWebApplicationContext();
+		appContext.register(MvcConfig.class);
+//		XmlWebApplicationContext appContext = new XmlWebApplicationContext();
+//		appContext.setConfigLocation("/WEB-INF/classes/springMVC-config.xml");
 
-  只需要提供spring容器配置类、springMVC容器配置类，就可以完成整个springMVC的配置；并且对于DispatcherServlet属性，默认添加了如下设置：（通过重写其方法来改变）
+		// 注册DispatcherServlet，并进行初始化配置（初始化springMVC容器，并注册springMVC需要的Bean）
+	DispatcherServlet servlet = new DispatcherServlet(appContext);
+		Dynamic addServlet = servletContext.addServlet("springMVC", servlet);
+		addServlet.setLoadOnStartup(1);
+		addServlet.addMapping("/");
+		addServlet.setAsyncSupported(true);
+	}
+}
+```
 
-  addServlet.setLoadOnStartup(1);
+##### 1.3.3、WebApplicationInitializer接口简化版配置
 
-  addServlet.setAsyncSupported(true);
+​		springMVC自身提供`WebApplicationInitializer`抽象类，来简化Servlet容器相关配置
 
-  ```java
-  public class WbeConfigSimple extends AbstractAnnotationConfigDispatcherServletInitializer {
-  
-      //spring容器配置类
-  	@Override
-  	protected Class<?>[] getRootConfigClasses() {
-  		return new Class<?>[] { springTest.class };
-  	}
-  
-      //springMVC容器配置类
-  	@Override
-  	protected Class<?>[] getServletConfigClasses() {
-  		return new Class<?>[] { WebConfig.class };
-  	}
-  
-      //dispatcherServlet映射
-  @Override
-  	protected String[] getServletMappings() {
-  	return new String[] { "/" };
-  	}    
-  }
-  ```
+```java
+public class WbeConfigSimple extends AbstractAnnotationConfigDispatcherServletInitializer {
 
-  springMVC配置类：一般情况下，springMVC容器只需要扫描Controller注解的类
+    //spring容器配置类
+	@Override
+	protected Class<?>[] getRootConfigClasses() {
+		return new Class<?>[] { springTest.class };
+	}
 
-  ```java
-  @EnableWebMvc
-  @ComponentScan(basePackages = { "com.yh.mvc" }, useDefaultFilters = false, includeFilters = {
-  		@Filter(type = FilterType.ANNOTATION, classes = { Controller.class }) })
-  @Configuration
-  public class MvcConfig {
-  }	
-  ```
+    //springMVC容器配置类
+	@Override
+	protected Class<?>[] getServletConfigClasses() {
+		return new Class<?>[] { WebConfig.class };
+	}
 
-- **配置方式选择：**
+    //dispatcherServlet映射
+	@Override
+	protected String[] getServletMappings() {
+	return new String[] { "/" };
+	}    
+    
+    //DispatcherServlet相关属性设置
+    @Override
+	protected void customizeRegistration(ServletRegistration.Dynamic registration) {
+		super.customizeRegistration(registration);
+		registration.setLoadOnStartup(1);
+		registration.setAsyncSupported(true);
+	}
+}
+```
 
-**XML配置和springMVC配置（2种），三个只能同时存在其一，否则会导致Servelt容器启动报错**
+注意：
 
-​	由于springMVC配置，会自动实现对Servlet容器的初始化配置，因此根据方便（特别是使用AbstractAnnotationConfigDispatcherServletInitializer接口）
+- AbstractAnnotationConfigDispatcherServletInitializer是基于springIOC容器注解形式完成对spring父容器、springMVC子容器的配置，因此需要开发者提供spring容器配置类、springMVC容器配置类
 
-#### dispatcherServlet属性：
+- 配置方式选择：
 
-dipatcherServlet初始化参数：（用于在web.xml中配置dipatcherServlet使用）
+​		三种配置方式只能同时存在一种；搭配springIOC容器配置注解，选择第三种方式，更加简单明了
+
+### 2、DisparcherServlet
+
+​		前端拦截器，拦截所有Servlet请求，交给springMVC处理
+
+**初始化参数：**
 
 | 参数                           | 说明                                                         |
 | ------------------------------ | ------------------------------------------------------------ |
@@ -207,276 +197,284 @@ dipatcherServlet初始化参数：（用于在web.xml中配置dipatcherServlet�
 | namespace                      | XmlWebApplicationContext的命名空间，默认为**[servlet-name]-servlet**，在web.xml中使用 |
 | throwExceptionIfNoHandlerFound | 在找不到请求的处理程序时是否抛出NoHandlerFoundException异常；默认为false |
 
-dipatcherServlet常用属性：
+**常用属性：**
 
 | 属性名           | 作用                                                         |
 | ---------------- | ------------------------------------------------------------ |
-| isAsyncSupported | 默认为false，让dipatcherServlet对请求进行异步多线程处理      |
-| loadOnStartup    | 默认-1，让dipatcherServlet懒加载；可以使用设置为1，让其在项目启动时就加载 |
+| isAsyncSupported | 默认为false，开启支持异步请求处理                            |
+| loadOnStartup    | 默认-1，让dipatcherServlet懒加载；可以设置为1，让其在项目启动时就加载 |
 
-#### dispatcherServlet组件：
+#### 2.1、DispatcherServlet相关组件：
 
-dispatcherServlet会依赖一系列springMVC容器中的Bean，来实现其功能：
+dispatcherServlet整个功能的实现，依赖于一系列相关组件，并由springMVC容器管理
 
-| Bean                                  | 说明                                                         |
+| 组件                                  | 作用                                                         |
 | ------------------------------------- | ------------------------------------------------------------ |
-| HandlerMapping                        | 将请求、拦截器与对应处理程序进行映射，用于进行请求的预处理和后置处理 |
-| HandlerAdapter                        | 帮助DispatcherServlet调用请求映射的处理程序                  |
-| HandlerExceptionResolver              | 用于解析异常，将其映射到对应处理程序、HTML错误视图或其他目标中 |
+| HandlerMapping                        | 将请求与对应处理程序、拦截器进行映射，用于进行请求的预处理和后置处理 |
+| HandlerAdapter                        | 调用请求映射的处理程序                                       |
+| HandlerExceptionResolver              | 用于解析处理程序中的异常，将其映射到对应处理程序、HTML错误视图或其他目标中 |
 | ViewResolver                          | 视图解析器，用于提供视图名称和视图之间的映射                 |
-| LocaleResolver、LocaleContextResolver | 提供国际化视图                                               |
-| ThemeResolver                         | 提供web程序多主题布局                                        |
+| LocaleResolver、LocaleContextResolver | 国际化解析器，实现模板视图的国际化                           |
+| ThemeResolver                         | 样式解析器，实现模板视图动态样式                             |
 | MultipartResolver                     | 处理post请求中的multipart/form-data类型的表单提交，用于处理二进制数据（文件） |
-| FlashMapManager                       | 管理FlashMap对象，实现在重定向时，属性从要给请求传递到另一个请求 |
+| FlashMapManager                       | 管理FlashMap对象，实现在重定向时，属性在请求中的传递         |
 
-#### multipart/form-data处理：
+#### 2.2、MultipartResolver
 
-​		在Servelt中，对于multipart/form-data的表单数据，只能手动解析body获取，springMVC提供MultipartResolver组件来处理，对HttpServletRequest进行封装，生成MultipartHttpSerletRequest，方便@RequestParam、@RequestPart获取请求数据；springMVC默认没有配置MultipartResolver
+​		在Servelt-api中，对于multipart/form-data的表单数据，需要开发者手动操作body输入流；springMVC提供MultipartResolver组件来提供简单处理：
 
-​		MultipartResolver配置：
+​		将HttpServletRequest封装为MultipartHttpServletRequest，读取body输入流，生成MultipartFile对象
 
-1、在Servelt3.0中，已经提供了对应的解析处理和针对于ServletRequest操作其数据的API。但是需要进行一定的配置，才能开启；springMVC提供standardServletMultipartResolver来使用Servelt3.0这个原生功能
+注意：
+
+- springMVC默认没有配置MultipartResolver，需要开发者手动配置
+
+**MultipartResolver配置：**
+
+基于Servlet版本，springMVC提供两种配置方式：
+
+**1、standardServletMultipartResolver**
+
+​		在Servlet3.0后，默认提供了对multipart/form-data的表单数据处理，springMVC通过standardServletMultipartResolver来整合使用
 
 ```java
-public class WbeConfigSimple extends AbstractAnnotationConfigDispatcherServletInitializer {
-	xxxx
-	@Override
-	protected void customizeRegistration(Dynamic registration) {
+	@Bean("multipartResolver")
+	public MultipartResolver multipartResolverConfig() {
+		return new StandardServletMultipartResolver();
+	}
+```
+
+​		StandardServletMultipartResolver内部实现，基于Servlet使用AbstractMultipartHttpServletRequest对象对请求进行封装，读取multipart/form-data的表单数据，将其进行缓存；因此在使用该方式时，需要在Servlet容器启动前，额外配置其缓存路径（默认路径为Tomcat下的tmp目录）：
+
+​		通过AbstractAnnotationConfigDispatcherServletInitializer，对DisparcherServlet属性进行配置
+
+```java
+protected void customizeRegistration(Dynamic registration) {
         //配置Servelt提供的解析器的本地缓存路径（解析请求中的multipart/form-data数据，需要进行缓存，才能多次操作）
 		registration.setMultipartConfig(new MultipartConfigElement("/tmp"));
 	}
 }
 ```
 
-**此时，ServletRequest就可以使用getPart，操作Part对象来处理multipart/form-data的表单数据****
+**2、CommonsMultipartResolver**
 
-```java
-	@Bean("standardServletMultipartResolver")
-	public MultipartResolver multipartResolverConfig() {
-		StandardServletMultipartResolver standardServletMultipartResolver = new StandardServletMultipartResolver();
-		return standardServletMultipartResolver;
-	}
-```
+​		在Servlet3.0之前，需要额外使用Commons-FileUpload包来处理multipart/form-data的表单数据；而springMVC通过CommonsMultipartResolver来整合使用
 
-**目前，standardServletMultipartResolver并不需要注册为Bean，dispatcherServelt会自动获取该组件，来处理request请求**
+​		由于目前普遍Servlet版本在3.0以上，因此不进行该配置说明
 
-2、使用Commons-FileUpload包实现，springMVC提供CommonsMultipartResolver类来封装使用，需要导入额外的包，在项目、Tomcat不支持Servlet3.0时使用（不进行配置介绍）
+### 3、springMVC控制器
 
-### 2、RequestContextHolder
+​		springMVC其核心就是简化MVC应用中，控制层的开发；编写控制器（**Controller**）、请求映射处理器（**Handler**）
 
-​	springMVC是基于ServletAPI来进行请求处理，因此对于请求、响应处理的关键，还是在于HttpServletRequest、HttpServletRespone对象。springMVC提供RequestContextHolder工具类，在方便在Service层获取当前线程中的Servelt对象，以及它们保存的属性（request、session保存的attributes）：
-
-​	springMVC定义了RequestAttributes，使用K-V保存请求中的重要对象；ServletRequestAttributes继承该接口来快速获取HttpServletRequest、HttpServletResponse：
-
-```java
-//通过RequestContextHolder来获取RequestAttributes
-//两个方法在没有使用JSF的项目中是没有区别的
-RequestAttributes requestAttributes = RequestContextHolder.currentRequestAttributes();
-//RequestAttributes requestAttributes =                                 RequestContextHolder.getRequestAttributes();
-
-//RequestAttributes向下转型为ServletRequestAttributes，然后获取其中的request、response对象
-HttpServletRequest request = ((ServletRequestAttributes)requestAttributes).getRequest();
-HttpServletResponse response = ((ServletRequestAttributes)requestAttributes).getResponse();
-
-```
-
-- **RequestContextHolder怎样使用RequestAttributes封装请求对象及其属性的：**
-
-  当请求被DispatcherServlet拦截后，在FrameworkServlet的doGet/doPost方法中，调用processRequest（request, response）来进行请求对象的预处理：
-
-  **RequestContextHolder使用ThreadLocal来保存RequestAttributes对象，实现多线程间的可见性**
-
-  - **从RequestContextHolder中获取上一个请求的RequestAttributes对象**
-  - 通过当前请求的request和response，以及前一个RequestAttributes对象，来创建新的RequestAttributes（封装当前请求对象及其属性）
-  - 将新的RequestAttributes设置到RequestContextHolder的ThreadLoacl<RequestAttributes>中
-
-### 3、springMVC过滤器：
-
-Servlet容器提供三大组件：Servelt、Filter、Listener；它们实现了整个Servlet容器对于Web请求的处理
-
-#### 过滤器、监听器配置：
-
-springMVC本身提供dispatcherServelt来拦截处理所有的请求，因此一般情况下，Servlet容器不会进行其他Servelt的配置；而对于Filter、Listener，在springMVC项目下，提供多种配置方式：
-
-- XML配置：
-
-  Servlet容器会默认读取项目下的WEB-INF/web.xml文件，来进行Servelt组件配置；对于**Filter执行顺序，会根据在web.xml中的声明顺序决定**
-
-- 基于Servelt3.0注解配置：
-
-  在Servelt3.0,为了减少xml配置的繁琐，提供了@WebFilter、@WebServlet、@WebListener来配置Servelt组件，对于**Filter执行顺序，会根据@WebFilter所注解的类名自然排序，因此推荐使用Filter01作为前缀来控制**，此时就可以省略web.xml
-
-- springMVC配置：
-
-  springMVC提供**WebApplicationInitializer**、**AbstractAnnotationConfigDispatcherServletInitializer**接口，来获取servelt容器的上下文对象ServeltContext，配置其Servelt组件，对于Filter执行顺序，会根据配置顺序决定
-
-  ```java
-  public class WbeConfigSimple extends AbstractAnnotationConfigDispatcherServletInitializer {
-  	xxxx	
-  	@Override
-  	protected Filter[] getServletFilters() {
-          //按照数组排序顺序执行
-  		return new Filter[] {new MyFilter()};
-  	}
-  }
-  ```
-
-由于Servelt容器，会优先读取WEB-INF/web.xml文件，然后再将配置好的ServeltContext交给springMVC处理，因此其Filter优先级为：
-
-XML配置    >  注解配置  >   springMVC配置，**推荐单独使用一种进行配置，减少不必要的处理**
-
-springMVC配置的过滤器、Servelt会自动开启非懒加载和异步处理模式；而ServeltAPI 方式需要手动配置相应参数
-
-#### springMVC常用过滤器：
-
-​	springMVC提供一套基于Filter接口的过滤器类架构，springMVC在Filter基础上，提供了几个重要的类：
-
-- GenericFilterBean：Filter的子类，提供了Filter访问web.xml文件中Filter标签下的子标签init-param值，是实现Filter的初始化
-- OncePerRequestFilter：GenericFilterBean的子类，实现了对于request只进行一次过滤（解决转发时，会导致request再次被过滤器处理的问题）
-- AbstractRequestLoggingFilter：OncePerRequestFilter的子类，提供额外beforeRequest、afterRequest方法，提供对过滤前后的编写相应代码（将整个过滤器代码分步化，增强过滤器全局处理请求的能力）
-
-对于这几个类，springMVC提供了几个使用的实现类：
-
-- HiddenHttpMethodFilter：可以将form表单的请求转化为DELETE、PUT（form表单只支持put、post）
-
-- ShallowEtagHeaderFilter：实现对HTTP缓存中Etag请求头的处理
-
-- CorsFilter：实现CORS处理
-
-- CharacterEncodingFilter：实现对请求数据参数的编码处理（**非常重要**），注意get传参数据，会被servlet容器处理，并不会被CharacterEncodingFilter处理；但springMVC在进行参数封装时，会自动根据Servlet容器编码来进行转化（tomcat8.0 默认为utf-8）
-
-  该过滤器默认使用的编码格式为utf-8，可以通过server.servlet.encoding.charset设置
-
-### 4、springMVC拦截器：
-
-​	拦截器是web框架的必备功能，增强开发者对请求全局的控制处理，相对于Servelt api提出的过滤器理念，功能更加强大
-
-#### 拦截器使用：
-
-​	springMVC提供HandlerInterceptor接口，对所有被HandlerMapping处理的请求进行拦截处理：
-
-```java
-public interface HandlerInterceptor {
-    default boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)throws Exception {
-     	return true;
-	} 
-    
-    default void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,@Nullable ModelAndView modelAndView) throws Exception {
-        
-	}
-    
-    default void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler,@Nullable Exception ex) throws Exception {
-        
-	}
-```
-
-HandlerInterceptor提供三个方法：
-
-- preHandle：在控制器方法（Handler）执行前执行，返回值为一个布尔类型，true则将请求交给下一拦截器或Handler处理，false则认为请求已被处理，不在进行任何后面处理。可以用于身份认证和授权
-- postHandle：在控制器方法返回ModelAndView之前执行，这里并不是控制器方法的实际返回值，springMVC提供对控制器方法各种返回值的支持，但无论是否为Model、View等返回值类型，最后反射调用后都会通过Hander返回值处理器处理，返回一个ModelAndView对象，此时就会开始执行postHandle，可用于对MV对象进行额外处理(**当Handler执行出现异常时，则不会执行postHandle方法**)
-- afterCompletion：执行完控制器方法并返回ModelAndView后执行，一般用于对控制层的统一异常处理、日志处理（**无论Handler执行是否发生异常，都会执行该方法**）
-
-#### **拦截器配置：**
-
-有两种配置方式：
-
-1、使用springMVC配置类，进行手动配置
-
-```java
-@Configuration
-public class MvcConfig implements WebMvcConfigurer {
-
-    	//拦截器配置
-	@Override
-	public void addInterceptors(InterceptorRegistry registry) {
-		InterceptorRegistration addInterceptor = registry.addInterceptor(new MyInterceptor());
-		addInterceptor.addPathPatterns("/**");//拦截器映射匹配路径
-		addInterceptor.excludePathPatterns("/testSync");//拦截器排除路径
-	}
-}
-```
-
-2、注入到IOC容器中，自动完成拦截器注册
-
-#### 拦截器和过滤器的区别：
-
-1、拦截器基于JAVA反射机制，过滤器是基于函数回调
-
-2、过滤器依赖于Servlet容器，拦截器不依赖
-
-3、拦截器只会对映射了控制器方法的请求进行处理；过滤器会对所有请求进行处理
-
-4、拦截器可以访问springMVC处理请求所提供的各对象（handle、ModelAndView、Exception）；过滤器只能获取Servelt请求的相应对象
-
-5、在一个请求中，只会调用一次过滤器；但对于拦截器，会在控制器中进行映射方法处理器的跳转，从而调用多次拦截器（请求每映射一次处理器，都会调用拦截器）
-
-### 5、springMVC控制器：
-
-springMVC提供基于注解的编程模型，来实现控制器功能，处理被前端控制器拦截映射的请求，其方法叫做请求映射处理器（**Handler**）
-
-#### @Controller、@RestController
-
-用于注册控制器bean：
+#### 3.1、控制器注解
 
 - @Controller
 
-  ​	使用上和spring的@Component一致，通过@ComponentScan来将被@Controller注解的类注册到springMVC容器中
+  ​		@Component的组合注解，将@Controller注解类注册到springMVC容器中，作为控制器
+
+- @ResponseBody
+
+  ​		注解在Controller、Handler上，表示将Handler返回值放入ResponseBody中，不进行视图解析
 
 - @RestController
 
-  ​	是一个组合注解，@Controller+@ResponseBody，让当前类中所有的方法都继承@ResponseBody，表示所有方法的返回值都直接写入responseBody中，不进行String类型的视图解析，
+  ​		@Controller、@ResponseBody的组合注解，避免在每个Handler上添加@ResponseBody	
 
-  ​	**对于javaBean，会通过HttpMessageConverter进行数据转化，默认使用JSON序列化的形式，将JAVAbean转化为JSON字符串，并且修改response.ContentType="application/json;charset=UTF-8"**；
+#### 3.2、处理器注解
 
-#### HttpMessageConverter
+##### 3.2.1、@RequestMapping
 
-HttpMessageConverter，http消息转化器，有两个使用场景：
+用于声明处理器，将请求映射到指定控制器方法中；并通过属性：URL、http方法、请求参数、Headers来进行匹配
 
-1、获取requestBody中的数据，将其转化为javaBean；
+@RequestMapping属性：
 
-2、将带有@ResponseBody注解的Handler的返回值，进行类型转化，并写入到responseBody中，并指定其Content-Type响应头
+| 属性名   | 描述                                                         |
+| -------- | ------------------------------------------------------------ |
+| name     | 该控制器的映射Name                                           |
+| value    | path的别名                                                   |
+| path     | 所映射请求的url，支持相对路径匹配、REST风格传参              |
+| method   | HTTP方法，RequestMethod[]，可以匹配多个HTTP方法              |
+| params   | 请求参数列表，不是固定匹配，包括所有就满足，**即请求参数中必须包含当前规定的所有参数** |
+| produces | 指定响应头Content-Type类型值，**通过该属性可以定义响应数据的编码格式** |
+| headers  | 请求中必须包含指定请求头                                     |
 
-**springMVC对Content-Type响应头处理：**
+springMVC提供@RequestMapping多个变体注解，用于方便定义Http方法类型：
 
-对于Content-Type响应头时，会受到请求头中Accept属性的影响，也叫做MediaType。而requestMapping中的produces就是用于设置请求中的Accept属性，其原理为：
+**@GetMapping、@PostMapping**
 
-​		在springMVC中，response.ContentType会被HttpMessageConverter单独处理，首先根据requestMapping中的produces确定MediaType的范围，然后根据MediaType和javaBean类型，选择合适的HttpMessageConverter，此时来最终确定response.ContentType，因此在springMVC中response.ContentType无法被手动修改
+注意：
 
-springMVC提供多个默认HttpMessageConverter，常用有两个：
+- @RequestMapping可以注解在类上，定义所有方法的映射规则，但path会通过拼接进行匹配
 
-- MappingJackson2HttpMessageConverter：支持javaType=Object、MediaType=“application/json；charset=UTF-8”；但需要导入Jackson的jar包（jackson-databind）
-- StringHttpMessageConverter：支持javaType=String、MediaType=="text/plain;charset=ISO-8859-1"；
+```java
+@RestController
+@RequestMapping(path="/data")
+public class DataController {
+	
+    @RequestMapping(path="/test")
+	public String Test() {
+		return "succsee";
+	}
+```
+
+此时实际请求映射的path为： /data/test
+
+- 对于method、params、produces、headers属性，方法注解优先级大于类
+
+##### 3.2.2、处理器参数注解
+
+​	springMVC提供一系列方法参数注解，Http请求数据封装注入到控制器方法实参中，实现对请求数据的自动获取
+
+| 注解              | 作用                                                         |
+| ----------------- | ------------------------------------------------------------ |
+| @PathVariable     | 获取URL中使用REST风格的传参值                                |
+| @MatrixVariable   | 获取URL中矩阵变量传参值（一般不使用）                        |
+| @RequestParam     | 获取Servlet中的请求参数（url传参、form-data传参）；对于multipart/form-data，搭配MultipartFile对象进行接收 |
+| @RequestHeader    | 获取请求头参数值                                             |
+| @CookieValue      | 获取Cookie中的参数值                                         |
+| @RequestBody      | 获取请求Body中的内容，通过HttpMessageConverter根据请求头中的Content-Type对内容进行解析，转化为java对象 |
+| @RequestPart      | 获取multipart/form-data数据（和@RequestParaml类似），但可以额外指定数据的Content-Type，从而将其转化为指定格式类型对象（比如将JSON文件直接转化为java对象） |
+| @ModelAttribute   | 将所有URL获取的参数和form-data获取的参数，绑定到java对象中（必须提供无参构造方法） |
+| @SessionAttribute | 获取HttpSession对象中的属性，如sessionID                     |
+| @RequestAttribute | 获取HttpServeltRequest对象中的属性（用于请求转发，但在前后端分离的项目中不会使用） |
 
 **注意：**
 
-​	由于StringHttpMessageConverter的先声明，因此对于String类型的javaBean，优先被StringHttpMessageConverter处理，这样就会导致String类型无法被json序列化，并导致中文乱码，对于这种问题有两种解决方法：
+- 除@ModelAttribute外，所有方法参数注解都有一个**required**属性，默认为true，即不能够忽略：
 
-1、我们可以通过@RequestMapping的Produces属性，来控制跳过StringHttpMessageConverter，选择MappingJackson2HttpMessageConverter进行处理；
+  ​		当请求参数中不包含当前指定的参数时，springMVC就会抛出异常，提示当前类型的参数没有被绑定，当required属性为false时，springMVC就会忽略没有绑定的参数，参数默认为null
 
-2、设置StringHttpMessageConverter的supportedMediaTypes属性为“application/json；charset=UTF-8”
+- 参数没有注解时，springMVC默认会根据参数类型进行早期值匹配；如果没有匹配到时，则通过BeanUtils.isSimpleProperty方法判断当前参数类型是否为简单数据类型；是，则自动添加一个属性required=false的@RequestParam注解；不是，则自动添加@ModelAttribute注解
 
-#### Converter
+- @RequestParam和@RequestParth都可以获取multipart/form-data数据，但是两者有区别：
 
-​	springMVC对于HTTP参数，会分为两种，
+  @RequestParth额外提供content-Type属性，对文件内容进行解析；但一般情况下不会使用，因为在实际开发中，不会进行这种方式的传参
 
-1、Body传参：基于json格式使用HttpMessageConverter进行反序列化，
+**@RequestParam注解的使用：**
 
-2、url、form表单传参，通过springMVC内置的一系列处理器，根据接受参数类型，进行对应的转换
+​		@RequestParam提供name、value两个属性值，来对应获取http请求数据中的参数名，从而获取其参数值；**当不进行两个属性值声明时，默认使用方法形参名匹配**
 
-因此，可以自定义Converter进行一些复杂参数类型的转换，方便参数接受：
+​		@RequestParam单独还提供defaultValue属性，定义当参数没有被绑定时的默认值
 
-**在自定义converter解析失败抛出异常后，会先被springMVC默认解析器处理，如果无法处理，则再抛出异常**
+注意：defaultValue只能提供String类型值，需要保证所对应形参类型可以进行有效转化
+
+##### 3.2.3、处理器参数早期匹配值
+
+​		springMVC对于一些特殊对象，并不需要添加参数注解，就能在早期自动完成参数绑定，即参数早期匹配值，它们包含ServletAPI中的常用对象和springMVC封装好的ServletAPI操作对象
+
+| 对象类型                                                    | 作用                                                         |
+| ----------------------------------------------------------- | ------------------------------------------------------------ |
+| WebRequest、NativeWebRequest                                | springMVC封装好的对象，用于简化servletAPI操作，如对请求参数、请求属性和会话属性的访问 |
+| javax.servlet.ServletRequest、javax.servlet.ServletResponse | 获取Servlet API提供的请求和响应对象                          |
+| javax.servlet.http.HttpSession                              | 获取Serlvet API提供的请求会话对象；该对象的线程不安全，因此要避免业务层缓存数据放在Session属性中 |
+| HttpMethod                                                  | HttpMethod的枚举值                                           |
+| java.io.InputStream、java.io.Reader                         | 获取Servlet API的 请求输入流                                 |
+| java.io.OutputStream、java.io.Writer                        | 获取Servlet API的 响应输出流                                 |
+| java.util.Locale                                            | 当前请求的语言环境（Http请求并不会带有当前客户端的语言环境，需要通过LocaleContextResolver来解析请求中的特定数据，来设置） |
+| java.util.TimeZone、java.time.ZoneId                        | 当前请求的时区（同上）                                       |
+| HttpEntity<B>                                               | 获取请求中的body和headers                                    |
+| UriComponentsBuilder                                        | 用于构造和编码URI                                            |
+| Errors、BindingResult                                       | 用于获取springMVC参数绑定的错误信息，需要保证它们在所有绑定数据的最后 |
+| javax.servlet.http.PushBuilder                              | 获取Servlet 4.0 提供用于访问HTTP/2资源推送的对象             |
+| java.security.Principal                                     | 当使用spring-security时，获取用于验证用户身份的Principal实现类 |
+
+另外有关视图解析、重定向的对象，无需了解
+
+##### 3.2.4、处理器返回值类型
+
+​		在搭配@ResponseBody时，handle能够返回任何java对象；也可以搭配特殊类型，来设置响应头信息：
+
+| 返回值类型                                                   | 作用                                                         |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| HttpEntity<B>、ResponseEntity<B>                             | 用于定义完整的响应信息（body与Headers），返回值会通过HttpMessageConverter写入Response对象中 |
+| HttpHeaders                                                  | 定义Headers信息，即无正文数据                                |
+| String、View、java.util.Map、org.springframework.ui.Model、ModelAndView | 定义视图、视图模型数据（前后端分离不会使用）                 |
+| void                                                         | 默认响应已经被处理，若没有则会抛出异常响应500                |
+
+#### 3.3、HttpMessageConverter
+
+http消息转化器，有两个作用位置：
+
+1、读取requestBody数据，将其转化为Java对象
+
+2、将带有@ResponseBody注解的Handler返回值对象，转化为指定类型数据
+
+```java
+public interface HttpMessageConverter<T> {
+	//是否可以转化requestBody数据
+	boolean canRead(Class<?> clazz, @Nullable MediaType mediaType);
+	
+    //是否可以转化responseBody数据
+	boolean canWrite(Class<?> clazz, @Nullable MediaType mediaType);
+
+    //可以支持的所有MediaType类型
+	List<MediaType> getSupportedMediaTypes();
+
+	//requestBody数据转化为java对象
+	T read(Class<? extends T> clazz, HttpInputMessage inputMessage)
+			throws IOException, HttpMessageNotReadableException;
+
+	//将java对象写入到responseBody中，并设置ConentType
+	void write(T t, @Nullable MediaType contentType, HttpOutputMessage outputMessage)
+			throws IOException, HttpMessageNotWritableException;
+
+}
+```
+
+​		springMVC会根据需要转化数据的javaType和MediaType来进行选择合适的HttpMessageConverter实现类，最常用的实现类为`StringHttpMessageConverter`、`MappingJackson2HttpMessageConverter`，
+
+- StringHttpMessageConverter：
+
+  ​		javaType=String、MediaType=text/plain、*/ *，将数据以字符串形式处理；MediaType=application/json时，charset=utf-8；其他则charset=ISO-8859-1
+
+- MappingJackson2HttpMessageConverter：
+
+  ​		javaType=Object、MediaType=application/json,application/ +json，会将数据进行Json序列化/反序列化处理；charset=utf-8
+
+注意：
+
+- StringHttpMessageConverter优先级大于MappingJackson2HttpMessageConverter
+
+##### 3.3.1、处理requestBody数据
+
+​		springMVC通过@ReuqestBody来接收由HttpMessageConverter转化来的对象，然后获取所有HttpMessageConverter实现类集合，根据参数类型和请求头ContextType，按顺序进行匹配
+
+##### 3.3.2、处理handle返回值
+
+​		在处理Handle返回值时，HttpMessageConverter首先会根据请求头Accept，来判断客户端支持返回的MediaType类型，然后获取所有HttpMessageConverter实现类集合，根据返回值类型和响应头ContextType，按顺序进行匹配
+
+​		注意：
+
+​		由于StringHttpMessageCoverter优先级大于MappingJackson2HttpMessageConverter，因此如果handle返回值为String类型时，会优先被StringHttpMessageCoverter处理，并使用默认ContextType=text/plain；charset=ISO-8859-1，此时返回结果就会乱码；有两种解决方法：
+
+- 通过@RequestMapping的Produces属性，在Accept请求头的基础上，进一步限制MediaType类型，让StringHttpMessageCoverter使用application/json；charset=utf-8处理
+- 修改StringHttpMessageCoverter中的DefaultCharset，默认使用charset=utf-8处理
+
+#### 3.4、Converter
+
+​		springMVC类型转化器，用于对url、form表单传参数据，进行java对象的转化处理
+
+##### 3.4.1、内置转化器
+
+​		springMVC默认提供了对基础类型和集合对象的转化：
+
+- String转数字、boolean、枚举、Locale、char、Properties
+- 基础数据类型转包装类
+- 数组转任意集合
+
+##### 3.4.2、自定义转化器
+
+​		对于一些复杂参数，开发者可以通过自定义转化器来全局处理，简化参数接收，springMVC提供两个接口来实现：
+
+​		**自定义converter解析失败抛出异常后，会先被springMVC默认解析器处理，如果无法处理，则再抛出异常**
 
 - **Converter<S,T>**
 
-  使用Converter<S,T>接口,来定义converter，一般S使用String类型，表示源数据类型，T为接受转换的数据类型
-
-  以date类型为例
+  使用Converter<S,T>接口,原数据为String类型，T为需要转化的对象，以date类型为例
 
   ```java
-  @Configuration
+@Configuration
   public class DateTimeConverter {
-  
   	@Bean
   	public Converter<String, Date> DateConverter() {
   		return new Converter<String, Date>() {
@@ -489,15 +487,15 @@ springMVC提供多个默认HttpMessageConverter，常用有两个：
   	}
   }
   ```
-
+  
+  Converter可以直接注入到IOC容器中，springMVC会自动获取IOC容器中的所有处理器，进行匹配处理
+  
 - **ConverterFactory<S,R>**
 
-  直接Converter接口存在一个问题，无法动态获取T类型，需要手动写死，即每个Converter只能处理一种数据类型，而使用ConverterFactory<S,R>,R指定一个接受参数类型的范围,从而对实现了某种特殊接口的类型参数，进行处理单独
-
-  以枚举为例
+  使用ConverterFactory<S,R>接口，原数据为String类型，R为某种特殊接口、类，可以处理所有参数类型为R的子类数据
 
   ```java
-  //converterFactory工厂
+//converterFactory工厂
   public class CommonEnumConverterFactory implements ConverterFactory<String, IEnum<String>> {
   
       //提供创建converter对象方法，并以目标参数类型作为入参
@@ -529,13 +527,16 @@ springMVC提供多个默认HttpMessageConverter，常用有两个：
   			throw new BusinessException("枚举类型转换失败");
   		}
   	}
-  }
+  }		
   ```
-
+  
   **注意：**
 
-  ​	converterFactory区别于Converter，它并不会被spring扫描后直接生效，必须在WebMvcConfigurer配置接口继承类中，手动注册：
+  - 相对于Converter，ConverterFactory可以动态处理某种类型的所有子类数据转化
 
+  - converterFactory必须在WebMvcConfigurer中进行手动配置，并不能通过注入IOC容器而生效
+
+  
   ```java
   	//注册格式化器、转换器工厂
   	public void addFormatters(FormatterRegistry registry) {
@@ -543,228 +544,152 @@ springMVC提供多个默认HttpMessageConverter，常用有两个：
   	}
   ```
 
-#### WebDataBinder
+#### 3.5、WebDataBinder
 
-​	用于将web请求中的parameters数据绑定到javaBean中，并提供数据校验；
+​		在spring3.0以前，springMVC使用WebDataBinder完成处理器上所有参数数据的绑定、校验和格式化，内部通过PropertyEditor来完成；但该方式有明显的缺点：
 
-springMVC中，所有的请求参数数据都会交给WebDataBinder进行数据绑定和校验，而相对于Converter转换器，它们的作用时间不同：
+- PropertyEditor只能进行Spring和Object的转化（无法完成如，long类型时间戳 转Date类型）
 
-​	在webDataBinder进行数据绑定前，内部已经获取了所有Converter，从而遍历所有converter，依次对每个参数进行数据转换
+- PropertyEditor线程不安全，每次使用都需要重新创建
 
-#### 映射注解
+- PropertyEditor没有限制转化的参数类型，因此在自定义PropertyEditor，需要手动判断当前请求参数数据是否满足处理条件；也因此不支持细粒化的类型转化或格式化（如使用Date同时接收日期、日期时间）
 
-springMVC提供**@RequestMapping**注解，将请求映射到指定控制器方法中；并提供各种属性，通过URL、http方法、请求参数、Headers来进行匹配
+  
 
-@RequestMapping属性：
+**在spring3.0以后，springMVC在WebDataBinder中添加了Converter组件来进行数据的类型转化和格式化，并使用Validator组件完成数据的校验，最终生成BindingData绑定结构**
 
-| 属性名   | 描述                                                         |
-| -------- | ------------------------------------------------------------ |
-| name     | 该控制器的映射Name                                           |
-| value    | path的别名                                                   |
-| path     | 所映射请求的url，支持相对路径匹配、REST风格传参              |
-| method   | HTTP方法，RequestMethod[]，可以匹配多个HTTP方法              |
-| params   | 请求参数列表，不是固定匹配，包括所有就满足，**即请求参数中必须包含当前规定的所有参数** |
-| produces | 指定处理后响应头中，Content-Type类型值，**通过该属性可以定义响应数据的编码格式** |
-| headers  | 请求中必须包含指定请求头                                     |
+​		因此，在webDataBinder中，并不推荐使用PropertyEditor
 
-springMVC还提供@RequestMapping多个变体注解，用于方便定义Http方法类型：
+##### 3.5.1、WebDataBinder参数绑定过程
 
-**@GetMapping、@PostMapping**
+1、在请求被拦截后，映射到指定处理器处理前，通过request、绑定参数对象、参数名，创建该请求参数的WebDataBinder
 
-注意：@RequestMapping可以注解在类上，定义所有方法的映射规则，此时还可以使用@RequestMapping注解在方法上，来进一步缩小映射匹配范围：
+2、执行初始化方法，获取注册的所有PropertyEditor集合
 
-- 对于Path，会将类和方法上的值进行组合：
+3、选择合适的PropertyEditor处理，对处理器参数进行绑定
 
-```java
-@RestController
-@RequestMapping(path="/data")
-public class DataController {
-	
-    @RequestMapping(path="/test")
-	public String Test() {
-		return "succsee";
-	}
-```
+springMVC中，请求所有参数数据都会交给WebDataBinder进行数据类型的转化、校验和格式化，而相对于Converter转换器，它们的作用时间不同：
 
-**此时实际请求映射的Path值为 /data/test**
+​		在webDataBinder进行数据绑定前，内部已经获取了所有Converter，从而遍历所有converter，依次对每个参数进行数据转换
 
-- 对于method、params、produces、headers，方法级别会覆盖类级别
+##### 3.5.2、WebDataBinder初始化
 
-##### 方法参数注解
+​		springMVC提供全局和控制层级别两种方式，来定义WebDataBinder初始化方法；在初始化方法中，可以注册PropertyEditor自动完成数据绑定，并对指定处理器参数手动赋值
 
-​	springMVC提供一系列方法参数注解，将springMVC封装好的Http请求数据，注入到控制器方法形参中；在@Controller注解的类被注册到springMVC容器后，会进行自动装配；当其映射方法被执行时，会通过方法参数中的注解，将请求中的参数对应传入，实现对请求数据的自动获取
+- 全局注册：
 
-| 注解              | 作用                                                         |
-| ----------------- | ------------------------------------------------------------ |
-| @PathVariable     | 获取URL中使用REST风格的传参值                                |
-| @MatrixVariable   | 获取URL中矩阵变量传参值（一般不使用）                        |
-| @RequestParam     | 获取Servlet中的请求参数（url传参、form-data传参），springmvc对于文件上传，提供MultipartFile对象进行接收（File无法接收） |
-| @RequestHeader    | 获取请求头参数值                                             |
-| @CookieValue      | 获取Cookie中的参数值                                         |
-| @RequestBody      | 获取请求Body中的内容，并通过HttpMessageConverter根据请求头中的Content-Type对内容进行解析，转化为java对象（一般用于json反序列化为java对象） |
-| @RequestPart      | 将multipart/form-data中的json数据直接反序列化为java对象（避免后台手动反序列化，但是需要前端定义当前数据的content-type=application/json） |
-| @ModelAttribute   | 将所有URL获取的参数和form-data获取的参数，绑定到java对象中；必须保证java对象提供要给无参构造方法，无需保证至少有一个属性注入 |
-| @SessionAttribute | 获取HttpSession对象中的属性，如sessionID                     |
-| @RequestAttribute | 获取HttpServeltRequest对象中的属性（用于请求转发，但在前后端分离的项目中不会使用） |
+  通过实现WebBindingInitializer接口，在WebDataBinder创建时，会自动回调该接口方法
 
-**注意：**
+  ```java
+  public interface WebBindingInitializer {
+  
+  	void initBinder(WebDataBinder binder);
+  }
+  ```
 
-- 除@ModelAttribute外，所有方法参数注解都有一个**required**属性，默认为true，即不能够忽略：
+  但一般情况下，应该继承其唯一实现类ConfigurableWebBindingInitializer，在springMVC配置基础上，修改WebDataBinder配置
 
-  ​	当请求参数中不包含当前指定的参数时，springMVC就会抛出异常**响应400**，提示当前类型的参数没有被绑定，即请求中没有包含当前数据；当required属性为false时，springMVC就会忽略没有绑定的参数，默认为null
+- 控制层级别注册：
 
-- 以@RequestParam为例，方法参数注解的使用：
+  springMVC提供@InitBinder，在控制器中定义当所有处理器参数绑定所使用的WebDataBinder对象的初始化方法
 
-  ​	@RequestParam提供name、value两个属性值，来对应获取http请求数据中的参数名，从而获取其参数值；**当不进行两个属性值声明时，默认使用方法形参名匹配**
+注意：
 
-  ​	@RequestParam单独还提供defaultValue属性，定义当参数没有被绑定时的默认值（不设置，则默认为null）；并且defaultValue只能提供String类型值，需要保证所对应形参类型可以进行有效转化
+​		两种方式可以同时存在，全局初始化方法先执行，控制层级别注册后执行，因此后者优先级更高
 
-- 当映射方法参数没有使用注解时，首先会与springMVC默认定义的一些早期值进行匹配，当没有匹配值时，则通过BeanUtils.isSimpleProperty方法判断当前参数类型是否为简单数据类型；是，则自动添加一个属性required=false的@RequestParam注解；不是，则自动添加@ModelAttribute注解
+#### 3.6、控制器异常处理
 
-- @RequestParam和@RequestParth都可以获取multipart/form-data数据，但是两者有区别：
+​		当前处理器执行期间发生异常时,springMVC会将异常交给一系列HandlerExceptionResolver，通过责任链模式进行异常处理
 
-  @RequestParam只能将text解析为String类型
-
-  @RequestParth还可以解析如json字符串，将其转化为javaBean；但需要配合数据Content-Type值来解析（并不是请求头中的Content-Type），因此一般不使用，这样只是让后台代码更加优雅，但是增加了不必要的前后端传参定义规范
-
-#### 方法参数早期匹配值
-
-​		spring提供一系列对象，方便操作servelt API；这些值的注入不需要特殊注解，springMVC会在早期，根据参数类型进行匹配注入：
-
-| 对象类型                                                    | 作用                                                         |
-| ----------------------------------------------------------- | ------------------------------------------------------------ |
-| WebRequest、NativeWebRequest                                | springMVC封装好的对象，用于简化servletAPI操作，如对请求参数、请求属性和会话属性的访问 |
-| javax.servlet.ServletRequest、javax.servlet.ServletResponse | 获取Servlet API提供的请求和响应对象                          |
-| javax.servlet.http.HttpSession                              | 获取Serlvet API提供的请求会话对象；该对象的线程不安全，因此要避免业务层缓存数据放在Session属性中 |
-| HttpMethod                                                  | HttpMethod的枚举值                                           |
-| java.io.InputStream、java.io.Reader                         | 获取Servlet API的 请求输入流                                 |
-| java.io.OutputStream、java.io.Writer                        | 获取Servlet API的 响应输出流                                 |
-| java.util.Locale                                            | 当前请求的语言环境（Http请求并不会带有当前客户端的语言环境，需要通过LocaleContextResolver来解析请求中的特定数据，来设置） |
-| java.util.TimeZone、java.time.ZoneId                        | 当前请求的时区（同上）                                       |
-| HttpEntity<B>                                               | 获取请求中的body和headers，使用                              |
-| UriComponentsBuilder                                        | 用于构造和编码URI                                            |
-| Errors、BindingResult                                       | 用于获取springMVC参数绑定的错误信息，需要保证它们在所有绑定数据的最后 |
-| javax.servlet.http.PushBuilder                              | 获取Servlet 4.0 提供用于访问HTTP/2资源推送的对象             |
-| java.security.Principal                                     | 当使用spring-security时，获取用于验证用户身份的Principal实现类 |
-
-另外有关视图解析、重定向的对象，无需了解
-
-#### 方法返回值和相关注解
-
-映射方法返回值用于定义springMVC处理请求后，响应数据的传递方式和响应信息的设置：
-
-| 返回值类型                                                   | 作用                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| HttpEntity<B>、ResponseEntity<B>                             | 用于定义完整的响应信息（body与Headers），返回值会通过HttpMessageConverter写入Response对象中 |
-| HttpHeaders                                                  | 定义Headers信息，即无正文数据                                |
-| String、View、java.util.Map、org.springframework.ui.Model、ModelAndView | 定义视图、视图模型数据（前后端分离不会使用）                 |
-| void                                                         | 默认响应已经被处理，若没有则会抛出异常响应500                |
-
-除了常规响应信息外，还提供对异步请求、HTTP流的处理，在此不进行了解
-
-​	springMVC提供@ResponseBody注解，使用**HttpMessageConverter**将返回值转化为ResponseBody，默认使用jackson JSON来实现对象序列化，简单数据类型则转化为String
-
-##### @ExecptionHandler
-
-​		当请求映射处理期间发生异常时（控制层抛出异常），DispatcherServlet会将异常交给一系列HandlerExceptionResolver类型Bean，以责任链模式进行异常处理，即**请求错误响应**
-
-springMVC提供如下HandlerExceptionResolver实现类：
+​		HandlerExceptionResolver实现类：
 
 | HandlerExceptionResolver实现类    | 描述                                                         |
 | --------------------------------- | ------------------------------------------------------------ |
-| SimpleMappingExceptionResolver    | 异常类名称和错误视图名称之间的映射，定义响应错误页面（一般用于前后端不分离项目，使用Servlet进行页面跳转） |
-| DefaultHandlerExceptionResolver   | springMVC默认提供的异常解析器，解决所有springMVC引发的异常，并映射响应对应的HTTP状态代码；它的解析结果可以被ResponseEntityExceptionHandler、REST API异常所覆盖 |
-| ResponseStatusExceptionResolver   | 提供@ResponseStatus注解，来映射指定HTTP状态代码              |
-| ExceptionHandlerExceptionResolver | 提供@ExceptionHandler注解，来定义指定异常的处理方法          |
+| SimpleMappingExceptionResolver    | 通过异常名映射返回指定错误视图（一般用于前后端不分离项目）   |
+| DefaultHandlerExceptionResolver   | 根据异常类型，返回默认HTTP状态代码                           |
+| ResponseStatusExceptionResolver   | 根据异常类型，返回指定HTTP状态代码（在异常类上添加@ResponseStatus进行设置） |
+| ExceptionHandlerExceptionResolver | 根据异常类型，选择对应@ResponseHandler注解方法进行处理       |
 
-我们可以自定义多个HandlerExceptionResolver类型Bean，根据order来设置它们的优先级，即在责任链中的优先级；当所有HandlerExceptionResolver都没有解决该异常时，则交给servlet容器处理
+​		springMVC默认注册了三种异常处理解析器，并定义了它们的优先级，由高到底：
 
-**springMVC推荐使用@ExceptionHandler来定义异常处理：**
+ExceptionHandlerExceptionResolver、ResponseStatusExceptionResolver、DefaultHandlerExceptionResolver
+
+##### 3.6.1、@ResponseHandler
+
+​		一般情况下，开发者都会自定义响应格式；因此一般使用@ResponseHandler对指定异常进行处理，搭配@ResponseBody响应固定错误内容
 
 ```java
-@RestController
-public class TestController {
-    
-	@ExceptionHandler(Exception.class)
-	public String exceptionHandler(Exception exception) {
-		return exception.toString();
+	@ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+	@ResponseBody
+	public ResponseEntity handleException(HttpRequestMethodNotSupportedException e) {
+		log.error(e.getMessage(), e);
+		return Result.error("不支持' " + e.getMethod() + "'请求");
 	}
-    
-    @RequestMapping("/test")
-	public String  test() {
-		int a =1/0;
-        return "hh";
-    }
-}
 ```
 
-**@ExceptionHandler注解的异常处理器只能作用当前Controller类中**
+注意：
 
-##### @ModelAttribute
+- 当多个@ExceptionHandler指定的异常存在继承关系时，ExceptionHandlerExceptionResolver会优先选择，当前继承关系最近的异常处理器
+- 异常处理器本质上也是处理器，并且需要声明在控制器中，并只在当前控制器生效
 
-​	**dispatcherServlet在处理每个映射请求时，都提供了一个Model对象，用于作为数据中间层，存储和访问数据**；**在前后端不分离的情况下，Model对象可以被视图层访问**
+#### 3.7、Model对象处理
 
-​	@ModelAttribute注解就是用于开发者操作Model对象数据，它可以注解在三种位置：
+​		处理器在处理请求时，都会提供一个Model对象，用于作为数据中间层，存储和访问数据（在前后端不分离的情况下，Model对象可以被视图层访问）
 
-- 映射方法上，将当前方法的返回值作为Model中数据（前后端分离不会使用）
-- 映射方法参数上，首先根据Model中的已有数据进行Name匹配注入，不存在匹配值则会将参数放入Model中，使用**WebDataBinder**进行参数绑定；（**可以直接通过org.springframework.ui.Model进行早期值参数注入，获取Model对象**）
-- 控制器的非映射方法上，用于执行@RequestMapping方法前，初始化Model对象
+​		springMVC提供@ModelAttribute注解，用于开发者操作Model对象，并分为如下三个场景：
 
-```java
-	@ModelAttribute("userA")
-	public User initModel(String id,String name) {
-		User user = new User();
-		user.setId(id);
-		user.setName(name);
-		return user;
-	}
+- @ModelAttribute注解在处理器参数上：
 
-	@RequestMapping("/test")
-	public String  test(Model model) {//通过Model对象获取其中数据
-		User user = (User)model.getAttribute("userA");
-		System.out.println(user.toString());
-        return "hh";
-    }
+  ​		首先Model对象中，根据参数名获取对应匹配值，如果没有，则通过WebDataBinder进行参数绑定，并将其存入到Model中；如果有，则直接从model中获取
 
-	@RequestMapping("/testA")
-	public String  test(@ModelAttribute("userA") User user) {//直接匹配Model对象中的userA参数镀锡，进行注入
-		xxx
-    }
-	
-	@RequestMapping("/testA")
-	public String  test(@ModelAttribute User user) {//此时会通过WebDataBinder，获取servelt参数值，进行参数绑定
-		xxx
-    }
-```
+  ​		**一般用于请求参数绑定，将参数转化为JavaBean**
 
-##### @InitBinder
+  ```java
+  	@RequestMapping("/testA")
+  	public String  test(@ModelAttribute("userA") User user) {
+      }
+  ```
 
-​	@InitBinder用于初始化当前控制器的WebDataBinder，该对象有如下作用：
+- @ModelAttribute注解在非处理器方法上：
 
-- 将请求参数绑定到Model对象中
-- 将所有的String类型请求数据（请求参数、url、Headers、Cookie等）转化为控制器方法参数
-- 将Model对象中的数据转化为String值
+  ​		在当前控制器的每个处理器执行前，调用该方法并将其返回值存入到Model对象中
 
-```java
-    @InitBinder 
-    public void initBinder(WebDataBinder binder) {
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        dateFormat.setLenient(false);
-        binder.registerCustomEditor(Date.class, new CustomDateEditor(dateFormat, false));
-    }
-```
+  ​		**一般用于初始化Model对象中的属性**
 
-通过 @InitBinder 可以定义WebDataBinder 一些基本属性，如date转化器
+  ```java
+  	@ModelAttribute("userA")
+  	public User initModel(String id,String name) {
+  		User user = new User();
+  		user.setId(id);
+  		user.setName(name);
+  		return user;
+  	}
+  
+  ```
 
-##### @ ControllerAdvice
+- @ModelAtrribute注解在处理器方法上：
 
-​	@ControllerAdvice为增强版控制器，用于全局处理请求数据，搭配@ExceptionHandler、@ModelAttribut、@InitBinder使用；
+  ​		此时会将返回值存入Model对象中，并且会响应到当前请求路径的.jsp视图页面中
 
-**@ControllerAdvice并不是@Controller的子注解，并不能搭配@requestMapping使用，实现控制器功能；而是@Component子注解，会被注册到spring容器中**
+  ​		**在前后端分离的情况下，一般不使用**
+
+注意：
+
+- 处理器可以通过早期值匹配，直接获取Model对象
+
+#### 3.8、控制器增强
+
+​		springMVC提供@ControllerAdvice，定义增强版控制器，搭配@InitBinder、@ExceptionHandler、和ModelAttribut；实现对WebDataBinder初始化、异常、Model对象的全局处理
+
+​		@ControllerAdvice本质上还是控制器，但不能搭配@RequestMapping定义处理器，映射处理请求;@ControllerAdvice默认作用所有@Controller，但是可以通过指定basePackages，来自定义作用范围
+
+- 全局初始化WebDataBinder 
+
+  ​		@ControllerAdvice和@InitBinder 搭配使用，全局初始化WebDataBinder对象
 
 - 全局异常处理：
 
-  @ControllerAdvice和@ExecptionHandler搭配使用，全局处理控制层抛出的所有异常；当发生发生指定异常时，会被相应Handler方法处理，从而指定当前请求的响应内容
+  ​		@ControllerAdvice和@ExecptionHandler搭配使用，全局处理控制层抛出的所有异常；
 
   ```java
   @ControllerAdvice
@@ -779,77 +704,300 @@ public class TestController {
   }
   ```
 
-- 全局请求参数绑定
+- 全局初始化Model对象
 
-  @ControllerAdvice和@ModelAttribut搭配使用，全局处理所有请求的参数绑定；一般情况下，优先作用局部方法，不使用默认全局值，因为参数绑定的通用性不强，以免干扰过多不相干的映射处理器
+  @ControllerAdvice和@ModelAttribut搭配使用，全局处理所有请求Model对象；由于Model对象的通用性不强，一般不会全局处理，以免干扰过多不相干的映射处理器
 
-- 全局初始化WebDataBinder 
+### 4、springMVC拦截器
 
-  @ControllerAdvice和@InitBinder 搭配使用，全局初始化WebDataBinder对象，和@ModelAttribut一样，优先作用局部方法
+​		拦截器是web框架的必备功能，增强开发者对请求全局的控制处理，相对于Servelt api提出的过滤器，功能更加强大
 
-@ControllerAdvice默认作用所有@Controller，但是可以通过指定basePackages，来所需作用范围
+#### 4.1、拦截器使用：
 
-### 6、springMVC其他功能：
+​	springMVC提供HandlerInterceptor接口，对所有可以映射的请求进行拦截处理：
 
-##### URI处理：
+```java
+public interface HandlerInterceptor {
+    default boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)throws Exception {
+     	return true;
+	} 
+    
+    default void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,@Nullable ModelAndView modelAndView) throws Exception {
+        
+	}
+    
+    default void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler,@Nullable Exception ex) throws Exception {
+        
+	}
+```
 
-​	springMVC提供UriComponentsBuilder工具类，来构建和编码URI
+HandlerInterceptor提供三个方法：
 
-##### 异步请求处理：
+- preHandle：
 
-​	在Servlet3.0后，使服务器支持request异步请求处理，使用线程池技术，来多线程异步处理请求，而不是单线程阻塞的形式，导致服务器并发量降低
+  ​		在处理器执行前调用，返回true，则将请求交给下一拦截器或处理器；返回false，则认为请求已被处理，不在进行任何后面处理；一般用于用户认证
 
-- Servelt异步请求处理方式：
+- postHandle：
 
-  1、request.startAsync() 将当前Servelt请求设置为异步处理模式，从而将当前Servelt线程释放，但响应处于处理状态
+  ​		在处理器返回ModelAndView对象前调用，用于对ModelAndView对象进行额外处理；无论处理器是否返回Model、View对象，都会封装生成一个ModelAndView对象
 
-  2、并且request.startAsync()方法会返回一个AsyncContext对象，用于缓存当前请求对于的reques、response对象，并存放在application作用域中；当请求完成响应后，则会重新将其reques、response对象交给Servelt容器
+  ​		一般用于对视图、Model的统一处理
 
-  3、Servelt会存在一个异步线程池，用于执行所有被延迟响应的异步请求；此时servelt容器就会异步线程池中的servelt线程处理该请求，完成请求响应
+- afterCompletion：
 
-​	springMVC提供两种方式来封装实现Servelt异步请求处理：
+  ​		在处理器返回ModelAndView对象后调用；一般用于对控制层的统一异常处理、日志处理（**无论Handler执行是否发生异常，都会执行该方法**）
 
-- DeferredResult：
+#### **4.2、拦截器配置：**
 
-  springMVC提供DeferredResult对象，来搭配控制器实现Servelt异步请求处理；我们需要手动创建新线程，来执行异步代码，将结果放入DeferredResult对象，进行响应
+通过WebMvcConfigurer配置接口，添加过滤器，并配置过滤器拦截路径
+
+```java
+@Configuration
+public class MvcConfig implements WebMvcConfigurer {
+
+    //拦截器配置
+	@Override
+	public void addInterceptors(InterceptorRegistry registry) {
+		InterceptorRegistration addInterceptor = registry.addInterceptor(new MyInterceptor());
+		addInterceptor.addPathPatterns("/**");//拦截器映射匹配路径
+		addInterceptor.excludePathPatterns("/testSync");//拦截器排除路径
+	}
+}
+```
+
+#### 4.3、拦截器和过滤器的区别：
+
+1、拦截器基于JAVA反射机制，过滤器是基于函数回调
+
+2、过滤器依赖于Servlet容器，拦截器不依赖
+
+3、拦截器只会对映射了控制器方法的请求进行处理；过滤器会对所有请求进行处理
+
+4、拦截器可以访问springMVC处理请求所提供的各对象（handle、ModelAndView、Exception）；过滤器只能获取Servelt请求的相应对象
+
+5、在一个请求中，只会调用一次过滤器；但对于拦截器，会在控制器中进行映射方法处理器的跳转，从而调用多次拦截器（请求每映射一次处理器，都会调用拦截器）
+
+### 5、springMVC-Servlet组件：
+
+​		Servlet提供三大组件：Servelt、Filter、Listener；它们实现了整个Servlet容器对于Web请求的处理
+
+​		SpringMVC本质上就是代替编写繁琐的Servelt，但依然支持使用Servlet原生组件（一般情况下，DispatcherServlet会拦截所有请求，因此开发并不是编写额外的Servlet）
+
+#### 5.1、Servlet组件配置
+
+springMVC应用提供多种Servlet组件配置方式：
+
+- XML原生配置：
+
+  Servlet容器会默认读取项目下的WEB-INF/web.xml文件，来进行Servelt组件配置
+
+  **Filter、Listener执行顺序：**根据在web.xml中的声明顺序决定
+
+- Servelt3.0注解原生配置：
+
+  ​		在Servelt3.0以后，为了减少xml配置的繁琐，提供了@WebFilter、@WebServlet、@WebListener来配置Servelt组件
+
+  **Filter、Listener执行顺序：**根据@WebFilter、@WebListener所注解的类名自然排序（推荐使用Filter01作为前缀来控制）
+
+- springMVC配置：
+
+  springMVC提供**WebApplicationInitializer**、**AbstractAnnotationConfigDispatcherServletInitializer**接口，来获取servelt容器的上下文对象ServeltContext，配置Servelt组件
+
+  **Filter、Listener执行顺序：**根据配置添加顺序决定
 
   ```java
-  @RequestMapping("/testSync")
-  	public DeferredResult<String> syncTask(){
-          xxxxx
-  		//定义异步结果集，定义异步处理超时时间
-  		DeferredResult<String> deferredResult = new DeferredResult<String>((long) 11000);
-  		Runnable runnable = new Runnable() {
-  			@Override
-  			public void run() {
-  				try {
-  					Thread.sleep(10000);
-  				} catch (InterruptedException e) {
-  					e.printStackTrace();
-  				}
-  				deferredResult.setResult("hhhhSync");
-  			}
-  		};
-  		Thread thread = new Thread(runnable);
-  		thread.start();
-  		return deferredResult;
+  public class WbeConfigSimple extends AbstractAnnotationConfigDispatcherServletInitializer {
+  	xxxx	
+  	@Override
+  	protected Filter[] getServletFilters() {
+          //按照数组排序顺序执行
+  		return new Filter[] {new MyFilter()};
   	}
+  }
   ```
 
-  DeferredResult的工作过程：
+**三种配置优先级：**
 
-  - 控制器返回DeferredResult对象
-  - springMVC调用request.startAsync() ，此时当前servelt线程释放（处理当前请求的线程）
-  - DeferredResult被其他线程处理，并执行setResult方法
-  - 此时springMVC将请求重新交给Servelt容器管理，从而获取一个servelt线程，处理当前请求
+​		由于Servelt容器，会优先读取WEB-INF/web.xml文件，然后再将配置好的ServeltContext交给springMVC处理，因此其优先级为：
 
-- Callable：
+XML配置    >  注解配置  >   springMVC配置
 
-  springMVC还支持JDK提供的java.util.concurrent.Callable作为处理器返回值，springMVC会使用一个线程池来处理控制器所返回的Callable任务；springMVC默认提供SimpleAsyncTaskExecutor对象作为线程池，但是它实际并不是一个线程池，每次执行任务都需要创建一个新的线程；
+注意：
 
-  因此我们需要进行手动配置springMVC的异步线程池，并且可以设置异步请求默认超时时间
+- 推荐单独使用一种进行配置，减少不必要的处理
+- springMVC配置的Servlet会默认开启非懒加载和异步处理模式，
 
-  springMVC提供多个AsyncTaskExecutor实现类，推荐使用ThreadPoolTaskExecutor，它是对java.util.concurrent.ThreadPoolExecutor的封装
+#### 5.2、springMVC内置过滤器：
+
+​		springMVC提供一套基于Filter接口的过滤器抽象类，对Filter进行扩展，方便开发者在SpringMVC自定义复杂功能的过滤器：
+
+- GenericFilterBean：将过滤器交给IOC容器管理，同时可以获取Servlet容器初始化参数
+- OncePerRequestFilter：GenericFilterBean的子类，实现只对请求进行一次过滤（解决转发时，会导致request再次被过滤器处理的问题
+- AbstractRequestLoggingFilter：OncePerRequestFilter的子类，提供额外beforeRequest、afterRequest方法，提供对过滤前后的编写相应代码（将整个过滤器代码分步化，增强过滤器全局处理请求的能力）
+
+springMVC基于这些抽象类，提供了如下常用过滤器（并不会默认配置，需要开发者手动配置）
+
+- CharacterEncodingFilter：
+
+  ​		设置请求头的CharacterEncoding，默认使用utf-8；
+
+  ​		springMVC在进行参数绑定时，对于url传参数据，会通过Servlet容器编码来进行解码；而非url传参数据，则使用CharacterEncoding进行解码；（url会被Servlet容器进行编码处理，因此使用Servlet容器默认编码来进行解码）
+
+- CorsFilter：
+
+  ​		实现CORS处理
+
+- HiddenHttpMethodFilter：
+
+  ​		可以将form表单的请求转化为DELETE、PUT（form表单只支持put、post）
+
+- ShallowEtagHeaderFilter：
+
+  ​		实现对HTTP缓存中Etag请求头的处理
+
+### 6、RequestContextHolder
+
+​		springMVC提供RequestContextHolder工具类，获取当前请求线程中的response、response对象
+
+​		通过RequestAttributes实现ServletRequestAttributes接口，来获取内部的HttpServletRequest、HttpServletResponse：
+
+```java
+//通过RequestContextHolder来获取RequestAttributes
+//两个方法在没有使用JSF的项目中是没有区别的
+RequestAttributes reqAttributes = RequestContextHolder.currentRequestAttributes();
+RequestAttributes reqAttributes = RequestContextHolder.getRequestAttributes();                          
+//RequestAttributes向下转型为ServletRequestAttributes，然后获取其中的request、response对象
+HttpServletRequest request = ((ServletRequestAttributes)reqAttributes).getRequest();
+HttpServletResponse response = ((ServletRequestAttributes)reqAttributes).getResponse();
+```
+
+- **RequestContextHolder实现原理**
+
+  ​		当请求被DispatcherServlet拦截后，在FrameworkServlet的doGet/doPost方法中，调用processRequest（request, response）来进行请求对象的预处理：
+
+  ​		将当前请求的request、response对象封装到RequestAttributes中，使用RequestContextHolder的ThreadLoacl<RequestAttributes>属性进行保存，通过ThreadLocal技术，来实现多线程间的可见性
+
+### 7、springMVC额外功能：
+
+#### 7.1、URI处理：
+
+​		springMVC提供UriComponentsBuilder工具类，来构建和编码URI
+
+##### 7.1、构建URI
+
+springMVC通过UriComponentsBuilder来方便开发者构建URI，url编码中默认使用utf-8，常用两种方式：
+
+- 基于uri模块化配置，协议、host、path、quetry
+
+```java
+UriComponents uriComponents = UriComponentsBuilder.newInstance()
+				.scheme("http")
+				.host("localhost")
+    			.port(8080)
+				.path("/user/login")
+				.queryParam("username", "yuanhuan")
+				.queryParam("passwrod", "123456")
+				.encode()
+				.build();
+		return uriComponents.expand().toUriString();
+```
+
+- 基于httpurl字符串，对于query可以使用占位符替代，然后在uriComponents中进行参数填充
+
+```java
+UriComponents uriComponents = UriComponentsBuilder
+			.fromHttpUrl("http://localhost:8080/user/login")
+			.queryParam("username", "{a}")
+			.queryParam("passwrod", "{b}")
+			.encode()
+			.build();
+	return uriComponents.expand("1","2").toUriString();
+```
+
+uriComponent在构建前后，都可以执行encode编码，但两种方式有本质的区别：
+
+- 构建前调用：先对url模板进行编码，然后再对变量值进行编码，最后组装
+- 构建后调用：先间url变量注入到url模板中，然后对完整的url进行编码
+
+**前者会对URL变量进行严格编码，导致 ; 这样的路径合法，但具有保留含义的字符被转换，**
+
+##### 7.2、URI模板工厂
+
+springMVC提供DefaultUriBuilderFactory，来创建URIBuilderFactory，从而实现定义基础了URI模板，其构建的所有URIBuilder都在该baseURI上进行修改
+
+```java
+DefaultUriBuilderFactory urlBuilderFactory = new DefaultUriBuilderFactory("http://localhost:8080/user/login");
+
+UriBuilder builder = urlBuilderFactory.builder();
+return builder.queryParam("name","袁欢").build().toString();
+```
+
+注意：
+
+- DefaultUriBuilderFactory还可以用于RestTemplate的构建，使其所有的uri都在baseURI基础上修改；如定义默认的协议、host、port和部分path
+- DefaultUriBuilderFactory编码默认先处理url模板、然后处理变量值
+
+##### 7.3、创建当前请求的URI
+
+springMVC提供ServletUriComponentsBuilder，通过当前请求获取URI，并对其进行修改
+
+```java
+	UriComponents build = ServletUriComponentsBuilder.fromRequestUri(request)
+        		.replaceQueryParam("name","袁欢")
+				.build();
+```
+
+##### 7.4、创建控制器的URI
+
+springMVC提供MvcUriComponentsBuilder，通过指定控制器类中的处理器，创建其URI
+
+```java
+UriComponents uriComponents = MvcUriComponentsBuilder
+    .fromMethodName(UserController.class, "login", "袁欢").buildAndExpand();
+	URI uri = uriComponents.encode().toUri();
+```
+
+注意：MvcUriComponentsBuilder基于ServletUriComponentsBuilder，其URI中的协议、Host、端口依赖于当前request的url；因此只能在Servlet请求处理中使用
+
+#### 7.2、异步请求处理：
+
+​		在Servlet3.0后，支持Servlet异步请求处理，避免线程阻塞，影响Servlet容器并发处理请求；springMVC通过**DeferredResult**、**Callable**作为处理器返回值，来整合编写Servlet异步请求：
+
+```java
+@RequestMapping("/testSync")
+public DeferredResult<String> syncTask(){
+	//定义异步结果集，定义异步处理超时时间
+	DeferredResult<String> deferredResult = new DeferredResult<String>((long) 11000);
+	Runnable runnable = new Runnable() {
+		@Override
+		public void run() {
+			//异步处理代码逻辑，保存需要响应输出的结果
+			deferredResult.setResult("hhhhSync");
+		}
+	};
+    //指定异步线程
+	Executors.newSingleThreadExecutor().submit(runnable);
+	return deferredResult;
+}
+```
+
+- **DeferredResult的工作过程：**
+
+  1、SpringMVC调用request.startAsync()方法，从而使Servlet容器的工作线程释放，并使response处理打开状态
+
+  2、SpringMVC将DeferredResult交给某个线程处理，得到Result结果，并进行处理输出到response中
+
+  3、SpringMVC调用AsyncContext.complete方法，交给请求重新交给Servlet容器的工作线程
+
+- **Callable和DeferredResult区别：**
+
+  1、Callable不需要在处理器中指定线程执行，而是在处理器返回后，使用springMVC默认异步线程池处理
+
+  2、Callable发生异常时，并不是在处理器方法中抛出，当依然能被全局异常处理器处理
+
+- **springMVC异步线程池配置：**
+
+  ​		springMVC提供多个AsyncTaskExecutor实现类，推荐使用ThreadPoolTaskExecutor，它是对java.util.concurrent.ThreadPoolExecutor的封装
 
   ```java
   @Configuration
@@ -864,43 +1012,41 @@ public class TestController {
   }
   ```
 
-  ```java
-  @RequestMapping("/testSyncA")
-  	public Callable<String> syncTaskA(){
-  		xxxx
-          return new Callable<String>() {
-  			@Override
-  			public String call() throws Exception {
-  				try {
-  					Thread.sleep(10000);
-  				} catch (InterruptedException e) {
-  					e.printStackTrace();
-  				}
-  				return "hhhhSyncA";
-  			}
-  		};
-  	}
-  ```
+注意:
 
-  Callable的工作过程：
+- 异步请求需要保证处理请求的Servert和Filter都设置为可异步处理：asyncSupported=true
+- springMVC提供AsyncHandlerInterceptor，来进行**被异步处理的请求**的拦截器配置（Filter开启异步支持，就能对被异步处理的请求生效）
 
-  - 控制器返回Callable
-  - springMVC调用request .startAsync，此时当前servelt线程释放（处理当前请求的线程），并将Callable对象交给AsyncTaskExecutor线程池执行
-  - 当Callable执行完成，返回结果后，springMVC再次将请求交给Servlet容器处理，从而获取一个servelt线程，处理当前请求
+#### 7.3、CORS：
 
-- 在进行异步请求处理过程中，HTTP客户端会有一个Read超时时间（即HTTP响应时间）；而服务端也可以设置自己处理请求的超时时间，但一般情况下，该超时时间要小于客户端Read超时时间
+​		springMVC提供了对CORS的内置支持，并且支持处理映射（HandleMapping）和处理器（Handle）两种级别的处理
 
-- **注意，异步请求需要保证处理请求的Servert和Filter都设置为可异步处理：asyncSupported=true**
+##### 7.3.1、处理器级别
 
-##### CORS：
+​		springMVC提供@CrossOrigin注解，来启用处理器级别的CORS处理：
 
-​	springMVC的handlerMapping实现了对CORS内置支持，当请求被映射到相应处理器后，HandlerMapping会对请求进行CORS拦截处理，并且开发者可以为url-pattren或每个映射的url设置单独的CORS配置：
+```java
+    @CrossOrigin
+    @GetMapping("/{id}")
+    public Account retrieve(@PathVariable Long id) {
+        // ...
+    }
+```
 
-**注意:**CORS拦截在开发者自定义拦截器后面,因此对于跨域预检请求并不会带有token,因此会被拦截器拦截,导致预检请求失败
+@CrossOrigin属性：
 
-**全局配置：**
+| 属性名           | 作用                                                         |
+| ---------------- | ------------------------------------------------------------ |
+| origins          | 指定允许的跨域请求地址，默认为空，允许所有                   |
+| allowedHeaders   | 指定允许的请求头，默认空，但CROS规范默认允许一些请求头如：Content-type |
+| exposedHeaders   | 指定要暴露的请求头，默认为空                                 |
+| methods          | 指定允许的http请求方法，默认为空，为当前控制器方法允许值     |
+| allowCredentials | 允许请求发送cookie等安全证书，默认不启用                     |
+| maxAge           | 预检请求有效期，默认-1 永不过期                              |
 
-在**WebMvcConfigurer** 接口中，提供**addCorsMappings**回调方法，来设置指定映射url模板的CORS配置
+##### 7.3.2、处理映射级别
+
+​		在WebMvcConfigurer中进行配置：
 
 ```java
 @Configuration
@@ -916,32 +1062,12 @@ public class MvcConfig implements WebMvcConfigurer {
 	}
 ```
 
-**局部配置：**
+注意：
 
-spring4.2后，提供@CrossOrigin注解，进行局部控制器的CROS处理
+- 处理器级别优先级更高
+- spring内置的CORS在处理映射时处理，优先级小于用户自定义拦截器；当使用拦截器进行权限校验时，跨域预检请求并不会带token，导致被拦截，间接导致整个跨域处理失败；开发者无法修改CORS处理的优先级，因此推荐使用原生CorsFilter方式处理，使CORS优先于springMVC拦截器处理
 
-@CrossOrigin可以注解在类或方法上，默认使控制器支持跨域请求处理：
-
-@CrossOrigin属性
-
-| 属性名           | 作用                                                         |
-| ---------------- | ------------------------------------------------------------ |
-| origins          | 指定允许的跨域请求地址，默认为空，允许所有                   |
-| allowedHeaders   | 指定允许的请求头，默认空，但CROS规范默认允许一些请求头如：Content-type |
-| exposedHeaders   | 指定要暴露的请求头，默认为空                                 |
-| methods          | 指定允许的http请求方法，默认为空，为当前控制器方法允许值     |
-| allowCredentials | 允许请求发送cookie等安全证书，默认不启用                     |
-| maxAge           | 预检请求有效期，默认-1 永不过期                              |
-
-**局部配置会覆盖全局配置**
-
-**当然springMVC也支持原生CROS解决方案，使用CROS过滤器,并且springMVC提供更加简便的配置方法**
-
-##### 网络安全：
-
-**springMVC提供整合spring Security框架，来实现web项目的权限和网络安全**
-
-##### HTTP缓存：
+#### 7.4、HTTP缓存：
 
 ​	HTTP缓存属于客户端缓存，即浏览器缓存，它是基于HTTP协议存在的，并分为两种：强制缓存和协商缓存
 
@@ -976,13 +1102,25 @@ HTTP缓存设置：
 
 springMVC提供CacheControl对象，来实现服务器端对Cache-Control响应头的处理，并在控制器返回值中，进行Cache-Control、Etag处理
 
-##### FreeMarker：
+### 8、springMVC配置：
 
-​	springMVC内部集成了Apache FreeMarker模板引擎，来配置web项目视图及其数据访问
+- **springMVC配置类**
 
-### 7、springMVC配置：
+一般情况下，springMVC容器只需要扫描Controller注解的类
 
-​		springMVC提供**WebMvcConfigurer**接口，让开发者对springMVC中的内部组件进行配置，常用包括：
+在配置类上声明@EnableWebMvc，springMVC会注入`DelegatingWebMvcConfiguration`；它为WebMvcConfigurer的实现类，为springMVC提供默认webMvc配置，并整合IOC容器中，所有实现WebMvcConfigurer接口Bean所定义的配置
+
+```java
+@EnableWebMvc
+@ComponentScan(basePackages = { "com.yh.mvc" }, useDefaultFilters = false, includeFilters = {@Filter(type = FilterType.ANNOTATION, classes = { Controller.class }) })
+@Configuration
+public class MvcConfig {
+}	
+```
+
+- **自定义配置SpringMvc**
+
+通过实现WebMvcConfigurer接口（配置类必须添加@EnableWebMvc）；或者直接继承`DelegatingWebMvcConfiguration`（不需要配置类添加@EnableWebMvc），对springMVC中的内部组件进行配置，注入到IOC容器中生效
 
 ```java
 public interface WebMvcConfigurer {
@@ -1056,9 +1194,7 @@ public interface WebMvcConfigurer {
 }
 ```
 
-当然springMVC提供了一个**WebMvcConfigurer**接口的具体实现类：**DelegatingWebMvcConfiguration**，为springMVC提供默认配置，在在其基础上进行扩展、删除
-
-### 8、springMVC请求处理流程：
+### 9、springMVC请求处理流程：
 
 ![](..\Typora图片\springMVC请求处理流程.png)
 
@@ -1097,9 +1233,11 @@ public interface WebMvcConfigurer {
   4. 在响应请求前，调用拦截器的afterCompletion
   5. 最后响应请求
 
-**对应前后端分离项目，一般不会进行MV对象的视图解析，即直接使用@ResponseBody，将控制器方法的返回值以json形式写入响应Body中，而Handler会返回一个null的MV对象**
+注意：
 
-### 9、DispatcherServelt源码解析：
+- 对应前后端分离项目，不会进行MV对象的视图解析，而时通过JSON进行数据交互；因此直接使用@ResponseBody，将控制器方法的返回值以json形式写入响应Body中，而Handler会返回一个null的MV对象
+
+### 10、DispatcherServelt源码解析：
 
 DispatcherServelt的继承了一个HttpServelt，当请求被其拦截后，执行其doGet、doPost方法。从而调用DispatcherServelt核心入口方法**doDispatch**:
 
@@ -1304,24 +1442,20 @@ protected void doDispatch(HttpServletRequest request, HttpServletResponse respon
 
 **具体参考org.springframework.web.servlet.mvc.method.annotation包下的类**
 
-## REST客户端
+## RestClient：
 
-springMVC提供两种REST客户端API调用：
+​		springMvc提供RestTmeplate，编写REST客户端服务，以同步方式发送请求；提供更加方便快捷的API
 
-### RestTemplate：
+### 1、RestTmplate实例化：
 
-**以同步请求方式执行REST客户端服务通信，默认是对JDK中java.net包的封装，提供更加方便、高效的API**
-
-##### RestTmplate实例化：
-
-​	RestTmplate默认构造方法，底层使用java.net.HttpURLConnection进行HTTP请求，开发者可以通过ClientHttpRequestFactory接口参数，来通过构造方法来进行配置，springMVC提供如下HTTP客户端库的支持：
+​		RestTmplate默认构造方法，底层使用java.net.HttpURLConnection进行HTTP请求，开发者可以通过ClientHttpRequestFactory接口参数，来通过构造方法来进行配置；springMVC提供如下HTTP客户端库的支持：
 
 - HttpComponentsClientHttpRequestFactory ：用于配置Apache HttpComponents包
 - Netty4ClientHttpRequestFactory：用于配置Netty4 包
 - OkHttp3ClientHttpRequestFactory：用于配置OkHttp包
 - SimpleClientHttpRequestFactory：默认使用，用于配置java.net包
 
-##### RestTemplate常用方法：
+### 2、RestTemplate常用方法：
 
 | 方法          | 描述                                                         |
 | ------------- | ------------------------------------------------------------ |
@@ -1342,12 +1476,12 @@ String result = restTemplate.getForObject(
         "https://example.com/hotels/{hotel}/rooms/{hotel}", String.class, vars);
 ```
 
-- RestTempate方法的返回值有两种，javaBean和ResponseEntity，根据方法参数中的responseType来确定它们的泛型
-- springMVC提供HttpEntity对象，来定义请求中的HTTP方法，URL，标头和正文，并且使用消息转化器将javaBean转化为对应ContentType类型数据
-- springMVC提供MultiValueMap，来定义表单提交数据，并被消息转化器处理
-- 当没有使用HttpEntity对象进行body数据包装时，springMVC会在内部进行处理，对于对象使用转换器处理，首先是String消息转换器，之后为json消息转换器；因此对于String类型，则使用String消息转换器，将content-type设置为：text/plain;charset=ISO-8859-1；其他对象，则使用json消息转换器，将content-type设置为：application/json，但是需要保证该对象能够被json序列化（如果为integer就会报错400）
+- RestTempate方法的返回值有两种：javaBean、ResponseEntity，根据方法参数中的responseType来确定它们的泛型
+- HttpEntity用于定义请求中的HTTP方法，URL，请求头和请求体，并使用消息转换器处理请求体
+- MultiValueMap用于定义表单提交数据，并被消息转化器处理
+- 如果没有使用HttpEntity对象进行body数据包装，则会使用消息转化器进行处理
 
-##### RestTemplate常用场景：
+### 3、RestTemplate常用场景：
 
 - 简单Get请求：
 
@@ -1396,138 +1530,173 @@ String result = restTemplate.getForObject(
   String result = restTemplate.postForObject(url, httpEntity, String.class);
   ```
 
-### WebClient：
-
-​		spring5.0提供的WebClient，来支持HTTP请求的反应式编程、非阻塞的客户端，并有效支持同步、异步和流方案，相对于RestTemplate，支持如下内容：
-
-- 非阻塞式I/O，性能更好
-- lambda表达式风格编程
-- 支持异步请求调用
-- 支持反应式流，通过**Reactor**实现
-
 ## WebSocket：
 
-​		webSocket协议提供了一个标准API，通过单个TCP连接在客户端和服务器之间创建全双工双向网络通信通道，相对于HTTP轮询技术，更好的减少了网络资源的浪费，性能更高
+​		随着HTML5的出现，webSocket协议被提出：用于在单个TCP连接上，创建客户端和服务器之间的全双工网络通信；
 
-​		spring框架提供WebSocket API，用于编写webSocket消息的客户端和服务器端应用程序，通过导入spring-websocket包来实现：
+​		webSocket协议出现之前，使用轮询（polling）和Comet技术来实现客户端和服务端的实时通信：
 
-### spring-webSocket：
+- 轮询：
 
-​		通过WebSocketHandler和HandshakeInterceptor，来完成整个WebSocket服务器编写：
+  ​		客户端通过定期向服务器发送请求，来尽可能实时获取服务端需要发送给它的消息；很明显，这种方式会导致不必要的请求，浪费流量带宽和服务器资源
 
-- WebScoketHandlert：
+- Comet：
 
-WebScoketHandlert有两个实现类，对应webSocket通信时的消息类型：
+  ​		分为长轮询和SSE长连接：
 
-TextWebSocketHandler：文本类型、BinaryWebSocketHandler；二进制数据类型
+  - 长轮询：在轮询基础上，服务端添加额外处理：服务端在没有可发送的消息时，不进行空消息响应，而是让请求保持连接，直到有新消息响应或请求连接超时；这样能够减少轮询请求的次数，降低资源消耗；但服务器将请求挂起还是会浪费资源
+  - SSE长连接：HTML5新增功能SSE（Server-Sent Events），实现客户端向服务器发送一个HTTP请求，保持长连接，服务器可以不断单向发送消息；相对于轮询和长轮询，有效解决了服务器无法主动发送消息的难题；但服务器的消息发送还是基于HTTP响应流，在高并发情况下，对服务器的性能要求非常高
 
-```java
-public class MyWebSocketHandler extends TextWebSocketHandler{
-	
-    //连接建立后，执行方法
-	@Override
-	public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-		super.afterConnectionEstablished(session);
-	}
-    
-	//客户端发送消息时，执行方法
-	@Override
-	protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-		
-	}
-	
-	//连接关闭时，执行方法
-	@Override
-	public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-		super.afterConnectionClosed(session, status);
-	}
-	
-	//websocket发生错误时，执行方法
-	@Override
-	public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
-		super.handleTransportError(session, exception);
-	}
-}
-```
+**webSocket工作流程：**
 
-- @EnableWebSocket
+- 浏览器发送建立WebSockt连接的http握手请求，使用upgrade=websocket、Connection: Upgrade两个请求头声明http协议升级为WebSockt
+- 完成HTTP请求响应后，WebSocket连接建立，此时服务器和客户端通过TCP协议进行数据传输
 
-xxxx测试失败
+**webSocket优点：**
 
-### webSocket-api：
+- 由于WebSocket数据传输基于TCP协议，消息发送没有重复的头部数据，数据量小、性能开销小
+- webSocket是全双工通信，通信双方可以实时发送、接收消息，在实时通信的应用实现上，更加方便
 
-​		在Tomcat运行环境中，默认提供了对webSocket的支持，因此在springBoot中，我们可以通过内置Tomcat、或者直接使用外部Tomcat，来实现webSocket：
+### 1、tomact-websocket：
 
-1、编写websocket服务类
+​		javaEE7中，提供出JSR-356规范：Java WebSocket API；所有Servlet容器对其进行了实现，比如Tomcat从7.0.47开始支持该规范，提供tomact-websocket包，来编写基于Servlet容器实现的webSocket消息处理程序
+
+#### 1.1、JSR-356规范：
+
+- webSocket服务端由一系列Endpoint组成；Endpoint是一个java对象，用于处理WebSocket请求，类似于Servlet处理HTTP请求（但不同的是Endpoint对于每个webSocket请求，都会创建一个新的实例处理）
+- Endpoint默认三个生命周期：onOpen（webSocket握手成功）、onColse（会话关闭）、onError（连接异常）
+- 每个Endpoint实例创建后，都会有一个唯一会话（javax.websocket.Session）；在执行webSocket各个生命周期回调方法时，都会将当前会话交给Endpoint处理；session中提供了RemoteEndpoint，用于给另一个端口（客户端）发送消息，并分为两种：BasicRemote（以同步方式发送消息）、AsyncRemote（以异步方式发送消息）
+- javax.websocket.WebSocketContainer管理应用中的所有Endpoint，类似于ServletContext
+- javax.websocket.server.ServerApplicationConfig配置注册所有的Endpint
+
+#### 1.2、Endpoint加载过程
+
+​		Tomcat提供ServletContainerInitializer接口实现类org.apache.tomcat.websocket.server.WsSci，在Servlet容器初始化时，使用SPI机制处理所有@ServerEndpoint注解类、Endpoint子类和ServerApplicationConfig配置类，加载过程如下：
+
+- 构建WebSocketContainer实例，并添加WsFilter过滤器，来拦截WebSocket请求
+- 将扫描到的Endpint类（符合条件的注解类和使用ServerApplicationConfig配置的Endpoint子类），注册到WebSocketContainer上，用于处理WebSocket请求
+
+#### 1.3、WebSocket请求处理过程
+
+- 服务器接收到webSocket请求后，使用WsFilter判断当前请求头Upgrade=websocket是否存在；
+- 如果存在，则根据请求路径查找到对应Endpoint类，并进行协议升级处理
+- 添加webSocket响应头、构造Endpoint实例、构造WsHttpUpgradeHandler，来将协议升级为WebSocket
+- 协议升级后，创建webSocket会话、为webSocket协议处理器（UparadeProcessor）输出流添加写监听器
+- webSocket连接创建完成，回调Endpoint的onOpen方法
+- 为webSocket协议处理器（UparadeProcessor）输入流添加读监听器，获取webSocket客户端发送的消息，回调Endpoint的onMessage方法处理
+
+#### 1.4、注解式Endpoint的使用
+
+​		Tomcat提供两种Endpoint编写方式：
+
+1、编程式：继承javax.websocket.Endpoint，实现其方法
+
+2、注解式：定义一个Java对象，添加Endpoint相关注解，然后使用ServerApplicationConfig进行配置
+
+推荐使用注解式，来定义Endpoint：
+
+- @ServerEndpoint：
+
+  ​		用于定义webSocket服务端口类，通过属性url来定义端口监听地址
+
+- @OnOpen
+
+  ​		用于定义webSocket服务端口类中，webSocket连接创建的回调方法
+
+- @OnClose
+
+  ​		用于定义webSocket服务端口类中，webSocket连接关闭的回调方法
+
+- @OnError
+
+  ​		用于定义webSocket服务端口类中，webSocket连接传输错误的回调方法
+
+- @OnMessage
+
+  ​		用于定义webSocket服务端口类中，webSocket消息接收后的回调方法
 
 ```java
 @Slf4j
-@ServerEndpoint("/websocket")//服务端口名（类似于http的url）
-public class WebSocketServer {
+@Component
+@ServerEndpoint("/websocket/demo/{userId}")
+public class WebSocketDemo {
 
-	//统计连接推送的客户端数
-	private static AtomicInteger onlineCount = new AtomicInteger(0);
-	//线程安全的set，来保存所有客户端对于的webSocket服务对象
-	private static CopyOnWriteArraySet<WebSocketServer> webSocketSet = new CopyOnWriteArraySet<WebSocketServer>();
-	//客户端与对于webSocketServer的Session对象，webSocketServer通过它来向客户端发送数据
-	private Session session;
-	
-	@OnOpen//websocket连接建立成功，执行的方法
-	public void onOpen(Session session) {
-		//获取webSocket连接建立的session
-		this.session=session;
-		//将该webSocket放入set集合
-		webSocketSet.add(this);
-		//webSocket统计+1
-		onlineCount.incrementAndGet();
-		
+	// 线程安全的Map，来保存该websocket连接创建的所有Endpoint实例的会话
+	private static CopyOnWriteArraySet<Session> websocketSessionSet = new CopyOnWriteArraySet<>();
+
+
+	@OnOpen 
+	public void onOpen(Session session, @PathParam("userId") String userId) {
+		websocketSessionSet.add(session);
+		//将用户信息放入session中
+		session.getUserProperties().put("userId", userId);
+		log.info(userId + "-------webSocket连接开启，当前服务连接数为" + websocketSessionSet.size());
+	}
+
+	@OnClose
+	public void onClose(Session session, @PathParam("userId") String userId) {
+		websocketSessionSet.remove(session);
+		log.info(userId + "-------webSocket连接关闭，当前服务连接数为" + websocketSessionSet.size());
+	}
+
+	@OnError
+	public void onError(Session session, Throwable error, @PathParam("userId") String userId) {
+		log.error(error.getMessage());
 		try {
-			//服务器主动推送消息
-			session.getBasicRemote().sendText("连接成功");
+			if (session.isOpen()) {
+				session.close();
+				websocketSessionSet.remove(session);
+				log.info(userId + "-------webSocket连接关闭，当前服务连接数为" + websocketSessionSet.size());
+			}
 		} catch (IOException e) {
 			e.printStackTrace();
-			log.debug("webSocket IO异常");
 		}
 	}
-	
-	@OnClose//当websocket连接关闭时，执行的方法
-	public void onClose() {
-		webSocketSet.remove(this);
-		onlineCount.decrementAndGet();
-		log.info("webSocket连接关闭，当前服务连接数为"+onlineCount);
+
+	@OnMessage
+	public void onMessage(String message, Session session, @PathParam("userId") String userId) {
+		log.info(userId + ":" + message);
+		sentMessage(userId + ":" + message, session);
 	}
-	
-	@OnMessage//当webSocket收到客户端消息后，执行的方法（可以作为启动消息推送的入口）
-	public void onMessage(String message, Session session) {
-		log.info(message);
-		ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
-		Runnable task = new Runnable() {
-			public void run() {
-				for (WebSocketServer webSocketServer : webSocketSet) {
-					try {                       
-						webSocketServer.session.getBasicRemote().sendText("当前时间："+System.currentTimeMillis());
-					} catch (IOException e) {
-						e.printStackTrace();
-						log.debug("webSocket IO异常");
-					}
-				}
+
+
+	//点对点发送
+	public static void sentMessage(String message, Session session) {
+		try {
+			if (session.isOpen()) {
+				session.getBasicRemote().sendText(message);
 			}
-		};
-		//每5s所有websocket服务发送一次消息
-		executorService.scheduleAtFixedRate(task, 0, 5, TimeUnit.SECONDS);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
-	
-	@OnError//websocket服务发生错误时，执行方法
-	public void onError(Session session, Throwable error) {
-		log.error("发生错误");
-		error.printStackTrace();
+
+	//根据userid进行点对点推送
+	public static void sentMessageByUserId(String message, String userId) {
+		for (Session session : websocketSessionSet) {
+			String sessionUserId = (String) session.getUserProperties().get(userId);
+			if (Objects.equals(userId, sessionUserId)) {
+				sentMessage(message, session);
+			}
+		}
+	}
+
+	//全局发送
+	public static void sentMessageAll(String message) {
+		for (Session session : websocketSessionSet) {
+			sentMessage(message, session);
+		}
 	}
 }
 ```
 
-2、使用内部tomcat时，需要将webscoket服务组件交给spring容器，同时WebScoket服务类必须添加@Component注解，将其交给spring容器
+注意：
 
-ServerEndpointExporter：服务端口暴露对象，用于将spring容器中所有的websocket对象服务接口交给内置的Tomcat并；当使用外部tomcat时，springboot会默认将交给外置tomcat的该对象处理
+- websocketSessionSet静态变量由于需要被多个WebSocketDemo实例共用，因此需要保证它们的线程安全
+
+#### 1.5、springBoot整合tomcat-websocket注意：
+
+1、springBoot内置tomact，因此需要将所有Endpoint实例交给IOC容器管理，并注入到内置Tomcat中，spring-webSocket包中，提供了ServerEndpointExporter对象来实现：**将IOC容器中的Endpoint实例交给内置Tomcat中的WebSocketContainer管理**
 
 ```java
 @Configuration
@@ -1540,9 +1709,35 @@ public class WebSocketConfig {
 }
 ```
 
-**当使用外部tomcat时，该步需要省略**：springBoot默认会将所有@ServerEndpoint注解类交给spring容器额外处理（实现springMVC、springIOC相关功能）
+**如果使用WAR包，应用通过外部Tomcat运行时，需要省略该配置**
 
-3、和前端联调，实现webSocket机制的连接
+2、每个WebSocket请求都会创建一个Endpoint实例，因此Endpoint作为IOC容器Bean，其作用域为prototype（原型，多实例）；所以Endpoint中无法进行依赖注入，只能进行手动注入
+
+3、在编写Endpoint类的回调方法时，可以基于springMVC处理器参数注解，来对webSocket请求参数进行封装处理，注入到回调方法参数中
+
+4、在使用内置tomcat管理Endpoint后，spring-test模块需要保证提供启动tomcat，否则无法执行测试方法
+
+- 原因：
+
+  ​		spring-test默认只提供tomcat运行环境，导致无法在springboot应用初始化时，将IOC容器管理的Endpoint交给tomcat中的webSocket容器处理
+
+- 解决方法：
+
+  ​		修改spring-tset模块中的web环境，通过@SpringBootTest的webEnvironment属性设置，提供四种web环境：
+
+  - MOCK（默认值），模拟tomcat运行环境，并不会启动Tomcat，减少开销
+    RANDOM_PORT，启动Tomcat，使用随机端口
+    DEFINED_PORT，启动Tomcat，使用默认端口
+    NONE，不提供web环境	
+
+  ```java
+  @RunWith(SpringRunner.class)
+  @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+  public class MarkTest {
+  }
+  ```
+
+### 2、webSocket客户端Demo
 
 ```java
 <!DOCTYPE html>
@@ -1613,43 +1808,300 @@ Welcome<br/>
 </html>
 ```
 
-#### 注意问题：
+### 3、spring-webSocket：
 
-1、在Websocket服务类中，无法进行spring的自动注入
+​		spring-webSocket用于提供编写webSocket消息服务，实现对tomcat-webscoket的封装
 
-- 原因：
+#### 3.1、WebSocket-API
 
-  ​		websocket对象在spring容器中是多实例的，每一个webscoket连接都会创建一个webscoket服务对象；而自动注入发生在spring启动时，而websocket对象只会在有客户端连接时被创建
+##### 3.1.1、WebScoketHandler：
 
-- 解决方法：
+​		WebSocketHandler，用于编写webSocket消息处理程序；它有两个实现类：
 
-  ​		使用spring手动注入
+- TextWebSocketHandler（消息内容类型为文本）
 
-2、进行websocket服务类编写时，除了webscoket-api提供的注解外，开发者还可以使用springMVC相关注解，获取websocket连接请求中的参数
+- BinaryWebSocketHandler（消息类型为二进制数据）
 
-3、在配置ServerEndpointExporter后，会导致spring-test模块无法启动
+```java
+//创建处理器
+@Compent
+public class MyWebSocketHandler extends TextWebSocketHandler{
+	
+    //连接建立后，执行方法
+	@Override
+	public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+		super.afterConnectionEstablished(session);
+	}
+    
+	//客户端发送消息时，执行方法
+	@Override
+	protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+		
+	}
+	
+	//连接关闭时，执行方法
+	@Override
+	public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+		super.afterConnectionClosed(session, status);
+	}
+	
+	//websocket发生错误时，执行方法
+	@Override
+	public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
+		super.handleTransportError(session, exception);
+	}
+}
 
-- 原因：
 
-  ​		spring-test在启动时，默认只会提供tomcat的运行环境，但不会启动Tomcat,因此导致springboot在初始化ServerEndpointExporter对象时报错
+//配置处理器
+@Configuration
+@EnableWebSocket
+public class WebSocketConfig implements WebSocketConfigurer {
 
-- 解决方法：
+    @Autowired
+	private MyWebSocketHandler myWebSocketHandler;
+    
+    @Override
+    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+        registry.addHandler(myWebSocketHandler, "/myHandler");
+    }
+}
+```
 
-  ​		避免这种方式的产生，在创建test类时，需要显式声明启动Tomcat：
+##### 3.1.2、HandshakeInterceptor：
+
+​		HandshakeInterceptor用于处理webSocket进行http握手前后的逻辑，从而阻止http握手、或设置webSocketSession中的属性
+
+```java
+//创建http握手拦截器
+public class MyHandshakeInterceptor implements HandshakeInterceptor {
+	//webSocket发送握手请求
+    @Override
+	public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
+		return false;
+	}
+
+    //webSocket完成握手请求
+	@Override
+	public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, Exception exception) {
+	}
+}
+
+//配置http握手拦截器
+@Configuration
+@EnableWebSocket
+public class WebSocketConfig implements WebSocketConfigurer {
+
+	@Autowired
+	private MyWebSocketHandler myWebSocketHandler;
+
+	@Autowired
+	private MyHandshakeInterceptor myHandshakeInterceptor;
+
+	@Override
+	public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+		registry.addHandler(myWebSocketHandler,"/myWebSocket")
+		.addInterceptors(myHandshakeInterceptor);
+	}
+}
+```
+
+##### 3.1.3、ServletServerContainerFactoryBean
+
+​		ServletServerContainerFactoryBean用于配置WebSocketContainer（webSocket容器）属性
+
+```java
+@Configuration
+@EnableWebSocket
+public class WebSocketConfig implements WebSocketConfigurer {
+
+    @Bean
+    public ServletServerContainerFactoryBean createWebSocketContainer() {
+        ServletServerContainerFactoryBean container = new ServletServerContainerFactoryBean();
+        //设置servlet容器允许的webSocket最大消息缓存大小、空闲时间
+        container.setMaxTextMessageBufferSize(8192);
+        container.setMaxBinaryMessageBufferSize(8192);
+        container.setMaxSessionIdleTimeout(30 * 1000L);
+        return container;
+    }
+}
+```
+
+##### 3.1.4、webSocket同源处理
+
+​		webSocket和Http一样，会被浏览器进行同源限制；spring-webScoket同样可以基于CORS方式进行处理：
+
+```java
+@Configuration
+@EnableWebSocket
+public class WebSocketConfig implements WebSocketConfigurer {
+
+    @Autowired
+	private MyWebSocketHandler myWebSocketHandler;
+    
+    @Override
+    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+        registry.addHandler(myWebSocketHandler, "/myHandler")
+            	.setAllowedOrigins("*");
+    }
+}
+```
+
+#### 3.2、SockJS降级备用方案
+
+​		spring-webSocket处理提供一个WebSocketAPI外，其重要功能是：基于这套API，内部实现对非WebSocket代替方案的支持
+
+- webSocket协议缺点：
+
+​		webSocket协议需要浏览器支持（IE10之前不支持）、客户端和服务器之间所有中间节点(网关、代理服务器)支持，同时还需要保证这些中间节点不会对webSocket长连接、空闲连接进行关闭处理；因此在复杂的网络环境中，webSocket协议没有很好的兼容性
+
+- SockJS：
+
+  SockJS是对webSocket协议的模拟，默认优先使用WebSocket，当WebSocket不可用时，则使用HTTP流和HTTP长轮询两种方案进行降级处理，实现浏览器和服务器的全双工通信；提供基于JavaSript语言的客户端库（sockjs-client）
+
+spring-webSocket提供了对SockJS服务器的实现:
+
+```java
+//配置处理器
+@Configuration
+@EnableWebSocket
+public class WebSocketConfig implements WebSocketConfigurer {
+
+    @Autowired
+	private MyWebSocketHandler myWebSocketHandler;
+    
+    @Override
+    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+        registry.addHandler(myWebSocketHandler, "/myHandler").withSockJS();
+    }
+}
+```
+
+#### 3.3、STOMP
+
+​		weboscket协议定义了两种消息类型：文本、二进制；spring-websocket提供了STOMP作为消息传递协议，在websocket协议下，作为子协议进行消息传递
+
+STOMP协议：
+
+​		面向简单文本的消息传递协议，依靠于双向通信网络协议（如TCP、WebSocket）；以HTTP帧为模型，进行消息传递
+
+STOMP协议优点：
+
+- 无需开发者自定义消息传递协议和格式
+- 可以整合消息队列对消息进行管理订阅和广播消息
+- 通过STOMP目标表头，将消息路由转换到springMVC的控制器中，实现将客户端消息转交给springMVC控制层处理
+
+**需要依赖于spring-messaging包**
+
+## Spring WebFulx
+
+​		spring5在Web模块，引入了反应式编程，也叫响应式编程；
+
+### 1、反应式编程：
+
+**1、命令式编程缺点：**
+
+- 在常规的命令式编程中，线程会按照顺序一个一个执行代码编写的任务；但是当遇到某些特殊任务时，如IO任务（从某个DB或远端获取数据），该线程就会被阻塞，直到数据被完全读取，这是一种资源浪费；
+- 命令式编程进行并发编程时，由于存在线程阻塞，因此导致在一定并发任务量下，线程数量更多，处理更加复杂
+
+**2、反应式编程优点：**
+
+​		反应式编程是基于函数式编程基础之上，描述数据将会流经的管道或流，实时对当前传入的数据进行处理；相对于命令式编程，虽然同一时间处理数据的能力有限，但其线程异步非阻塞，能够持续不断的利用资源，避免资源浪费
+
+### 2、反应式流：
+
+​		2013年，spring其下工程师提供出了反应式流（Reactive Streams）规范，提供对非阻塞、带被压机制的异步流处理标准
+
+反应流和java流的异同点：
+
+- Reactive Streams和Stream都是用于处理数据的函数式API
+
+- Stream只能同步处理有限的数据集，并只支持集合类型数据；Reactive Streams支持异步处理任意大小（包括无限）的数据集，并通过回压避免多大的数据压垮消费者
+
+#### 2.1、反应式流规范：
+
+​		反应式流规范定义了4个接口：
+
+- Publisher		数据生产发布者
 
   ```java
-  @RunWith(SpringRunner.class)
-  @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-  public class MarkTest {
+  public interface Publisher<T> {
+      //数据订阅
+      public void subscribe(Subscriber<? super T> s);
   }
   ```
 
-  ​		其中，webEnvironment提供四种web模拟环境：
+- Subscriber       数据订阅消费者
 
   ```java
-  MOCK		//只是模拟tomcat环境，并不会启动Tomcat（默认值）,减少开销的同时，实现接口模拟测试，
-  RANDOM_PORT		//启动Tomcat，使用随机端口,可以通过TestRestTemplate，来模拟客户端操作
-  DEFINED_PORT   	//启动Tomcat，使用默认端口
-  NONE	//不提供web环境
+  public interface Subscriber<T> {
+  	
+      //订阅成功
+      public void onSubscribe(Subscription s);
+  
+      //订阅数据发送
+      public void onNext(T t);
+  
+      //订阅数据发送失败
+      public void onError(Throwable t);
+  
+      //订阅数据已全部发送
+      public void onComplete();
+  }
   ```
 
+- Subscription    数据订阅管理器
+
+  ```java
+  public interface Subscription {
+  	
+      //开始获取订阅数据，并设置能够接收的数据量
+      public void request(long n);
+  
+     `//取消订阅
+      public void cancel();
+  }
+  ```
+
+- Processor         数据处理器，继承了Publish、Subscriber，定义整个数据生产、消费的处理过程
+
+  ```java
+  public interface Processor<T, R> extends Subscriber<T>, Publisher<R> {
+  }
+  ```
+
+#### 2.2、Reactor
+
+​		Reactor是一个用于在JVM平台上，对反应式流规范实现的反应式库，用于构建反应式的非阻塞异步应用
+
+目前常见的Java反应式库
+
+- RxJava
+- JDK9中的Flow包：只是提供抽象层，通过SPI机制引入第三方实现
+- Vertx内部响应式流驱动
+- Reactor：由spring公司维护，spring所有项目的反应式编程都基于该框架
+
+由于spring在Java语言的影响力，因此推荐使用Project Reactor作为反应式库
+
+#### 2.3、反应式流图
+
+### 3、Reactor的使用
+
+​		引入Maven依赖：
+
+```xml
+<dependency>
+   <groupId>io.projectreactor</groupId>
+   <artifactId>reactor-core</artifactId>
+</dependency>
+```
+
+#### 3.1、Flux和Mono
+
+​		todo
+
+
+
+JDK8提出了函数式API，
+
+spring WebFlux，无阻塞、支持Reactive streams背压，可运行在Netty、Undertow 和 Servlet 3.1+ 容器等服务器上运行。

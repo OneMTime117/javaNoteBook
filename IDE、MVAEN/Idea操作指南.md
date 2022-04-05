@@ -366,3 +366,52 @@ time（）时间
 
 - throwb
 
+# idea打包
+
+## 1、非Maven项目-jar包
+
+Idea通过Artifacts来定义模块的打包配置，选择jar-fromModulesAndDependencies
+
+并根据依赖第三方jar包的位置，分为两种：
+
+**1、将第三方依赖提取到所打包的jar文件中**
+
+注意：
+
+- 需要保证所有依赖都被提取到jar文件中（Extract into）
+
+**2、将第三方依赖复制到输出目录下，并使用manifest文件进行链接**
+
+注意：
+
+- 需要将所有依赖文件导入到root下，和jar在同一目录下
+- 为了方便，可以将所有依赖文件放在root下的子目录中，此时就需要修改manifest文件中的所有classpath，添加该目录前缀
+
+**不要将第三方依赖所在的文件夹作为resource，不然会导致在编译、打包时，额外导入所有依赖jar包**
+
+## 2、非Maven项目-war包
+
+1、定义web项目：
+
+​		在创建java模块后，在其下创建web子模块，从而生成web-inf/web.xml部署配置文件
+
+​		在Dependencies中配置tomcat运行环境，并在services中配置tomcat启动服务
+
+注意：
+
+- 由于系统默认使用GBK，而Tomcat默认使用UTF-8输出，因此Tomcat控制台输出乱码，需要修改Tomcat conf/logging.propertiest文件中的日志编码为GBK
+
+2、定义artifacts：
+
+​		idea提供两种war的打包方式：
+
+- web application-exploded：直接生成输出目录，作为web服务器的工作目录
+
+- web application-archive：将其打包为war包，交给web服务器解压为工作目录
+
+  注意：
+
+  - 需要额外将web模块资源导入到输出目录/war包中（因此不需要将web模块资源定义为resources，否则会导致web资源重复导入）
+
+  - 默认会将项目class文件放入web-inf/classes目录下
+

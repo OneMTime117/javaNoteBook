@@ -1,4 +1,4 @@
-SpringFramework
+# SpringFramework
 
 ## 1、spring概念
 
@@ -404,14 +404,10 @@ spring提供Bean的六个作用域，通过Bean标签的属性Scope设置
 注意：
 
 - request、session、application和websocket作用域并不能在spring常规IOC容器中定义，否则会抛出IllegalStateException异常，未知bean作用域；它们只用于web项目中的IOC容器
-
-- 
-
-- 单例Bean依赖于原型Bean时，会将原型Bean的作用域改为单例
-
-  可以通过手动注入方式，来避免IOC容器修改原型Bean的作用域
+- 单例Bean依赖于原型Bean时，会将原型Bean的作用域改为单例进行注入；可以通过手动注入方式，来避免IOC容器修改原型Bean的作用域
 
 - 原型Bean依赖于单例Bean时，始终使用同一个单例Bean
+- IOC容器默认只会对单例Bean进行自动加载和依赖注入，对于原型Bean则不会进行依赖注入，只能使用手动注入
 
 ##### 2.4.2.2、生命周期
 
