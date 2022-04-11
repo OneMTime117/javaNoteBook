@@ -1514,141 +1514,294 @@ springBoot会额外引入如下模块:
 ​		springBoot提供@JsonComponent注解，通过使用内部类来定义一个类的Json序列化器和反序列化器，并注入到IOC容器中：
 
 ```java
+@JsonComponent
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class JsonObject {
 
+	private String name;
+
+	private Integer age;
+
+	public static class Serializer extends JsonSerializer<JsonObject> {
+		@Override
+		public void serialize(JsonObject value, JsonGenerator jgen, SerializerProvider serializers) throws IOException {
+			jgen.writeStartObject();
+			jgen.writeStringField("name", value.getName());
+			jgen.writeNumberField("age", value.getAge());
+			jgen.writeEndObject();
+		}
+	}
+
+	public static class Deserializer extends JsonDeserializer<JsonObject> {
+		@Override
+		public JsonObject deserialize(JsonParser jsonParser, DeserializationContext ctxt)
+				throws IOException, JsonProcessingException {
+			ObjectCodec codec = jsonParser.getCodec();
+			JsonNode tree = codec.readTree(jsonParser);
+			String name = tree.get("name").textValue();
+			int age = tree.get("age").intValue();
+			return new JsonObject(name, age);
+		}
+	}
+}
 ```
 
+##### 5.1.3、静态内容
 
+​		springboot默认按照顺序，从而如下类路径下获取静态资源：/static、/public、/resources、/META-INF/resources；并且提供spring.mvc.resources.static-locations属性来自定义静态资源路径
+
+​		开发者可以通过WebMvcConfigurer.addResourceHandlers方法，自定义静态资源处理器，来修改此行为；也可以通过spring.mvc.static-path-pattern来修改静态资源匹配路径
+
+​		spring.mvc.resources.static-locations和spring.mvc.static-path-pattern区别：
+
+- 前者是定义静态资源目录，从而该目录下匹配静态资源
+- 否则是定义静态资源路径匹配的url格式，只有url满足该模式，才能进行静态资源获取；同时在匹配静态资源时，会将spring.mvc.static-path-pattern作为前缀去除
+
+实际场景：
+
+spring.mvc.resources.static-locations="/static"，spring.mvc.static-path-pattern="/resource/**"
+
+只有当请求为xxx/resource/index.htm时，才会从而static目录下匹配index.html
+
+##### 5.1.4、错误处理
+
+​		springboot提供/error来处理所有错误的映射，并提供了一个全局的错误页面，以HTML格式展示响应的json数据
+
+​		可以在/static/error/目录下，自定义错误页面，并以对应的响应码作为HTML文件名
+
+#### 5.2、嵌入式Servlet容器
+
+​		springboot支持嵌入式Servlet容器，包含：Tomcat、Jetty、Undertow服务器，默认监听http请求的8080端口；所有注册到IOC容器中的Servlet组件，都会交给嵌入式Servlet容器
+
+##### 5.2.1、初始化ServletContext
+
+​		springMVC默认使用外部Servlet容器时，通过执行javax.servlet.ServletContainerInitializer来调用`org.springframework.web.WebApplicationInitializer`接口onStart方法，来初始化ServletContext；
+
+​		而springBoot嵌入式Servlet容器是通过`org.springframework.boot.web.servlet.ServletContextInitializer`接口来单独实现
+
+##### 5.2.2、嵌入式Servlet容器配置
+
+​		springBoot通过配置文件，提供了如下嵌入式Servlet容器配置：
+
+- 网络设置：server.port（Http请求监听端口）、server.address（Http请求监听的主机IP）
+- 会话设置：server.servlet.session.persistent（会话时候持久）、server.servlet.session.timeout（会话超时时间）、会话数据位置（server.servlet.session.store-dir）、会话cookie配置（server.servlet.session.cookie.*）
+- 错误页面位置：server.error.path
+- SSL
+- HTTP压缩
+
+注意：
+
+- Undertow服务器不支持JSP
 
 ### 6、spring-test
 
+### 7、spring-boot-actuator
 
+​		springboot额外提供actuator模块（执行器），帮助开发者在生产环境下，通过JMX、HTTP来管理监控springboot应用程序
 
-### ApplicationContext其他功能：
+- 引入依赖
 
-#### 资源加载：
+  ```xml
+  <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-actuator</artifactId>
+  </dependency>
+  ```
 
-- spring提供了Resource接口，重新定义了java中各种资源获取的API，功能更加强大，且使用方便；其实现类包括：
+#### 7.1、执行器端点
 
-  | 类名                   | 作用                                                         |
-  | ---------------------- | ------------------------------------------------------------ |
-  | UrlResource            | 对java.net.URL进行了包装，通过不同前缀，来进行不同类型的资源访问 |
-  | ClassPathResource      | 从当前类路径中获取资源                                       |
-  | FileSystemResource     | 从文件系统中获取资源                                         |
-  | ServletContextResource | 从web应用根目录中获取资源                                    |
-  | InputStreamResource    | 通过一个输入流来创建资源对象                                 |
-  | ByteArrayResource      | 通过一个字节数组来创建资源对象                               |
+​		执行器端点可以使开发者监视并交互springboot应用程序；在springBoot中内置了许多端点，将其启用、公开，来实现数据监控
 
-- UrlResource，前缀和访问资源类型的匹配策略：
+​		在使用HTTP方式暴露端口时，通过/actuator/端点id 来进行访问
 
-  | 前缀           | 访问资源类型          |
-  | -------------- | --------------------- |
-  | classpath：    | 类路径                |
-  | file：         | 文件系统              |
-  | https：/http： | URL                   |
-  | 无             | 根据ReourceLoader决定 |
+执行器端点：
 
-- ReourceLoader接口资源加载器
+| 端点           | 描述                                     |
+| -------------- | ---------------------------------------- |
+| auditevents    | 获取所有已触发的审计事件的报告           |
+| beans          | springIOC容器中的所有bean                |
+| conditions     | 获取所有自动配置条件生效或不通过的报告   |
+| configprops    | 获取所有配置属性及其值                   |
+| env            | 公开spring应用中所有属性                 |
+| health         | 获取spring应用的健康状态                 |
+| heapdump       | 下载堆的dump文件                         |
+| httpTrace      | 获取最近100Http请求的跟踪结果            |
+| info           | 获取开发者所定义的该spring应用信息       |
+| loggers        | 显示和修改应用中的日志配置               |
+| mappings       | 获取所有HTTP映射以及对应处理器方法的报告 |
+| metrics        | 获取当前应用的指标信息                   |
+| scheduledtasks | 获取当前应用的所有调度任务               |
+| threaddump     | 下载线程的dump文件                       |
+| shutdown       | 手动正常关闭spring应用                   |
 
-  ApplicationContext就实现了这个接口，根据不同了Reource实现类，加载特定的Resource资源
+##### 7.1.1、启用和暴露端点
 
-- spring提供ResourceLoaderAware接口，用于获取ApplicationContext中的ReourceLoader,手动进行外部资源加载
+​		springboot默认情况下，启用除了shutdown外的所有端点，但由于端点可能包含敏感信息，因此springboot默认基于HTTP方式只会暴露health、info端点，其他端点则使用JMX方式暴露
 
-#### 国际化功能（i18n）
+​		通过management.endpoints.web.exposure.include可以实现使用HTTP方式暴露指定端点，来替换默认值
 
-spring提供了一个**MessageSource接口**，用于提供国际化功能（i18n）。同时还提供了**HierarchicalMessageSource接口**，用于分层解析消息，**根据不同的地区，对消息进行不同的解析**
+注意：
 
-**自定义MessageSource：**
-
-提供三种解析消息的方法，以消息编码、参数、默认消息、地区四个参数进行自定义逻辑代码解析，实现国际化
+​		当使用springSecurity来保证springBoot应用的网络安全时，所有以HTTP方式暴露的端点，都会被springSecurity保护，此时就需要自定义SecurityFilterChain ，在请求映射到任意端点时，运行任意身份访问：
 
 ```java
-public class MyMessage implements MessageSource{
+@Configuration(proxyBeanMethods = false)
+public class MySecurityConfiguration {
 
-	@Override
-	public String getMessage(String code, Object[] args, String defaultMessage, Locale locale) {
-	}
-
-	@Override
-	public String getMessage(String code, Object[] args, Locale locale) throws NoSuchMessageException {
-		return null;
-	}
-
-	@Override
-	public String getMessage(MessageSourceResolvable resolvable, Locale locale) throws NoSuchMessageException {
-		return null;
-	}
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http.requestMatcher(EndpointRequest.toAnyEndpoint())
+                .authorizeRequests((requests) -> requests.anyRequest().permitAll());
+        return http.build();
+    }
 }
 ```
 
-spring提供一些MessageSource实现类，按照相应配置实现国际化功能（由于一般用于JSP页面，因此不进行深入）
+##### 7.1.2、发现页面
 
-#### 事件监听
+​		默认，在端点发现页面/actuator，会返回所有http公开的断点信息
 
-spring提供ApplicationEvent类和ApplicationListener接口提供事件监听处理，在spring4.2后，提供基于注解的方式发布事件：
+management.endpoints.web.discovery.enabled=false用于禁用发现页面
 
-spring提供多个默认事件:
+##### 7.1.3、CORS支持
 
-| 事件                       | 作用                                                         |
-| -------------------------- | ------------------------------------------------------------ |
-| ContextRefreshedEvent      | applicationContext刷新（只支持可以热刷新的applicationContext，如XmlWebApplicationContext） |
-| ContextStartedEvent        | applicationContext调用Start方法                              |
-| ContextStoppedEvent        | applicationContext调用Stop方法                               |
-| ContextClosedEvent         | applicationContext调用close方法                              |
-| RequestHandledEvent        | web应用中，spring的DispatcherServlet拦截到http请求           |
-| ServletRequestHandledEvent | RequestHandledEvent的子类，添加了拦截http请求的servlet信息   |
-
-通过实现ApplicationListener接口的Bean来监听这些事件，执行相应代码：
-
-- 自定义事件（不需要放到spring容器中）
+​		基于HTTP暴露的端点访问，同样支持CORS，通过如下属性来配置：
 
 ```java
-public class MyEvent extends ApplicationEvent {
-	
-	public MyEvent(Object source) {
-		super(source);
-	}
-}
+management.endpoints.web.cors.allowed-origins=https://example.com
+management.endpoints.web.cors.allowed-methods=GET,POST
 ```
 
-- 自定义事件监听器（被spring容器管理）
+##### 7.1.4、自定义端点
+
+- 端点类注解：
+
+  需要额外搭配@Component注解才能生效
+
+  | 注解         | 作用                        |
+  | ------------ | --------------------------- |
+  | @Endpoint    | 可以同时被JMX、HTTP方式暴露 |
+  | @JmxEndpoint | 只能被JMX方式暴露           |
+  | @WebEndpoint | 只能被HTTP方式暴露          |
+
+- 操作方法注解：
+
+  在端点类中声明方法，来定义端点操作，根据操作类型，分为三类：
+
+  | 注解             | 作用                                     | HTTP方法 |
+  | ---------------- | ---------------------------------------- | -------- |
+  | @ReadOperation   | 读取数据，将方法返回值作为数据返回       | GET      |
+  | @WriteOperation  | 修改数据，使用JSON格式传参，作为方法参数 | POST     |
+  | @DeleteOperation | 删除数据，使用JSON格式传参，作为方法参数 | DELETE   |
+
+  ```java
+  @Component
+  @Endpoint(id ="test")
+  public class MyEndpoint {
+  
+  	@ReadOperation
+  	public String getData(){
+  		return "hello world";
+  	}
+  }
+  ```
+
+##### 7.1.5、健康信息（health）
+
+​		健康信息通过management.endpoint.health.show-details进行配置，来定义是否显示细节，提供如下三种
+
+- never：从不显示细节
+
+- when-authorized：向指定授权用户显示，management.endpoint.health.roles来配置授权的角色
+
+- always：先所有用户显示细节
+
+  springboot提供了多个健康指标，通过management.health.key.enabled来指定key进行启用，默认开启的：
+
+  | key       | 描述                               |
+  | --------- | ---------------------------------- |
+  | db        | 检查是否可以获得可连接的datasource |
+  | diskspace | 检查磁盘空间是否不足               |
+  | redis     | 检查redis服务器是否启动            |
+  | mail      | 检查mail服务器是否启动             |
+
+###### 7.1.5.1、自定义健康信息
+
+​		通过注册实现HealthIndicator接口的Bean，来自定义健康信息
 
 ```java
 @Component
-public class MyEventListener implements ApplicationListener<MyEvent>{
+public class MyHealthIndicator  implements HealthIndicator {
 
 	@Override
-	public void onApplicationEvent(MyEvent event) {
-		System.out.println(event.getSource());
+	public Health health() {
+		return Health.down().withDetail("Error Code","500").build();
 	}
+
 }
 ```
 
-- 使用ApplicationContext发布事件，监听器触发执行代码
+​		此时在监控信息中，components会包含`my`子监控信息
 
-```java
-context.publishEvent(new MyEvent("sd"));
+##### 7.1.6、应用信息（info）
+
+​		springboot自动配置了4类info信息：
+
+| id    | 描述                                             |
+| ----- | ------------------------------------------------ |
+| build | 构建信息，获取META-INF/build-info.propreties资源 |
+| env   | 环境变量，获取在配置文件中所有info.xx信息        |
+| git   | git信息，获取git.properties资源                  |
+| java  | java运行信息（被删除）                           |
+
+​		通过management.info.<id>.enabled来公开指定类型信息，默认会开启env，java；build和git则根据资源是否存在来决定
+
+###### 7.1.6.1、生成构建信息文件
+
+​		基于spring-boot-maven-plugin插件，添加execution配置，在编译、打包文件中生成build-info.propreties文件
+
+```XML
+<build>
+        <plugins>
+            <!--springboot打包插件,用于maven生成可运行的jar包(如果没有,则jar无法运行)-->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>2.3.5.RELEASE</version>
+                <!-- 在maven构建时,生成build-info的构建信息-->
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>build-info</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 ```
 
-#### 在web应用快速创建ApplicationContext实例化
+#### 7.2、HTTP端点管理
 
-ApplicationContext提供声明式的方式来创建其实例，用于web应用中，通过监听器伴随web应用的启动，初始化spring容器：
+springboot提供如下属性，来自定义HTTP端点访问配置：
 
-在web项目的web.xml中进行配置：
+| 属性                               | 默认值      | 作用     |
+| ---------------------------------- | ----------- | -------- |
+| management.endpoints.web.base-path | /actuator   | 访问前缀 |
+| management.server.port             | server.port | 访问端口 |
+| management.server.address          | 127.0.0.1   | 监听ip   |
 
-```java
-	<!-- 定义上下文参数，用于指定spring的xml配置文件 -->
-	<context-param>
-    	<param-name>contextConfigLocation</param-name>
-    	<param-value>/WEB-INF/daoContext.xml /WEB-INF/applicationContext.xml</param-	value>
-	</context-param>
+#### 7.3、JMX端点管理和使用
 
-	<!-- 配置spring容器监听器，当项目启动时，自动初始化spring容器 -->
-	<listener>
-		<listener-class>
-			org.springframework.web.context.ContextLoaderListener
-		</listener-class>
-	</listener>
-```
 
-当**contextConfigLocation**参数没有指定时，spring该监听器会默认扫描**/WEB-INF/applicationContext.xml**路径
+
+
+
+
+
+
+
+
 
